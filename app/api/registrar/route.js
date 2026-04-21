@@ -36,7 +36,7 @@ export async function POST(req) {
 
     // 4. Retornar resposta de sucesso
     return NextResponse.json(
-      { mensagem: `Ponto de ${tipo || 'Entrada'} registrado com sucesso!` },
+      { mensagem: `Ponto de ${tipo || 'entrada'} registrado!` },
       { status: 200 }
     );
 

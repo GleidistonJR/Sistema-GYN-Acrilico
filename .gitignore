@@ -42,3 +42,4 @@ next-env.d.ts
 
 # Banco de dados
 database.db
+/app/generated/prisma

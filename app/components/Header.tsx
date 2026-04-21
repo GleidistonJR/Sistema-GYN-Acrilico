@@ -4,10 +4,10 @@ import Link from 'next/link';
 export default function Header() {
   return (
     <header style={headerStyle}>
-      <nav>
-        <Link href="/">Home</Link> | 
-        <Link href="/registro"> Bater Ponto</Link> | 
-        <Link href="/relatorios"> Relatórios</Link>
+      <nav className=' flex justify-around'>
+        <Link href="/">Orçamentos</Link> 
+        <Link href="/registro"> Bater Ponto</Link> 
+        <Link href="/relatorios"> Relatório Ponto</Link>
       </nav>
     </header>
   );
@@ -15,9 +15,7 @@ export default function Header() {
 
 const headerStyle = {
   padding: '1rem',
-  background: '#333',
+  background: '#003f8d',
   color: 'white',
-  display: 'flex',
-  justifyContent: 'center',
-  gap: '20px'
+  fontWeight: '600',
 };

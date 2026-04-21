@@ -36,7 +36,7 @@ export default function RootLayout({
         </main>
         
         <footer className="text-center">
-          <p>© 2026 Gleidiston - Sistema de Ponto</p>
+          <p>© 2026 Gleidiston Junior - Sistema GYN Acrílico</p>
         </footer>
         </body>
     </html>

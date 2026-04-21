@@ -1,39 +1,35 @@
 "use client";
 import { useState } from 'react';
+import { salvarPontoNoBanco } from './actions'; // Importe a ação que criamos
 
 export default function RegistroPonto() {
   const [cpf, setCpf] = useState('');
-  const [tipo, setTipo] = useState('Entrada');
+  const [tipo, setTipo] = useState('entrada');
   const [mensagem, setMensagem] = useState('');
 
-  const lidarComRegistro = async () => {
+
+  async function registrarPonto() {
     if (!cpf) return setMensagem("Você não digitiou seu CPF!");
 
-    try {
-      const resposta = await fetch('/api/registrar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        // 2. Agora enviamos o CPF e o TIPO selecionado
-        body: JSON.stringify({
-          cpf: cpf,
-          tipo: tipo
-        })
-      });
+    setMensagem("Registrando...");
+    
+    // Chamando a Server Action
+    const resultado = await salvarPontoNoBanco(cpf, tipo);
 
-      const resultado = await resposta.json();
-
-      setMensagem(resultado.mensagem);
-      setCpf(''); // Limpa o campo apos o sucesso
-    } catch (erro) {
-      setMensagem("Erro ao conectar com o servidor.");
+    if (resultado.sucesso) {
+      setMensagem(`Ponto de ${tipo || 'entrada'} registrado!`)
+      setCpf('');
+    } else {
+      setMensagem("Erro ao registrar ponto no banco de dados.");
     }
-  };
+  }
+
 
   return (
     <main style={{ padding: '20px' }}>
-      <h1 className='text-3xl m-5 text-center text-gray-700 font-bold'>Registros de Ponto</h1>
+      <h1 className='text-3xl my-10 text-center text-gray-700 font-bold'>Registros de Ponto</h1>
 
-      <div className='text-center mt-5 p-5 text-xl'>
+      <div className='text-center text-xl'>
 
         <input
           type="number"
@@ -48,12 +44,12 @@ export default function RegistroPonto() {
 
           <select
             id="tipoPonto"
-            className="ml-2 outline-none"
+            className=""
             value={tipo} // 3. Conecta o valor ao estado
             onChange={(e) => setTipo(e.target.value)} // 4. Atualiza o estado ao mudar
           >
             <option value="entrada">Entrada</option>
-            <option value="almoco">Saída (Almoço)</option>
+            <option value="almoço">Saída (Almoço)</option>
             <option value="retorno">Retorno (Almoço)</option>
             <option value="saida">Saída</option>
           </select>
@@ -62,8 +58,8 @@ export default function RegistroPonto() {
         <br />
 
         <button
-          className='bg-blue-500 text-white rounded px-5 py-2 hover:bg-blue-600 text-2xl'
-          onClick={lidarComRegistro}
+          className='bg-blue-500 text-white rounded px-8 py-2 hover:bg-blue-600 text-xl'
+          onClick={registrarPonto}
         >
           Registrar
         </button>
