@@ -16,7 +16,7 @@ pnpm dev
 bun dev
 ```
 
-Abra http://localhost:3000 no seu navegador para ver o resultado.
+Abra [http://localhost:3000](http://localhost:3000) no seu navegador para ver o resultado.
 
 Você pode começar a editar a página modificando o arquivo app/page.tsx. A página será atualizada automaticamente conforme você edita o arquivo.
 
@@ -25,13 +25,13 @@ Este projeto utiliza next/font para otimizar e carregar automaticamente a Geist,
 ## Saiba Mais
 Para saber mais sobre o Next.js, consulte os seguintes recursos:
 
-* Documentação do Next.js - aprenda sobre as funcionalidades e a API do Next.js.
+* [Documentação do Next.js](https://nextjs.org/docs) - aprenda sobre as funcionalidades e a API do Next.js.
 
-* Aprenda Next.js - um tutorial interativo de Next.js.
+* [Aprenda Next.js](https://nextjs.org/learn) - um tutorial interativo de Next.js.
 
 Pode também consultar o repositório do Next.js no GitHub - o seu feedback e contribuições são bem-vindos!
 
 ## Deploy na Vercel
-A forma mais fácil de fazer o deploy da sua aplicação Next.js é utilizando a Plataforma Vercel dos criadores do Next.js.
+A forma mais fácil de fazer o deploy da sua aplicação Next.js é utilizando a [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) dos criadores do Next.js.
 
-Consulte a nossa documentação de deploy do Next.js para mais detalhes.
+Consulte a nossa [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) para mais detalhes.
