@@ -1,34 +1,31 @@
 "use client";
-import { useEffect, useState } from 'react';
-import { buscarPontos } from './actions';
 import ModalRegistro from './ModalRegistro';
-import { Ponto } from "@prisma/client";
+import { buscarColaboradores, deletarColaborador } from './actions';
+import { useState, useEffect } from 'react';
+
+
+interface Colaboradortype {
+  id: number;
+  nome: string;
+  cargo: string;
+  cpf: string;
+  salario: number;
+}
 
 export default function Relatorios() {
-  const [pontos, setPontos] = useState<Ponto[]>([]);
-  const [filtro, setFiltro] = useState("");
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [filtro, setFiltro] = useState('');
+  const [colaboradores, setColaboradores] = useState<Colaboradortype[]>([]);
 
   useEffect(() => {
     // Busca os pontos toda vez que o filtro mudar
     const carregar = async () => {
-      const dados = await buscarPontos(filtro);
-      setPontos(dados);
+      const dados = await buscarColaboradores(filtro);
+      setColaboradores(dados);
     };
     carregar();
   }, [filtro]);
-
-
-
-  const [isModalOpen, setIsModalOpen] = useState(false);
-
-  async function handleSalvar(cpf: string, tipo: string) {
-    // Aqui você chama sua action que criamos antes
-    const res = await salvarPontoNoBanco(cpf, tipo);
-    if (res.sucesso) {
-      alert("Ponto registrado com sucesso!");
-    }
-  }
-
 
 
   return (
@@ -38,14 +35,23 @@ export default function Relatorios() {
 
 
       <article className='grid grid-cols-4 p-10 gap-10'>
-        <aside className='rounded-2xl shadow shadow-blue-950 text-center p-5 font-semibold'>
-          <h2 className='text-3xl font-semibold'>Gleidiston</h2>
-          <p className='text-xl'>Supervisor</p>
-          <p >CPF: 710.246.171-22</p>
-          <p>Salario: 1.500,00</p>
-        </aside>
 
-        <aside onClick={() => setIsModalOpen(true)} className='rounded-2xl shadow shadow-blue-950 text-center font-semibold text-3xl flex text-green-600 hover:text-green-800 hover:cursor-pointer hover:shadow-md'>
+        {colaboradores.length > 0 ? (
+          colaboradores.map((Colaborador) => (
+
+
+
+            <aside key={Colaborador.id} className='rounded-2xl shadow shadow-blue-950 text-center p-5 font-semibold space-x-6'>
+              <h2 className='text-3xl font-semibold'>{Colaborador.nome}</h2>
+              <p className='text-xl'>{Colaborador.cargo}</p>
+              <p >CPF: {Colaborador.cpf}</p>
+              <p>Salario: {(Colaborador.salario).toFixed(2)}</p>
+              <button className='bg-red-700 text-white px-5 py-1 rounded' onClick={() => deletarColaborador(Colaborador.id)}>Deletar</button>
+              <button className='bg-yellow-500 text-white px-5 py-1 rounded'>Editar</button>
+            </aside>
+          ))) : ('')}
+
+        <aside onClick={() => setIsModalOpen(true)} className='rounded-2xl shadow shadow-blue-950 text-center font-semibold text-3xl flex text-green-600 hover:text-green-800 hover:cursor-pointer hover:shadow-md min-h-10'>
           <span className='m-auto'>Adicionar </span>
         </aside>
 
@@ -55,7 +61,6 @@ export default function Relatorios() {
       <ModalRegistro
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        aoSalvar={handleSalvar}
       />
     </main>
   );

@@ -1,5 +1,6 @@
 "use client";
 import { useState } from 'react';
+import { salvarColaborador } from './actions';
 
 interface Colaboradortype {
   nome: string;
@@ -11,12 +12,9 @@ interface Colaboradortype {
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
-  // Note: você chamou os argumentos de (cpf, tipo) na interface, 
-  // mas está passando (cpf, nome) no botão. Verifique sua action!
-  aoSalvar: (cpf: string, nome: string) => Promise<void>;
 }
 
-export default function ModalRegistro({ isOpen, onClose, aoSalvar }: ModalProps) {
+export default function ModalRegistro({ isOpen, onClose}: ModalProps) {
   const [colaborador, setColaborador] = useState<Colaboradortype>({
     nome: '',
     cargo: '',
@@ -76,14 +74,22 @@ export default function ModalRegistro({ isOpen, onClose, aoSalvar }: ModalProps)
           <div className="mt-6 flex justify-end gap-3">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded"
+              className="px-4 py-2 text-gray-700 hover:bg-gray-200 rounded"
             >
               Cancelar
             </button>
+
             <button
-              onClick={() => {
-                aoSalvar(colaborador.cpf, colaborador.nome);
-                onClose();
+              onClick={async () => {
+                // Chamando a action que criamos acima
+                const resultado = await salvarColaborador(colaborador);
+
+                if (resultado.sucesso) {
+                  onClose();
+                  window.location.reload() 
+                } else {
+                  alert(resultado.erro);
+                }
               }}
               className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
             >
@@ -93,5 +99,5 @@ export default function ModalRegistro({ isOpen, onClose, aoSalvar }: ModalProps)
         </div>
       </div>
     </div> // Removi o ponto e vírgula que estava aqui!
-  ); 
+  );
 }
