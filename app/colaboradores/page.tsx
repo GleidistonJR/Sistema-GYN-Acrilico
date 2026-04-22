@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from 'react';
 import { buscarPontos } from './actions';
+import ModalRegistro from './ModalRegistro';
 import { Ponto } from "@prisma/client";
 
 export default function Relatorios() {
@@ -17,61 +18,45 @@ export default function Relatorios() {
   }, [filtro]);
 
 
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  async function handleSalvar(cpf: string, tipo: string) {
+    // Aqui você chama sua action que criamos antes
+    const res = await salvarPontoNoBanco(cpf, tipo);
+    if (res.sucesso) {
+      alert("Ponto registrado com sucesso!");
+    }
+  }
+
+
+
   return (
     <main className="p-10 text-gray-700">
-      <h1 className="text-3xl my-10 text-center text-gray-700 font-bold">Relatório Ponto</h1>
+      <h1 className="text-3xl my-10 text-center text-gray-700 font-bold">Gestão de Colaboradores</h1>
 
-      <label htmlFor="colaborador"
-        className=' font-semibold p-3'
-      >Colaborador :
 
-        <select
-          id="colaborador"
-          className='border rounded m-5 py-3 px-1'
-          value={filtro}
-          onChange={(e) => setFiltro(e.target.value)}
-        >
-          <option value="">Todos</option>
-          <option value="71024617122">Gleidiston</option>
-          <option value="001">Claudia</option>
-          <option value="002">Jonas</option>
-          <option value="003">teste</option>
-        </select>
-      </label>
 
-      <table className="w-full border-collapse border">
-        <thead>
-          <tr className="bg-gray-200">
-            <th className="border p-2">Funcionário</th>
-            <th className="border p-2">Data</th>
-            <th className="border p-2">Hora</th>
-            <th className="border p-2">Tipo</th>
-          </tr>
-        </thead>
-        <tbody>
+      <article className='grid grid-cols-4 p-10 gap-10'>
+        <aside className='rounded-2xl shadow shadow-blue-950 text-center p-5 font-semibold'>
+          <h2 className='text-3xl font-semibold'>Gleidiston</h2>
+          <p className='text-xl'>Supervisor</p>
+          <p >CPF: 710.246.171-22</p>
+          <p>Salario: 1.500,00</p>
+        </aside>
 
-          {pontos.length > 0 ? (
-            pontos.map((ponto) => (
+        <aside onClick={() => setIsModalOpen(true)} className='rounded-2xl shadow shadow-blue-950 text-center font-semibold text-3xl flex text-green-600 hover:text-green-800 hover:cursor-pointer hover:shadow-md'>
+          <span className='m-auto'>Adicionar </span>
+        </aside>
 
-              <tr key={ponto.id} className="text-center border-b">
-                <td className="p-2">{ponto.cpf}</td>
-                <td className="p-2">{new Date(ponto.dataHora).toLocaleDateString('pt-BR')}</td>
-                <td className="p-2">{new Date(ponto.dataHora).toLocaleTimeString('pt-BR', {
-                  hour: '2-digit',
-                  minute: '2-digit'
-                })}</td>
-                <td className="p-2">{ponto.tipo}</td>
-              </tr>
-            ))
-          ) : (
-            <tr className="text-center border-b">
-              <td className="p-2">Nenhum ponto encontrado!</td>
-              
-            </tr>
-          )}
+      </article>
 
-        </tbody>
-      </table>
+      {/* O Componente do Modal isolado */}
+      <ModalRegistro
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        aoSalvar={handleSalvar}
+      />
     </main>
   );
 }

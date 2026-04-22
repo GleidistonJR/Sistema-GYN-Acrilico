@@ -8,6 +8,7 @@ export default function Header() {
         <Link href="/">Orçamentos</Link> 
         <Link href="/registro"> Bater Ponto</Link> 
         <Link href="/relatorios"> Relatório Ponto</Link>
+        <Link href="/colaboradores"> Colaboradores</Link>
       </nav>
     </header>
   );
