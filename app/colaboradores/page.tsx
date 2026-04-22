@@ -27,6 +27,11 @@ export default function Relatorios() {
     carregar();
   }, [filtro]);
 
+  function deletar(id: number) {
+    deletarColaborador(id)
+    window.location.reload()
+  }
+
 
   return (
     <main className="p-10 text-gray-700">
@@ -41,18 +46,23 @@ export default function Relatorios() {
 
 
 
-            <aside key={Colaborador.id} className='rounded-2xl shadow shadow-blue-950 text-center p-5 font-semibold space-x-6'>
-              <h2 className='text-3xl font-semibold'>{Colaborador.nome}</h2>
-              <p className='text-xl'>{Colaborador.cargo}</p>
-              <p >CPF: {Colaborador.cpf}</p>
-              <p>Salario: {(Colaborador.salario).toFixed(2)}</p>
-              <button className='bg-red-700 text-white px-5 py-1 rounded' onClick={() => deletarColaborador(Colaborador.id)}>Deletar</button>
-              <button className='bg-yellow-500 text-white px-5 py-1 rounded'>Editar</button>
+            <aside key={Colaborador.id} className='border border-gray-300 shadow-lg shadow-gray-500 rounded-xl font-semibold
+            flex flex-col justify-between'>
+              <h2 className='px-8 py-5 border-b text-xl font-semibold text-center'>{Colaborador.nome}</h2>
+              <div className='text-center text-xl font-normal py-5'>
+                <p className='font-semibold pb-5'>{Colaborador.cargo}</p>
+                <p >CPF: {Colaborador.cpf}</p>
+                <p>Salario: {(Colaborador.salario).toFixed(2)}</p>
+              </div>
+              <div className='flex text-white w-full'>
+                <button className='bg-red-700 w-full py-2 m-0 rounded-bl-lg hover:bg-red-800 hover:cursor-pointer' onClick={() => deletar(Colaborador.id)}>Deletar</button>
+                <button className='bg-amber-400 w-full rounded-br-lg hover:bg-amber-500 hover:cursor-pointer'>Editar</button>
+              </div>
             </aside>
           ))) : ('')}
 
-        <aside onClick={() => setIsModalOpen(true)} className='rounded-2xl shadow shadow-blue-950 text-center font-semibold text-3xl flex text-green-600 hover:text-green-800 hover:cursor-pointer hover:shadow-md min-h-10'>
-          <span className='m-auto'>Adicionar </span>
+        <aside className='rounded-2xl border border-gray-300 shadow-lg shadow-gray-500  flex justify-center'>
+          <button onClick={() => setIsModalOpen(true)} className='py-20 font-semibold text-3xl w-full text-green-600 hover:text-green-800 hover:cursor-pointer hover:shadow-md '>Adicionar <br />Colaborador</button>
         </aside>
 
       </article>
