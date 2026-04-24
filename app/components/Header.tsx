@@ -6,8 +6,8 @@ export default function Header() {
     <header style={headerStyle}>
       <nav className=' flex justify-around'>
         <Link href="/">Orçamentos</Link> 
-        <Link href="/registro"> Bater Ponto</Link> 
-        <Link href="/relatorios"> Relatório Ponto</Link>
+        <Link href="/baterPonto"> Bater Ponto</Link> 
+        <Link href="/relatorioPontos"> Relatório Ponto</Link>
         <Link href="/colaboradores"> Colaboradores</Link>
       </nav>
     </header>
