@@ -35,3 +35,28 @@ Pode também consultar o repositório do Next.js no GitHub - o seu feedback e co
 A forma mais fácil de fazer o deploy da sua aplicação Next.js é utilizando a [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) dos criadores do Next.js.
 
 Consulte a nossa [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) para mais detalhes.
+
+
+## Atualização do Banco de Dados (Prisma)
+Sempre que houver alterações no arquivo schema.prisma, utilize os comandos abaixo:
+
+# Desenvolvimento (com histórico):
+
+```bash
+npx prisma migrate dev --name <descricao_da_mudança>
+```
+Cria a migração, aplica ao banco e gera o Prisma Client.
+
+# Sincronização Rápida (sem histórico):
+
+```bash
+npx prisma db push
+```
+Ideal para testes rápidos ou prototipagem direta.
+
+# Atualizar IntelliSense:
+
+```bash
+npx prisma generate
+```
+Rode se o editor não reconhecer os novos campos.
