@@ -37,24 +37,24 @@ A forma mais fácil de fazer o deploy da sua aplicação Next.js é utilizando a
 Consulte a nossa [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) para mais detalhes.
 
 
-## Atualização do Banco de Dados (Prisma)
+# Atualização do Banco de Dados (Prisma)
 Sempre que houver alterações no arquivo schema.prisma, utilize os comandos abaixo:
 
-# Desenvolvimento (com histórico):
+## Desenvolvimento (com histórico):
 
 ```bash
 npx prisma migrate dev --name <descricao_da_mudança>
 ```
 Cria a migração, aplica ao banco e gera o Prisma Client.
 
-# Sincronização Rápida (sem histórico):
+## Sincronização Rápida (sem histórico):
 
 ```bash
 npx prisma db push
 ```
 Ideal para testes rápidos ou prototipagem direta.
 
-# Atualizar IntelliSense:
+## Atualizar IntelliSense:
 
 ```bash
 npx prisma generate
