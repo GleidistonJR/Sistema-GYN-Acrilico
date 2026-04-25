@@ -2,6 +2,7 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache"; // Importante para atualizar a tela
 
+// FUNÇÃO 1: CRIAR
 export async function salvarColaborador(dados: { nome: string, cargo: string, cpf: string, salario: number }) {
   try {
     const novoColaborador = await prisma.colaborador.create({

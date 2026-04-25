@@ -20,7 +20,7 @@ export default function RegistroPonto() {
       setMensagem(`Ponto de ${tipo || 'entrada'} registrado!`)
       setCpf('');
     } else {
-      setMensagem("Erro ao registrar ponto no banco de dados.");
+      setMensagem("Erro ao registrar ponto no banco de dados." + resultado.mensagem);
     }
   }
 
