@@ -3,8 +3,16 @@ import { useEffect, useState } from 'react';
 import { buscarPontos } from './actions';
 import { Ponto } from "@prisma/client";
 
+interface Pontos {
+  id: number;
+  cpf: string;
+  dataHora: string;
+  tipo: string;
+  colaborador: { nome: string };
+}
+
 export default function Relatorios() {
-  const [pontos, setPontos] = useState<Ponto[]>([]);
+  const [pontos, setPontos] = useState<Pontos[]>([]);
   const [filtro, setFiltro] = useState("");
 
   useEffect(() => {
@@ -21,23 +29,10 @@ export default function Relatorios() {
     <main className="p-10 text-gray-700">
       <h1 className="text-3xl my-10 text-center text-gray-700 font-bold">Relatório Ponto</h1>
 
-      <label htmlFor="colaborador"
-        className=' font-semibold p-3'
-      >Colaborador :
+      <div className='text-center'>
+        <input type="search" name="buscarColaborador" id="buscarColaborador" className='border rounded py-1 px-10 m-5' placeholder='Buscar Colaborador' />
 
-        <select
-          id="colaborador"
-          className='border rounded m-5 py-3 px-1'
-          value={filtro}
-          onChange={(e) => setFiltro(e.target.value)}
-        >
-          <option value="">Todos</option>
-          <option value="71024617122">Gleidiston</option>
-          <option value="001">Claudia</option>
-          <option value="002">Jonas</option>
-          <option value="003">teste</option>
-        </select>
-      </label>
+      </div>
 
       <table className="w-full border-collapse border">
         <thead>
@@ -54,7 +49,7 @@ export default function Relatorios() {
             pontos.map((ponto) => (
 
               <tr key={ponto.id} className="text-center border-b">
-                <td className="p-2">{ponto.cpf}</td>
+                <td className="p-2">{ponto.colaborador.nome}</td>
                 <td className="p-2">{new Date(ponto.dataHora).toLocaleDateString('pt-BR')}</td>
                 <td className="p-2">{new Date(ponto.dataHora).toLocaleTimeString('pt-BR', {
                   hour: '2-digit',
@@ -66,7 +61,7 @@ export default function Relatorios() {
           ) : (
             <tr className="text-center border-b">
               <td className="p-2">Nenhum ponto encontrado!</td>
-              
+
             </tr>
           )}
 

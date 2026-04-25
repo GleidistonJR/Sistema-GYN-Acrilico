@@ -7,17 +7,21 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Ponto {
-  id        Int      @id @default(autoincrement())
-  cpf       String
-  tipo      String
-  dataHora  DateTime @default(now())
-}
-
 model Colaborador {
   id      Int    @id @default(autoincrement())
   nome    String
   cargo   String
   cpf     String @unique // CPF único para não repetir funcionários
   salario Float  // No Prisma, usamos Float ou Decimal para números com centavos
+  pontos Ponto[] // Um colaborador tem muitos pontos
+}
+
+model Ponto {
+  id        Int      @id @default(autoincrement())
+  cpf       String
+  tipo      String
+  dataHora  DateTime @default(now())
+
+  // Criando a relação:
+  colaborador   Colaborador @relation(fields: [cpf], references: [cpf])
 }
