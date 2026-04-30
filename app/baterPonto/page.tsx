@@ -4,7 +4,6 @@ import { salvarPontoNoBanco } from './actions'; // Importe a ação que criamos
 
 export default function RegistroPonto() {
   const [cpf, setCpf] = useState('');
-  const [tipo, setTipo] = useState('entrada');
   const [mensagem, setMensagem] = useState('');
 
 
@@ -12,12 +11,12 @@ export default function RegistroPonto() {
     if (!cpf) return setMensagem("Você não digitiou seu CPF!");
 
     setMensagem("Registrando...");
-    
+
     // Chamando a Server Action
-    const resultado = await salvarPontoNoBanco(cpf, tipo);
+    const resultado = await salvarPontoNoBanco(cpf);
 
     if (resultado.sucesso) {
-      setMensagem(`Ponto de ${tipo || 'entrada'} registrado!`)
+      setMensagem(`Ponto registrado!`)
       setCpf('');
     } else {
       setMensagem("Erro ao registrar ponto no banco de dados." + resultado.mensagem);
@@ -38,22 +37,6 @@ export default function RegistroPonto() {
           value={cpf}
           onChange={(e) => setCpf(e.target.value)}
         />
-
-        <label htmlFor="tipoPonto"
-          className='border rounded m-3 text-black p-2'>Tipo :
-
-          <select
-            id="tipoPonto"
-            className=""
-            value={tipo} // 3. Conecta o valor ao estado
-            onChange={(e) => setTipo(e.target.value)} // 4. Atualiza o estado ao mudar
-          >
-            <option value="entrada">Entrada</option>
-            <option value="almoço">Saída (Almoço)</option>
-            <option value="retorno">Retorno (Almoço)</option>
-            <option value="saida">Saída</option>
-          </select>
-        </label>
 
         <br />
 

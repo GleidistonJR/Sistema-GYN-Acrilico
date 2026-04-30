@@ -2,23 +2,46 @@
 
 import { prisma } from "@/lib/prisma";
 
-export async function buscarPontos(cpf?: string) {
+interface Pontos {
+  id: number;
+  cpf: string;
+  dataHora: string;
+  tipo: string;
+  colaborador: { nome: string };
+}
+
+export async function buscarPontos(filtro?: string): Promise<Pontos[]> {
   try {
     const pontos = await prisma.ponto.findMany({
-      where: cpf ? { cpf: cpf } : {}, 
+      where: filtro ? {
+        OR: [
+          {
+            cpf: {
+              contains: filtro // Busca parcial no CPF
+            }
+          },
+          {
+            colaborador: {
+              nome: {
+                contains: filtro
+              }
+            }
+          }
+        ]
+      } : {},
       include: {
         colaborador: {
           select: {
-            nome: true // Queremos apenas o nome, para não vir dados desnecessários
+            nome: true
           }
         }
       },
       orderBy: {
-        dataHora: 'desc', // 'desc' para decrescente (mais novos primeiro)
+        dataHora: 'desc',
       },
     });
 
-    return pontos;
+    return pontos as unknown as Pontos[];
 
   } catch (error) {
     console.error("Erro ao buscar pontos:", error);

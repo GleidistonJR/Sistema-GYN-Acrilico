@@ -16,12 +16,19 @@ export default function Relatorios() {
   const [filtro, setFiltro] = useState("");
 
   useEffect(() => {
-    // Busca os pontos toda vez que o filtro mudar
-    const carregar = async () => {
-      const dados = await buscarPontos(filtro);
-      setPontos(dados);
-    };
-    carregar();
+    // 1. Criamos um timer
+    const delayBusca = setTimeout(() => {
+      const carregar = async () => {
+        const dados = await buscarPontos(filtro);
+        setPontos(dados);
+      };
+
+      carregar();
+    }, 500); // 500ms é um tempo equilibrado para o usuário parar de digitar
+
+    // 2. IMPORTANTE: A função de limpeza (cleanup)
+    // Ela cancela o timer anterior se o usuário digitar uma nova letra antes dos 500ms
+    return () => clearTimeout(delayBusca);
   }, [filtro]);
 
 
@@ -30,7 +37,7 @@ export default function Relatorios() {
       <h1 className="text-3xl my-10 text-center text-gray-700 font-bold">Relatório Ponto</h1>
 
       <div className='text-center'>
-        <input type="search" name="buscarColaborador" id="buscarColaborador" className='border rounded py-1 px-10 m-5' placeholder='Buscar Colaborador' />
+        <input type="search" value={filtro} onChange={(e) => setFiltro(e.target.value)} name="buscarColaborador" id="buscarColaborador" className='border rounded py-1 px-16 m-5' placeholder='Buscar Colaborador' />
 
       </div>
 
@@ -48,7 +55,7 @@ export default function Relatorios() {
           {pontos.length > 0 ? (
             pontos.map((ponto) => (
 
-              <tr key={ponto.id} className="text-center border-b">
+              <tr key={ponto.id} className="text-center border-b " style={{ background: ponto.tipo === "Saida" ? '#fff' : '#beffbe' }}>
                 <td className="p-2">{ponto.colaborador.nome}</td>
                 <td className="p-2">{new Date(ponto.dataHora).toLocaleDateString('pt-BR')}</td>
                 <td className="p-2">{new Date(ponto.dataHora).toLocaleTimeString('pt-BR', {

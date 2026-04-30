@@ -3,11 +3,11 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
-export async function salvarPontoNoBanco(cpf: string, tipo: string) {
+export async function salvarPontoNoBanco(cpf: string) {
   try {
 
     const colaboradores = await prisma.colaborador.findFirst({
-      where: {cpf : cpf},
+      where: { cpf: cpf },
     });
 
     if (!colaboradores) {
@@ -15,10 +15,17 @@ export async function salvarPontoNoBanco(cpf: string, tipo: string) {
       return { sucesso: false, mensagem: "CPF não cadastrado" };
     }
 
+    const ultimoPonto = await prisma.ponto.findFirst({
+      where: { cpf: cpf },
+      orderBy: {
+        id: 'desc',
+      }
+    });
+
     await prisma.ponto.create({
       data: {
         cpf: cpf,
-        tipo: tipo,
+        tipo: !ultimoPonto || ultimoPonto.tipo === 'Saida' ? 'Entrada' : 'Saida',
       },
     });
 
