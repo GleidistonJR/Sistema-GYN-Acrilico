@@ -58,3 +58,4 @@ export async function deletarColaborador(id: number) {
     return { sucesso: false, erro: "Não foi possível excluir o colaborador." };
   }
 }
+

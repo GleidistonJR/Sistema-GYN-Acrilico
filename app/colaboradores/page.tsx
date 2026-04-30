@@ -32,6 +32,11 @@ export default function Relatorios() {
     window.location.reload()
   }
 
+  function editar(id: number) {
+    const dados = await buscarColaboradores(id);
+    setColaboradores(dados);
+  }
+
 
   return (
     <main className="p-10 text-gray-700">
@@ -56,7 +61,7 @@ export default function Relatorios() {
               </div>
               <div className='flex text-white w-full'>
                 <button className='bg-red-700 w-full py-2 m-0 rounded-bl-lg hover:bg-red-800 hover:cursor-pointer' onClick={() => deletar(Colaborador.id)}>Deletar</button>
-                <button className='bg-amber-400 w-full rounded-br-lg hover:bg-amber-500 hover:cursor-pointer'>Editar</button>
+                <button className='bg-amber-400 w-full rounded-br-lg hover:bg-amber-500 hover:cursor-pointer' onClick={() => editar(Colaborador.id)}>Editar</button>
               </div>
             </aside>
           ))) : ('')}
