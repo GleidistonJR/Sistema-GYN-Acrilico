@@ -1,8 +1,9 @@
 "use client";
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { salvarColaborador } from './actions';
 
 interface Colaboradortype {
+  id?: number; // Opcional, pois no 'Novo' ele ainda não existe
   nome: string;
   cargo: string;
   cpf: string;
@@ -12,9 +13,10 @@ interface Colaboradortype {
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
+  dadosEdicao?: Colaboradortype | null; // Opcional
 }
 
-export default function ModalRegistro({ isOpen, onClose}: ModalProps) {
+export default function ModalRegistro({ isOpen, onClose, dadosEdicao }: ModalProps) {
   const [colaborador, setColaborador] = useState<Colaboradortype>({
     nome: '',
     cargo: '',
@@ -22,12 +24,24 @@ export default function ModalRegistro({ isOpen, onClose}: ModalProps) {
     salario: 0
   });
 
+  // Este efeito roda sempre que o modal abre ou os dados de edição mudam
+  useEffect(() => {
+    if (dadosEdicao) {
+      setColaborador(dadosEdicao);
+    } else {
+      // Limpa o formulário se for um novo cadastro
+      setColaborador({ nome: '', cargo: '', cpf: '', salario: 0 });
+    }
+  }, [dadosEdicao, isOpen]);
+
   if (!isOpen) return null;
+
+  const isEditing = !!dadosEdicao; // Variável auxiliar para saber o modo
 
   return (
     <div className="fixed inset-0 bg-black/25 flex items-center justify-center z-50 p-10 text-black">
       <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-2xl">
-        <h2 className="text-2xl font-bold mb-4 text-center text-gray-800">Novo colaborador</h2>
+        <h2 className="text-2xl font-bold mb-4 text-center text-gray-800">{isEditing ? 'Editar Colaborador' : 'Novo Colaborador'}</h2>
 
         <div className="space-y-5">
           <div>
@@ -86,14 +100,14 @@ export default function ModalRegistro({ isOpen, onClose}: ModalProps) {
 
                 if (resultado.sucesso) {
                   onClose();
-                  window.location.reload() 
+                  window.location.reload()
                 } else {
                   alert(resultado.erro);
                 }
               }}
               className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
             >
-              Salvar
+              {isEditing ? 'Salvar Alterações' : 'Cadastrar'}
             </button>
           </div>
         </div>

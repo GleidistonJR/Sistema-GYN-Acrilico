@@ -1,6 +1,6 @@
 "use client";
 import ModalRegistro from './ModalRegistro';
-import { buscarColaboradores, deletarColaborador } from './actions';
+import { buscarColaboradores, buscarColaboradorPorId, deletarColaborador } from './actions';
 import { useState, useEffect } from 'react';
 
 
@@ -17,6 +17,7 @@ export default function Relatorios() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [filtro, setFiltro] = useState('');
   const [colaboradores, setColaboradores] = useState<Colaboradortype[]>([]);
+  const [colaborador, setColaborador] = useState<Colaboradortype | null>(null);
 
   useEffect(() => {
     // Busca os pontos toda vez que o filtro mudar
@@ -27,14 +28,28 @@ export default function Relatorios() {
     carregar();
   }, [filtro]);
 
-  function deletar(id: number) {
-    deletarColaborador(id)
-    window.location.reload()
+  async function deletar(id: number) {
+    if (confirm("Tem certeza?")) {
+      await deletarColaborador(id);
+      // Filtra a lista local removendo o ID deletado (Atualização instantânea)
+      setColaboradores(prev => prev.filter(c => c.id !== id));
+    }
   }
 
-  function editar(id: number) {
-    const dados = await buscarColaboradores(id);
-    setColaboradores(dados);
+  const editar = async (id: number) => {
+    try {
+      // 1. Busca os dados
+      const selecionado = await buscarColaboradorPorId(id);
+
+      setColaborador(selecionado);
+      setIsModalOpen(true);
+
+
+      console.log("Dados carregados:", selecionado);
+    } catch (error) {
+      console.error("Erro ao buscar colaborador:", error);
+    }
+
   }
 
 

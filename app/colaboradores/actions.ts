@@ -2,20 +2,47 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache"; // Importante para atualizar a tela
 
-// FUNÇÃO 1: CRIAR
-export async function salvarColaborador(dados: { nome: string, cargo: string, cpf: string, salario: number }) {
-  try {
-    const novoColaborador = await prisma.colaborador.create({
-      data: {
-        nome: dados.nome,
-        cargo: dados.cargo,
-        cpf: dados.cpf,
-        salario: dados.salario,
-      },
-    });
+interface Colaboradortype {
+  id?: number; // Opcional, pois no 'Novo' ele ainda não existe
+  nome: string;
+  cargo: string;
+  cpf: string;
+  salario: number;
+}
 
-    revalidatePath("/colaboradores");
-    return { sucesso: true, colaborador: novoColaborador };
+// FUNÇÃO 1: CRIAR
+export async function salvarColaborador(dados: Colaboradortype) {
+  try {
+    if (dados.id) {
+      // Se tem ID, é um UPDATE (prisma.colaborador.update...)
+      const colaboradorAtualizado = await prisma.colaborador.update({
+        where: {
+          id: dados.id, // Critério de busca (obrigatório ser um campo @unique)
+        },
+        data: {
+          nome: dados.nome, // Novos dados
+          cargo: dados.cargo,
+          cpf: dados.cpf,
+          salario: dados.salario,
+        },
+      });
+
+      revalidatePath("/colaboradores");
+      return { sucesso: true, colaborador: colaboradorAtualizado };
+    } else {
+      // Se não tem ID, é um CREATE (prisma.colaborador.create...)
+      const novoColaborador = await prisma.colaborador.create({
+        data: {
+          nome: dados.nome,
+          cargo: dados.cargo,
+          cpf: dados.cpf,
+          salario: dados.salario,
+        },
+      });
+
+      revalidatePath("/colaboradores");
+      return { sucesso: true, colaborador: novoColaborador };
+    }
   } catch (error) {
     console.error("Erro ao salvar colaborador:", error);
     return { sucesso: false, erro: "Não foi possível salvar o colaborador." };
@@ -38,6 +65,13 @@ export async function buscarColaboradores(filtroCpf?: string) {
     console.error("Erro ao buscar colaboradores:", error);
     return [];
   }
+}
+
+// Para a edição
+export async function buscarColaboradorPorId(id: number) {
+  return await prisma.colaborador.findUnique({
+    where: { id }
+  });
 }
 
 // FUNÇÃO 3: DELETAR
