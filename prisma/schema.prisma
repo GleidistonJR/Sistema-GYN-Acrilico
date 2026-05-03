@@ -23,5 +23,5 @@ model Ponto {
   dataHora  DateTime @default(now())
 
   // Criando a relação:
-  colaborador   Colaborador @relation(fields: [cpf], references: [cpf])
+  colaborador   Colaborador @relation(fields: [cpf], references: [cpf], onDelete: Cascade)
 }

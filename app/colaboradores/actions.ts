@@ -77,6 +77,7 @@ export async function buscarColaboradorPorId(id: number) {
 // FUNÇÃO 3: DELETAR
 export async function deletarColaborador(id: number) {
   try {
+
     await prisma.colaborador.delete({
       where: {
         id: id,

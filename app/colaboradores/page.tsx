@@ -91,6 +91,7 @@ export default function Relatorios() {
       <ModalRegistro
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
+        dadosEdicao={colaborador}
       />
     </main>
   );
