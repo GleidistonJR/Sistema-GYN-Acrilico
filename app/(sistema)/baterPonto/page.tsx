@@ -26,8 +26,8 @@ export default function RegistroPonto() {
 
 
   return (
-    <main style={{ padding: '20px' }}>
-      <h1 className='text-3xl my-10 text-center text-gray-700 font-bold'>Registrar Ponto</h1>
+    <main>
+      <h1 className='text-3xl my-6 text-center text-gray-700 font-bold'>Registrar Ponto</h1>
 
       <div className='text-center text-xl'>
 

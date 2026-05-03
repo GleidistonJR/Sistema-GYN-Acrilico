@@ -33,15 +33,15 @@ export default function Relatorios() {
 
 
   return (
-    <main className="p-10 text-gray-700">
-      <h1 className="text-3xl my-10 text-center text-gray-700 font-bold">Relatório Ponto</h1>
+    <main className=" text-gray-700">
+      <h1 className="text-3xl my-6 text-center text-gray-700 font-bold">Relatório Ponto</h1>
 
-      <div className='text-center'>
-        <input type="search" value={filtro} onChange={(e) => setFiltro(e.target.value)} name="buscarColaborador" id="buscarColaborador" className='border rounded py-1 px-16 m-5' placeholder='Buscar Colaborador' />
+      <div className='text-center w-full'>
+        <input type="search" value={filtro} onChange={(e) => setFiltro(e.target.value)} name="buscarColaborador" id="buscarColaborador" className='border rounded my-5 w-80 p-2' placeholder='Buscar Colaborador' />
 
       </div>
 
-      <table className="w-full border-collapse border">
+      <table className="w-full lg:w-5/6 m-auto border-collapse border">
         <thead>
           <tr className="bg-gray-200">
             <th className="border p-2">Funcionário</th>

@@ -55,12 +55,12 @@ export default function Relatorios() {
 
 
   return (
-    <main className="p-10 text-gray-700">
-      <h1 className="text-3xl my-10 text-center text-gray-700 font-bold">Gestão de Colaboradores</h1>
+    <main className="text-gray-700">
+      <h1 className="text-3xl my-6 text-center text-gray-700 font-bold">Gestão de Colaboradores</h1>
 
 
 
-      <article className='grid grid-cols-4 p-10 gap-10'>
+      <article className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10'>
 
         {colaboradores.length > 0 ? (
           colaboradores.map((Colaborador) => (
