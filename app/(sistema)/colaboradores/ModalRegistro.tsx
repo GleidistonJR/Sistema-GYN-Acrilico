@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from 'react';
 import { salvarColaborador } from './actions';
+import { PatternFormat, NumericFormat } from 'react-number-format';
 
 interface Colaboradortype {
   id?: number; // Opcional, pois no 'Novo' ele ainda não existe
@@ -66,22 +67,42 @@ export default function ModalRegistro({ isOpen, onClose, dadosEdicao }: ModalPro
 
           <div>
             <label className="block text-md">CPF:</label>
-            <input
-              type="text"
+            <PatternFormat
+              format="###.###.###-##"
+              mask="_"
               value={colaborador.cpf}
-              onChange={(e) => setColaborador({ ...colaborador, cpf: e.target.value })}
-              className="mt-1 block w-full border rounded-md p-2"
+              // O 'values' é um objeto que a biblioteca nos dá. 
+              // Usamos o 'values.value' para pegar apenas os números.
+              onValueChange={(values) => {
+                setColaborador({
+                  ...colaborador,
+                  cpf: values.value // Salva "12345678901" em vez de "123.456.789-01"
+                });
+              }}
+              className="mt-1 block w-full border rounded-md p-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              placeholder="000.000.000-00"
             />
           </div>
 
           <div>
             <label className="block text-md">Salário:</label>
-            <input
-              type="number" // Mudei para number para facilitar
+            <NumericFormat
               value={colaborador.salario}
-              // Convertendo a string do input para número
-              onChange={(e) => setColaborador({ ...colaborador, salario: Number(e.target.value) })}
-              className="mt-1 block w-full border rounded-md p-2"
+              thousandSeparator="."
+              decimalSeparator=","
+              prefix="R$ "
+              fixedDecimalScale
+              decimalScale={2}
+              // O 'values' é um objeto que a biblioteca nos dá. 
+              // Usamos o 'values.value' para pegar apenas os números.
+              onValueChange={(values) => {
+                setColaborador({
+                  ...colaborador,
+                  salario: Number(values.value) // Salva "12345678901" em vez de "123.456.789-01"
+                });
+              }}
+              className="mt-1 block w-full border rounded-md p-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              placeholder="R$ 000,00"
             />
           </div>
 

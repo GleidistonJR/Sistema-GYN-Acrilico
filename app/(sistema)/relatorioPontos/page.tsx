@@ -24,7 +24,7 @@ export default function Relatorios() {
       };
 
       carregar();
-    }, 500); // 500ms é um tempo equilibrado para o usuário parar de digitar
+    }, 300); // 500ms é um tempo equilibrado para o usuário parar de digitar
 
     // 2. IMPORTANTE: A função de limpeza (cleanup)
     // Ela cancela o timer anterior se o usuário digitar uma nova letra antes dos 500ms

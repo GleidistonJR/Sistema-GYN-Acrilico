@@ -2,6 +2,7 @@
 import ModalRegistro from './ModalRegistro';
 import { buscarColaboradores, buscarColaboradorPorId, deletarColaborador } from './actions';
 import { useState, useEffect } from 'react';
+import { PatternFormat, NumericFormat } from 'react-number-format';
 
 
 interface Colaboradortype {
@@ -71,8 +72,29 @@ export default function Relatorios() {
               <h2 className='px-8 py-5 border-b text-xl font-semibold text-center'>{Colaborador.nome}</h2>
               <div className='text-center text-xl font-normal py-5'>
                 <p className='font-semibold pb-5'>{Colaborador.cargo}</p>
-                <p >CPF: {Colaborador.cpf}</p>
-                <p>Salario: {(Colaborador.salario).toFixed(2)}</p>
+
+                {/* CPF Formatado */}
+                <p>
+                  CPF: <PatternFormat
+                    value={Colaborador.cpf}
+                    format="###.###.###-##"
+                    displayType="text"
+                  />
+                </p>
+
+                {/* Salário Formatado como Moeda Brasileira */}
+                <p>
+                  Salário: <NumericFormat
+                    value={Colaborador.salario}
+                    displayType="text"
+                    thousandSeparator="."
+                    decimalSeparator=","
+                    prefix="R$ "
+                    fixedDecimalScale
+                    decimalScale={2}
+                  />
+                </p>
+
               </div>
               <div className='flex text-white w-full'>
                 <button className='bg-red-700 w-full py-2 m-0 rounded-bl-lg hover:bg-red-800 hover:cursor-pointer' onClick={() => deletar(Colaborador.id)}>Deletar</button>

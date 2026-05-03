@@ -1,6 +1,7 @@
 "use client";
 import { useState } from 'react';
 import { salvarPontoNoBanco } from './actions'; // Importe a ação que criamos
+import { PatternFormat } from 'react-number-format';
 
 export default function RegistroPonto() {
   const [cpf, setCpf] = useState('');
@@ -30,12 +31,16 @@ export default function RegistroPonto() {
 
       <div className='text-center text-xl'>
 
-        <input
-          type="number"
-          placeholder="Digite seu CPF"
+        <PatternFormat
+          format="###.###.###-##"
+          mask="_"
+          placeholder="000.000.000-00"
           className='border rounded m-3 text-black p-2'
           value={cpf}
-          onChange={(e) => setCpf(e.target.value)}
+          // values é um objeto que contém 'value' (apenas números) e 'formattedValue' (com máscara)
+          onValueChange={(values) => {
+            setCpf(values.value); // Salva apenas "12345678901" no seu estado
+          }}
         />
 
         <br />
