@@ -35,7 +35,7 @@ export default function Header() {
         <div className="flex justify-between items-center h-16">
 
           {/* Logo / Nome da Empresa */}
-          <div className="flex-shrink-0 flex items-center">
+          <div className="shrink-0 flex items-center">
             <Link href="/" className="font-bold text-lg tracking-tight">
               <span className="text-amber-400">Sistema</span> Goiânia Acrílico
             </Link>
