@@ -9,19 +9,21 @@ export default function LoginPage() {
   const [erro, setErro] = useState('');
   const router = useRouter();
 
+  // O Next.js carrega automaticamente as variáveis do .env para o process.env
+const adminUser = process.env.NEXT_PUBLIC_ADMIN_USER;
+const adminPass = process.env.NEXT_PUBLIC_ADMIN_PASS;
+
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Aqui usamos as variáveis do seu .env ou valores fixos para teste
-    // Idealmente, você chamaria uma Server Action para validar isso com segurança
-    if (usuario === "admin" && senha === "123456") { 
-      
+    if (usuario === adminUser && senha === adminPass) {
+
       // Criamos o cookie que o Middleware procura
       // maxAge: 3600 = 1 hora de validade
-      setCookie('sessao_admin', 'true', { maxAge: 60 * 60 }); 
-      
-      router.refresh();      
-      window.location.href = '/colaboradores'; // Redireciona após o sucesso
+      setCookie('sessao_admin', 'true', { maxAge: 60 * 60 });
+
+      router.refresh();
+      window.location.href = '/administracao'; // Redireciona após o sucesso
     } else {
       setErro('Usuário ou senha incorretos!');
     }
@@ -30,7 +32,7 @@ export default function LoginPage() {
   return (
     <main className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8">
-        
+
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-800">Goiânia Acrílico</h1>
           <p className="text-gray-500 mt-2">Acesse o sistema de gestão</p>

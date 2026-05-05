@@ -59,14 +59,14 @@ export default function Header() {
 
           {/* Menu Desktop */}
           <nav className="hidden md:flex space-x-8 items-center text-sm font-semibold">
-            <Link href="/" className="hover:text-amber-400 transition-colors">Orçamentos</Link>
+            <Link href="/orcamentos" className="hover:text-amber-400 transition-colors">Orçamentos</Link>
             <Link href="/baterPonto" className="hover:text-amber-400 transition-colors">Bater Ponto</Link>
             <Link href="/relatorioPontos" className="hover:text-amber-400 transition-colors">Relatórios</Link>
-            <Link href="/colaboradores" className="hover:text-amber-400 transition-colors">Colaboradores</Link>
+            <Link href="/administracao" className="hover:text-amber-400 transition-colors">Administração</Link>
 
             <button
               onClick={logout}
-              className="bg-amber-400 hover:bg-amber-500 text-[#003f8d] px-4 py-2 rounded-md transition-all active:scale-95"
+              className="bg-amber-400 hover:bg-amber-500 hover:cursor-pointer text-[#003f8d] px-4 py-2 rounded-md transition-all active:scale-95"
             >
               {estaLogado ? 'Deslogar' : 'Login'}
             </button>
@@ -77,10 +77,10 @@ export default function Header() {
       {/* Menu Mobile (Aparece apenas quando menuAberto for true) */}
       <div className={`${menuAberto ? 'block' : 'hidden'} md:hidden bg-[#002d66] border-t border-blue-800`}>
         <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 flex flex-col text-start">
-          <Link href="/" onClick={fecharMenu} className="block px-3 py-2 rounded-md hover:bg-blue-800">Orçamentos</Link>
+          <Link href="/orcamentos" onClick={fecharMenu} className="block px-3 py-2 rounded-md hover:bg-blue-800">Orçamentos</Link>
           <Link href="/baterPonto" onClick={fecharMenu} className="block px-3 py-2 rounded-md hover:bg-blue-800">Bater Ponto</Link>
           <Link href="/relatorioPontos" onClick={fecharMenu} className="block px-3 py-2 rounded-md hover:bg-blue-800">Relatórios</Link>
-          <Link href="/colaboradores" onClick={fecharMenu} className="block px-3 py-2 rounded-md hover:bg-blue-800">Colaboradores</Link>
+          <Link href="/administracao" onClick={fecharMenu} className="block px-3 py-2 rounded-md hover:bg-blue-800">Administração</Link>
           <button
             onClick={() => { logout(); fecharMenu(); }}
             className="w-full text-left px-3 py-2 text-amber-400 font-bold"

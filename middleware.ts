@@ -5,7 +5,7 @@ export function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname;
 
   // 1. Definimos as rotas que precisam de proteção
-  const isProtectedRoute = path.startsWith('/colaboradores');
+  const isProtectedRoute = ['/administracao', '/colaboradores', '/relatorioPontosAdmin'];
 
   if (isProtectedRoute) {
     // 2. Verificamos se o cookie de sessão existe
@@ -25,5 +25,9 @@ export function middleware(request: NextRequest) {
 // 3. O matcher garante que o middleware rode apenas nas páginas certas
 // Adicionei o matcher para a pasta de colaboradores
 export const config = {
-  matcher: ['/colaboradores/:path*'],
+  matcher: [
+    '/administracao/:path*',
+    '/colaboradores/:path*',
+    '/relatorioPontosAdmin/:path*'
+  ],
 };
