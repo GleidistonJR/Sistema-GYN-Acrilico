@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
+import { revalidatePath } from "next/cache"; // Importante para atualizar a tela
 
 interface Pontos {
   id: number;
@@ -46,5 +47,25 @@ export async function buscarPontos(filtro?: string): Promise<Pontos[]> {
   } catch (error) {
     console.error("Erro ao buscar pontos:", error);
     return [];
+  }
+}
+
+// FUNÇÃO 3: DELETAR
+export async function deletarPonto(id: number) {
+  try {
+
+    await prisma.ponto.delete({
+      where: {
+        id: id,
+      },
+    });
+
+    // Isso avisa ao Next.js para limpar o cache e mostrar a lista atualizada
+    revalidatePath("/relatorioPontosAdmin");
+
+    return { sucesso: true };
+  } catch (error) {
+    console.error("Erro ao deletar:", error);
+    return { sucesso: false, erro: "Não foi possível excluir o colaborador." };
   }
 }
