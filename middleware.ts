@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
-  const path = request.nextUrl.pathname;
 
   // 1. Definimos as rotas que precisam de proteção
   const isProtectedRoute = ['/administracao', '/colaboradores', '/relatorioPontosAdmin'];
