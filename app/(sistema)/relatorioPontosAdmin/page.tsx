@@ -1,8 +1,8 @@
 "use client";
 import { useEffect, useState } from 'react';
-import { buscarPontos, deletarPonto } from './actions';
-import { Ponto } from "@prisma/client";
+import { buscarPontos, deletarPonto, buscarPontoPorId } from './actions';
 import { Pencil, Trash2 } from 'lucide-react';
+import ModalEdicaoPonto from './ModalEdicaoPonto';
 
 interface Pontos {
   id: number;
@@ -15,6 +15,8 @@ interface Pontos {
 export default function Relatorios() {
   const [pontos, setPontos] = useState<Pontos[]>([]);
   const [filtro, setFiltro] = useState("");
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [pontoSelecionado, setPontoSelecionado] = useState<Pontos | null>(null);
 
   useEffect(() => {
     // 1. Criamos um timer
@@ -31,6 +33,22 @@ export default function Relatorios() {
     // Ela cancela o timer anterior se o usuário digitar uma nova letra antes dos 300ms
     return () => clearTimeout(delayBusca);
   }, [filtro]);
+
+  const editar = async (id: number) => {
+    try {
+      // 1. Busca os dados
+      const selecionado = await buscarPontoPorId(id);
+
+      setPontoSelecionado(selecionado);
+      setIsModalOpen(true);
+
+
+      console.log("Dados carregados:", selecionado);
+    } catch (error) {
+      console.error("Erro ao buscar colaborador:", error);
+    }
+
+  }
 
   async function deletar(id: number) {
     if (confirm("Tem certeza?")) {
@@ -75,7 +93,7 @@ export default function Relatorios() {
                   })}</td>
                   <td className="p-2">{ponto.tipo}</td>
                   <td className="p-2 flex gap-2 justify-center">
-                    <button title="Editar" className='bg-amber-400 text-white font-semibold p-2 text-sm hover:cursor-pointer hover:bg-amber-500'>
+                    <button title="Editar" onClick={() => editar(ponto.id)} className='bg-amber-400 text-white font-semibold p-2 text-sm hover:cursor-pointer hover:bg-amber-500'>
                       <Pencil size={18} />
                     </button>
                     <button title="Deletar" onClick={() => deletar(ponto.id)}
@@ -95,6 +113,12 @@ export default function Relatorios() {
           </tbody>
         </table>
       </div>
+      {/* O Componente do Modal isolado */}
+      <ModalEdicaoPonto
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        dadosEdicao={pontoSelecionado}
+      />
     </main>
   );
 }

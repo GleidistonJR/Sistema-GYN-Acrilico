@@ -11,6 +11,7 @@ interface Pontos {
   colaborador: { nome: string };
 }
 
+// FUNÇÃO 2: BUSCAR
 export async function buscarPontos(filtro?: string): Promise<Pontos[]> {
   try {
     const pontos = await prisma.ponto.findMany({
@@ -50,6 +51,21 @@ export async function buscarPontos(filtro?: string): Promise<Pontos[]> {
   }
 }
 
+// FUNÇÃO 2: BUSCAR
+export async function buscarPontoPorId(id: number) {
+  return await prisma.ponto.findUnique({
+    where: { id },
+    include: {
+      colaborador: {
+        select: {
+          nome: true
+        }
+      }
+    },
+  });
+}
+
+
 // FUNÇÃO 3: DELETAR
 export async function deletarPonto(id: number) {
   try {
@@ -67,5 +83,31 @@ export async function deletarPonto(id: number) {
   } catch (error) {
     console.error("Erro ao deletar:", error);
     return { sucesso: false, erro: "Não foi possível excluir o colaborador." };
+  }
+}
+
+// FUNÇÃO 4: EDITAR
+
+export async function atualizarPonto(dados: Pontos, motivo: string) {
+  try {
+    if (dados.id) {
+      // Se tem ID, é um UPDATE (prisma.colaborador.update...)
+      const pontoAtualizado = await prisma.ponto.update({
+        where: {
+          id: dados.id, // Critério de busca (obrigatório ser um campo @unique)
+        },
+        data: {
+          cpf: dados.cpf,
+          dataHora: dados.dataHora,
+          tipo: dados.tipo
+        },
+      });
+
+      revalidatePath("/relatorioPontosAdmin");
+      return { sucesso: true, colaborador: pontoAtualizado };
+    }
+  } catch (error) {
+    console.error("Erro ao salvar colaborador:", error);
+    return { sucesso: false, erro: "Não foi possível salvar o colaborador." };
   }
 }
