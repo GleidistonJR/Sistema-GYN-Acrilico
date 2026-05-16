@@ -84,20 +84,24 @@ export default function Relatorios() {
             {pontos.length > 0 ? (
               pontos.map((ponto) => (
 
-                <tr key={ponto.id} className="text-center border-b " style={{ background: ponto.tipo === "Saida" ? '#fff' : '#beffbe' }}>
+                <tr key={ponto.id} className="text-center border-b ">
                   <td className="p-2">{ponto.colaborador.nome}</td>
                   <td className="p-2">{new Date(ponto.dataHora).toLocaleDateString('pt-BR')}</td>
                   <td className="p-2">{new Date(ponto.dataHora).toLocaleTimeString('pt-BR', {
                     hour: '2-digit',
                     minute: '2-digit'
                   })}</td>
-                  <td className="p-2">{ponto.tipo}</td>
+
+                  <td className="p-2" > <span className={`px-2.5 py-1 rounded-full text-sm font-semibold ${ponto.tipo === 'Entrada' ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800'
+                    }`}>{ponto.tipo}</span></td>
+
                   <td className="p-2 flex gap-2 justify-center">
-                    <button title="Editar" onClick={() => editar(ponto.id)} className='bg-amber-400 text-white font-semibold p-2 text-sm hover:cursor-pointer hover:bg-amber-500'>
+                    <button title="Editar" onClick={() => editar(ponto.id)}
+                      className='bg-amber-100 text-amber-700 rounded-full font-semibold p-2 text-sm hover:cursor-pointer hover:bg-amber-200'>
                       <Pencil size={18} />
                     </button>
                     <button title="Deletar" onClick={() => deletar(ponto.id)}
-                      className='bg-red-500 text-white font-semibold p-2 text-sm hover:cursor-pointer hover:bg-red-700'>
+                      className='bg-red-100 text-red-700 font-semibold p-2 text-sm hover:cursor-pointer hover:bg-red-200 rounded-full'>
                       <Trash2 size={18} />
                     </button>
                   </td>

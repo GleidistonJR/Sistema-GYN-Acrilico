@@ -10,7 +10,10 @@ interface Pontos {
   colaborador: { nome: string };
 }
 
-export async function buscarPontos(filtro?: string): Promise<Pontos[]> {
+export async function buscarPontos(filtro?: string, pagina: number = 1): Promise<Pontos[]> {
+  const itensPorPagina = 20;
+  const skip = (pagina - 1) * itensPorPagina;
+
   try {
     const pontos = await prisma.ponto.findMany({
       where: filtro ? {
@@ -36,6 +39,8 @@ export async function buscarPontos(filtro?: string): Promise<Pontos[]> {
           }
         }
       },
+      take: itensPorPagina, // Limita em 20 resultados
+      skip: skip,           // Pula os resultados das páginas anteriores
       orderBy: {
         dataHora: 'desc',
       },

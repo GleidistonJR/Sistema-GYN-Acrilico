@@ -1,8 +1,10 @@
 "use client";
+import Link from 'next/link';
 import ModalRegistro from './ModalRegistro';
 import { buscarColaboradores, buscarColaboradorPorId, deletarColaborador } from './actions';
 import { useState, useEffect } from 'react';
 import { PatternFormat, NumericFormat } from 'react-number-format';
+import { Eye, Pencil, Trash2 } from 'lucide-react';
 
 
 interface Colaboradortype {
@@ -96,9 +98,14 @@ export default function Relatorios() {
                 </p>
 
               </div>
-              <div className='flex text-white w-full'>
-                <button className='bg-red-700 w-full py-2 m-0 rounded-bl-lg hover:bg-red-800 hover:cursor-pointer' onClick={() => deletar(Colaborador.id)}>Deletar</button>
-                <button className='bg-amber-400 w-full rounded-br-lg hover:bg-amber-500 hover:cursor-pointer' onClick={() => editar(Colaborador.id)}>Editar</button>
+
+              <div className='flex justify-center w-full gap-3 mb-5'>
+                <Link href={`/colaboradores/${Colaborador.id}`} className='bg-green-100 text-green-700 p-3 m-0 rounded-full text-center block hover:bg-green-200 hover:cursor-pointer'><Eye size={18} /></Link>
+
+                <button className='bg-amber-100 text-amber-700 p-3 m-0 rounded-full hover:bg-amber-200 hover:cursor-pointer' onClick={() => editar(Colaborador.id)}><Pencil size={18} /></button>
+
+                <button className='bg-red-100 text-red-700 p-3 m-0 rounded-full hover:bg-red-200 hover:cursor-pointer' onClick={() => deletar(Colaborador.id)}><Trash2 size={18} /></button>
+
               </div>
             </aside>
           ))) : ('')}

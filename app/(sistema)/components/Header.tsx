@@ -66,7 +66,7 @@ export default function Header() {
 
             <button
               onClick={logout}
-              className="bg-amber-400 hover:bg-amber-500 hover:cursor-pointer text-[#003f8d] px-4 py-2 rounded-md transition-all active:scale-95"
+              className="bg-amber-100 text-amber-600 hover:bg-white hover:cursor-pointer px-4 py-2 rounded-md"
             >
               {estaLogado ? 'Deslogar' : 'Login'}
             </button>
