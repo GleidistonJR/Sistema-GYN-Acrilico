@@ -81,7 +81,7 @@ export default async function DetalhesColaborador({ params }: DetalhesProps) {
         
         {/* Card de Dados Pessoais */}
         <div className="bg-white p-6 rounded-xl shadow-sm border md:col-span-1">
-          <h2 className="text-lg font-bold mb-3 border-b pb-2 text-gray-500 uppercase text-xs tracking-wider">Dados do Perfil</h2>
+          <h2 className="text-lg font-bold mb-3 border-b pb-2 text-gray-500 uppercase tracking-wider">Dados do Perfil</h2>
           <p className="mb-2"><strong>Nome:</strong> {colaborador.nome}</p>
           <p className="mb-2"><strong>Cargo:</strong> {colaborador.cargo}</p>
           <p className="mb-2"><strong>CPF:</strong> {colaborador.cpf}</p>
