@@ -13,10 +13,10 @@ interface Pontos {
 }
 
 export default function Relatorios() {
-  const [pontos, setPontos] = useState<Pontos[]>([]);
+  const [pontos, setPontos] = useState<(Omit<Pontos, 'dataHora'> & { dataHora: string | Date })[]>([]);
   const [filtro, setFiltro] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [pontoSelecionado, setPontoSelecionado] = useState<Pontos | null>(null);
+  const [pontoSelecionado, setPontoSelecionado] = useState<(Omit<Pontos, 'dataHora'> & { dataHora: string | Date }) | null>(null);
 
   useEffect(() => {
     // 1. Criamos um timer
@@ -121,7 +121,7 @@ export default function Relatorios() {
       <ModalEdicaoPonto
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        dadosEdicao={pontoSelecionado}
+        dadosEdicao={pontoSelecionado as any}
       />
     </main>
   );
