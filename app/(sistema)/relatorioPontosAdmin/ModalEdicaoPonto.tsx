@@ -59,7 +59,7 @@ export default function ModalEdicaoPonto({ isOpen, onClose, dadosEdicao }: Modal
       dataHora: dataFinal.toISOString() // Converte para o padrão do banco
     }, motivo);
 
-    if (resultado.sucesso) {
+    if (resultado?.sucesso) {
       onClose();
       window.location.reload();
     }
