@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache"; // Importante para atualizar a tela
 interface Pontos {
   id: number;
   cpf: string;
-  dataHora: string;
+  dataHora: Date | string;
   tipo: string;
   colaborador: { nome: string };
 }
