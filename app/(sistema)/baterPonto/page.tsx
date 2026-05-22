@@ -26,10 +26,10 @@ export default function RegistroPonto() {
 
 
   return (
-    <main>
-      <h1 className='text-3xl my-6 text-center text-gray-700 font-bold'>Registrar Ponto</h1>
+    <main className='py-16'>
+      <h1 className='text-6xl my-6 text-center text-gray-700 font-bold'>Registrar Ponto</h1>
 
-      <div className='text-center text-xl'>
+      <div className='text-center text-3xl'>
 
         <PatternFormat
           format="###.###.###-##"
@@ -46,7 +46,7 @@ export default function RegistroPonto() {
         <br />
 
         <button
-          className='bg-blue-500 text-white rounded px-8 py-2 hover:bg-blue-600 text-xl'
+          className='bg-blue-500 text-white rounded px-16 py-2 hover:bg-blue-600 text-3xl'
           onClick={registrarPonto}
         >
           Registrar

@@ -20,7 +20,7 @@ const adminPass = process.env.NEXT_PUBLIC_ADMIN_PASS;
 
       // Criamos o cookie que o Middleware procura
       // maxAge: 3600 = 1 hora de validade
-      setCookie('sessao_admin', 'true', { maxAge: 60 * 60 });
+      setCookie('sessao_admin', 'true', { maxAge: 60 * 60 * 6 });
 
       router.refresh();
       window.location.href = '/administracao'; // Redireciona após o sucesso

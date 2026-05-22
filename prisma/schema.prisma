@@ -13,7 +13,11 @@ model Colaborador {
   cargo   String
   cpf     String @unique // CPF único para não repetir funcionários
   salario Float  // No Prisma, usamos Float ou Decimal para números com centavos
+  
   pontos Ponto[] // Um colaborador tem muitos pontos
+
+  userId    String?  @unique
+  user      User?    @relation(fields: [userId], references: [id])
 }
 
 model Ponto {
@@ -24,4 +28,14 @@ model Ponto {
 
   // Criando a relação:
   colaborador   Colaborador @relation(fields: [cpf], references: [cpf], onDelete: Cascade)
+}
+
+model User {
+  id          String       @id @default(uuid())
+  email       String       @unique
+  password    String       // Aqui vai o hash da senha criptografada
+  role        String       @default("USER") // Ex: "ADMIN", "SUPERVISOR", "USER"
+  createdAt   DateTime     @default(now())
+  
+  colaborador Colaborador?
 }
