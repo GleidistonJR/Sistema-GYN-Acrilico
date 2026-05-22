@@ -10,13 +10,13 @@ export default function CalculadorChapa() {
   // Estados do Formulário Atual
   const [tipoMaterial, setTipoMaterial] = useState<string>('acrilico');
   const [corChapa, setCorChapa] = useState<string>('cristal');
-  const [espessuraChapa, setEspessuraChapa] = useState<string>('3');
-  const [larguraChapa, setLarguraChapa] = useState<string>('50');
-  const [alturaChapa, setAlturaChapa] = useState<string>('50');
+  const [espessuraChapa, setEspessuraChapa] = useState<string>('2');
+  const [larguraChapa, setLarguraChapa] = useState<string>('0');
+  const [alturaChapa, setAlturaChapa] = useState<string>('0');
 
   const [tipoPers, setTipoPers] = useState<string>('nenhum');
-  const [larguraPers, setLarguraPers] = useState<string>('50');
-  const [alturaPers, setAlturaPers] = useState<string>('50');
+  const [larguraPers, setLarguraPers] = useState<string>('0');
+  const [alturaPers, setAlturaPers] = useState<string>('0');
   const [quantidade, setQuantidade] = useState<number>(1);
 
   // Lista de materiais adicionados ao orçamento atual
@@ -109,8 +109,8 @@ export default function CalculadorChapa() {
     setItens([...itens, novoItem]);
     
     // Resetar campos de dimensão para o próximo item
-    setLarguraChapa('50');
-    setAlturaChapa('50');
+    setLarguraChapa('0');
+    setAlturaChapa('0');
     setQuantidade(1);
   };
 
@@ -129,11 +129,13 @@ export default function CalculadorChapa() {
 
     const textoItens = itens.map(item => item.descricaoTexto).join('\n');
 
-    const textoFinal = `*ORÇAMENTO GYN ACRÍLICO*
+    const textoFinal = `*ORÇAMENTO GOIÂNIA ACRÍLICO*
 ----------------------------------------
 ${textoItens}
 ----------------------------------------
 *VALOR TOTAL: R$ ${valorTotalOrcamento.toFixed(2)}*
+
+*ENTRADA: R$ ${(valorTotalOrcamento / 2).toFixed(2)}*
 
 Tempo médio para ser produzido de 5 dias úteis.
 Para início da produção é solicitado 50% do valor antecipado e o restante no ato da retirada.
@@ -146,14 +148,14 @@ Retirar na loja, não estamos fazendo entrega.`;
   };
 
   return (
-    <main className="max-w-7xl mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-3 gap-6 text-gray-800">
+    <main className="max-w-7xl mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-3 gap-6 text-gray-800 bg-gray-200">
       
       {/* COLUNA DA ESQUERDA: CONFIGURAÇÃO DO ITEM ATUAL */}
       <div className="space-y-6 lg:col-span-1">
         
         {/* Bloco Material */}
         <section className="bg-white rounded-xl shadow-sm p-5 space-y-4 border border-gray-100">
-          <h2 className="text-xl font-bold text-gray-700 pb-2 border-b border-gray-100">1. Configurar Material</h2>
+          <h2 className="text-xl font-bold text-gray-700 pb-2 border-b border-gray-100">1. Material</h2>
           
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium text-gray-600">Tipo de Material</label>
@@ -323,7 +325,7 @@ Retirar na loja, não estamos fazendo entrega.`;
                       </p>
                       <p className="text-xs text-gray-500">
                         Chapa: {item.larguraChapa}x{item.alturaChapa}cm ({item.areaChapa.toFixed(4)}m²) 
-                        {item.tipoPers !== 'nenhum' && ` | Pers: ${item.tipoPers} (${item.larguraPers}x{item.alturaPers}cm)`}
+                        {item.tipoPers !== 'nenhum' && ` | Pers: ${item.tipoPers} (${item.larguraPers}x${item.alturaPers}cm)`}
                       </p>
                     </div>
                     <div className="flex items-center gap-4">
