@@ -39,3 +39,43 @@ model User {
   
   colaborador Colaborador?
 }
+
+model Insumo {
+  id             String   @id @default(uuid())
+  nome           String   
+  unidadeMedida  String   // "M2", "UNIDADE", "METRO"
+  precoCusto     Float    
+  larguraChapaCm Float?   
+  alturaChapaCm  Float?   
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relações
+  produtosUsam   ProdutoInsumo[]
+  produtoDireto  Produto?        // Relação 1-para-1 inversa
+}
+
+model Produto {
+  id          String        @id @default(uuid())
+  nome        String        
+  tipoVenda   String        // "CHAPA_INTEIRA", "CORTE_SOB_MEDIDA", "PRODUTO_FABRICADO", "INSUMO_DIRETO"
+  precoBase   Float         // Preço de venda com lucro já aplicado
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  
+  // Link com o insumo original (se for gerado automaticamente)
+  insumoId    String?       @unique
+  insumo      Insumo?       @relation(fields: [insumoId], references: [id], onDelete: Cascade)
+
+  componentes ProdutoInsumo[]
+}
+
+model ProdutoInsumo {
+  id         String  @id @default(uuid())
+  produtoId  String
+  insumoId   String
+  quantidade Float   // Quantidade usada do insumo nessa receita
+  
+  produto    Produto @relation(fields: [produtoId], references: [id])
+  insumo     Insumo  @relation(fields: [insumoId], references: [id])
+}
