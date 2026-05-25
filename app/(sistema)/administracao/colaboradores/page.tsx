@@ -100,7 +100,7 @@ export default function Relatorios() {
               </div>
 
               <div className='flex justify-center w-full gap-3 mb-5'>
-                <Link href={`/colaboradores/${Colaborador.id}`} className='bg-green-100 text-green-700 p-3 m-0 rounded-full text-center block hover:bg-green-200 hover:cursor-pointer'><Eye size={18} /></Link>
+                <Link href={`/administracao/colaboradores/${Colaborador.id}`} className='bg-green-100 text-green-700 p-3 m-0 rounded-full text-center block hover:bg-green-200 hover:cursor-pointer'><Eye size={18} /></Link>
 
                 <button className='bg-amber-100 text-amber-700 p-3 m-0 rounded-full hover:bg-amber-200 hover:cursor-pointer' onClick={() => editar(Colaborador.id)}><Pencil size={18} /></button>
 

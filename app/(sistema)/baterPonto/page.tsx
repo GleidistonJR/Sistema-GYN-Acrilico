@@ -2,11 +2,13 @@
 import { useState } from 'react';
 import { salvarPontoNoBanco } from './actions'; // Importe a ação que criamos
 import { PatternFormat } from 'react-number-format';
+import { useRouter } from 'next/navigation';
 
 export default function RegistroPonto() {
   const [cpf, setCpf] = useState('');
   const [mensagem, setMensagem] = useState('');
 
+  const router = useRouter();
 
   async function registrarPonto() {
     if (!cpf) return setMensagem("Você não digitiou seu CPF!");
@@ -15,10 +17,11 @@ export default function RegistroPonto() {
 
     // Chamando a Server Action
     const resultado = await salvarPontoNoBanco(cpf);
-
     if (resultado.sucesso) {
       setMensagem(`Ponto registrado!`)
       setCpf('');
+      router.push('/relatorioPontos');
+
     } else {
       setMensagem("Erro ao registrar ponto no banco de dados." + resultado.mensagem);
     }
@@ -29,13 +32,13 @@ export default function RegistroPonto() {
     <main className='py-16'>
       <h1 className='text-6xl my-6 text-center text-gray-700 font-bold'>Registrar Ponto</h1>
 
-      <div className='text-center text-3xl'>
+      <div className='text-center text-3xl w-100 mx-auto'>
 
         <PatternFormat
           format="###.###.###-##"
           mask="_"
           placeholder="000.000.000-00"
-          className='border rounded m-3 text-black p-2'
+          className='border rounded my-5 text-black p-2 w-full'
           value={cpf}
           // values é um objeto que contém 'value' (apenas números) e 'formattedValue' (com máscara)
           onValueChange={(values) => {
@@ -46,7 +49,7 @@ export default function RegistroPonto() {
         <br />
 
         <button
-          className='bg-blue-500 text-white rounded px-16 py-2 hover:bg-blue-600 text-3xl'
+          className='bg-blue-500 text-white rounded w-full py-2 hover:bg-blue-600 text-3xl'
           onClick={registrarPonto}
         >
           Registrar
