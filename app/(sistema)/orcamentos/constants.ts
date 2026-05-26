@@ -22,10 +22,10 @@ export const MATERIAIS_CONFIG: Record<string, MaterialConfig> = {
 
 export const PERSONALIZACAO_CONFIG: Record<string, { label: string; valor: number }> = {
   "nenhum": { label: "Nenhuma", valor: 0 },
-  "branco": { label: "Adesivo Branco", valor: 100 },
   "impresso": { label: "Adesivo Impresso", valor: 180 },
   "espelhado": { label: "Adesivo Impresso Espelhado", valor: 230 },
   "fiber": { label: "Gravação na Fiber", valor: 400 },
+  "co2": { label: "Gravação a Laser Co2", valor: 1000 },
   "uv": { label: "Impressão UV (Alta definição)", valor: 1000 },
   "abs": { label: "Trotek (ABS)", valor: 800 },
   "acrilicoEspelhado": { label: "Acrílico Espelhado", valor: 400 },
