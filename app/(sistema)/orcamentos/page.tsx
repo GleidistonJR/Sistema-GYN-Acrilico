@@ -16,7 +16,7 @@ export default function CalculadorChapa() {
   const [espessuraChapa, setEspessuraChapa] = useState<string>('2');
   const [larguraChapa, setLarguraChapa] = useState<string>('0'); // X
   const [alturaChapa, setAlturaChapa] = useState<string>('0');   // Y
-  
+
   // Estados específicos para Caixa
   const [profundidadeCaixa, setProfundidadeCaixa] = useState<string>('0'); // Z
   const [tipoTampa, setTipoTampa] = useState<string>('semTampa');
@@ -90,7 +90,7 @@ export default function CalculadorChapa() {
     else if (minutosCorte > 0) valorCorte = (minutosCorte + 1) * 3;
 
     const fatorPorcentagem = porcentagem / 100 + 1;
-    
+
     // Define o valor base do material aplicando a respectiva tabela de preços
     const valorMetroBase = modoCalculo === 'chapa' ? configMat.valorMetroQuadrado : espessuraCalculoCaixa;
     const valorMaterialItem = (areaChapa * valorMetroBase * corPorcento + valorCorte) * fatorPorcentagem;
@@ -106,8 +106,8 @@ export default function CalculadorChapa() {
     const valorTotalItem = valorUnitario * quantidade;
 
     // Montagem da descrição textual estruturada para o clipboard
-    const labelMaterial = tipoMaterial === 'acrilico' 
-      ? `Acrílico ${corChapa.toUpperCase()} ${espessuraChapa}mm` 
+    const labelMaterial = tipoMaterial === 'acrilico'
+      ? `Acrílico ${corChapa.toUpperCase()} ${espessuraChapa}mm`
       : MATERIAIS_CONFIG[tipoMaterial]?.label || tipoMaterial;
 
     let txtItem = '';
@@ -141,16 +141,28 @@ export default function CalculadorChapa() {
   }, [modoCalculo, tipoMaterial, corChapa, espessuraChapa, larguraChapa, alturaChapa, profundidadeCaixa, tipoTampa, tipoPers, larguraPers, alturaPers, quantidade, porcentagem]);
 
   const handleAdicionarItem = () => {
-    if (!larguraChapa || !alturaChapa) return;
-    if (modoCalculo === 'caixa' && !profundidadeCaixa) return;
+    // Converte para número e garante que as dimensões sejam maiores que zero
+    const nLargura = Number(larguraChapa);
+    const nAltura = Number(alturaChapa);
+    const nProfundidade = Number(profundidadeCaixa);
+
+    if (isNaN(nLargura) || nLargura <= 0 || isNaN(nAltura) || nAltura <= 0) {
+      alert("Por favor, insira uma largura e altura válidas maiores que zero.");
+      return;
+    }
+
+    if (modoCalculo === 'caixa' && (isNaN(nProfundidade) || nProfundidade <= 0)) {
+      alert("Por favor, insira uma profundidade válida maior que zero para a caixa.");
+      return;
+    }
 
     const novoItem: ItemOrcamento = {
-      id: crypto.randomUUID(),
+      id: `item-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
       tipoMaterial: modoCalculo === 'caixa' ? `Caixa (${tipoMaterial})` : tipoMaterial,
       corChapa,
       espessuraChapa,
-      larguraChapa: Number(larguraChapa),
-      alturaChapa: Number(alturaChapa),
+      larguraChapa: nLargura,
+      alturaChapa: nAltura,
       tipoPers,
       larguraPers: Number(larguraPers),
       alturaPers: Number(alturaPers),
@@ -164,8 +176,8 @@ export default function CalculadorChapa() {
     };
 
     setItens([...itens, novoItem]);
-    
-    // Resetar campos padrão
+
+    // Resetar campos padrão limpando a string para o usuário digitar de novo
     setLarguraChapa('0');
     setAlturaChapa('0');
     setProfundidadeCaixa('0');
@@ -198,17 +210,43 @@ Para início da produção é solicitado 50% do valor antecipado e o restante no
 Forma de pagamento: Dinheiro, PIX ou cartão de crédito em 2x, e débito.
 Retirar na loja, não estamos fazendo entrega.`;
 
-    navigator.clipboard.writeText(textoFinal);
-    setCopiado(true);
-    setTimeout(() => setCopiado(false), 2000);
+    // 2. Método Alternativo de Fallback (Para acesso via IP / HTTP)
+    try {
+      const textArea = document.createElement("textarea");
+      textArea.value = textoFinal;
+
+      // Evita dar scroll na tela ao adicionar o elemento
+      textArea.style.top = "0";
+      textArea.style.left = "0";
+      textArea.style.position = "fixed";
+      textArea.style.opacity = "0";
+
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+
+      // Executa o comando de cópia antigo que funciona em HTTP comum
+      const copiadoSucesso = document.execCommand('copy');
+      document.body.removeChild(textArea);
+
+      if (copiadoSucesso) {
+        setCopiado(true);
+        setTimeout(() => setCopiado(false), 2000);
+      } else {
+        alert("Não foi possível copiar automaticamente. Selecione o texto manualmente.");
+      }
+    } catch (err) {
+      console.error("Erro no fallback de cópia: ", err);
+      alert("Erro ao copiar o orçamento.");
+    }
   };
 
   return (
     <main className="max-w-7xl mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-3 gap-6 text-gray-800 bg-gray-200">
-      
+
       {/* COLUNA DA ESQUERDA: CONFIGURAÇÃO DO ITEM */}
       <div className="space-y-6 lg:col-span-1">
-        
+
         {/* Seletor de Modo de Operação */}
         <div className="bg-white rounded-xl shadow-sm p-4 flex gap-2 border border-gray-100">
           <button
@@ -230,12 +268,12 @@ Retirar na loja, não estamos fazendo entrega.`;
         {/* Bloco Material */}
         <section className="bg-white rounded-xl shadow-sm p-5 space-y-4 border border-gray-100">
           <h2 className="text-xl font-bold text-gray-700 pb-2 border-b border-gray-100">1. Especificações</h2>
-          
+
           {modoCalculo === 'chapa' ? (
             <div className="flex flex-col gap-1">
               <label className="text-sm font-medium text-gray-600">Tipo de Material</label>
-              <select 
-                value={tipoMaterial} 
+              <select
+                value={tipoMaterial}
                 onChange={(e) => setTipoMaterial(e.target.value)}
                 className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg outline-none"
               >
@@ -263,8 +301,8 @@ Retirar na loja, não estamos fazendo entrega.`;
 
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium text-gray-600">Cor do Material</label>
-            <select 
-              value={corChapa} 
+            <select
+              value={corChapa}
               onChange={(e) => setCorChapa(e.target.value)}
               className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg outline-none"
             >
@@ -275,12 +313,12 @@ Retirar na loja, não estamos fazendo entrega.`;
 
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium text-gray-600">Espessura</label>
-            <select 
-              value={espessuraChapa} 
+            <select
+              value={espessuraChapa}
               onChange={(e) => setEspessuraChapa(e.target.value)}
               className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg outline-none"
             >
-              {['2','3','4','5','6','8','10','12','15','20'].map(esp => (
+              {['2', '3', '4', '5', '6', '8', '10', '12', '15', '20'].map(esp => (
                 <option key={esp} value={esp}>{esp}mm</option>
               ))}
             </select>
@@ -290,18 +328,18 @@ Retirar na loja, não estamos fazendo entrega.`;
           <div className={`grid gap-4 pt-2 ${modoCalculo === 'chapa' ? 'grid-cols-2' : 'grid-cols-3'}`}>
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-gray-600">Largura X (cm)</label>
-              <input 
-                type="number" 
-                value={larguraChapa} 
+              <input
+                type="number"
+                value={larguraChapa}
                 onChange={(e) => setLarguraChapa(e.target.value)}
                 className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-center"
               />
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-gray-600">Altura Y (cm)</label>
-              <input 
-                type="number" 
-                value={alturaChapa} 
+              <input
+                type="number"
+                value={alturaChapa}
                 onChange={(e) => setAlturaChapa(e.target.value)}
                 className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-center"
               />
@@ -309,9 +347,9 @@ Retirar na loja, não estamos fazendo entrega.`;
             {modoCalculo === 'caixa' && (
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium text-gray-600">Profund. Z (cm)</label>
-                <input 
-                  type="number" 
-                  value={profundidadeCaixa} 
+                <input
+                  type="number"
+                  value={profundidadeCaixa}
                   onChange={(e) => setProfundidadeCaixa(e.target.value)}
                   className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-center focus:border-blue-500 font-bold"
                 />
@@ -325,8 +363,8 @@ Retirar na loja, não estamos fazendo entrega.`;
           <h2 className="text-xl font-bold text-gray-700 pb-2 border-b border-gray-100">2. Personalização</h2>
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium text-gray-600">Tipo de Processo</label>
-            <select 
-              value={tipoPers} 
+            <select
+              value={tipoPers}
               onChange={(e) => setTipoPers(e.target.value)}
               className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg outline-none"
             >
@@ -340,18 +378,18 @@ Retirar na loja, não estamos fazendo entrega.`;
             <div className="grid grid-cols-2 gap-4 pt-2">
               <div className="flex flex-col gap-1">
                 <label className="text-sm font-medium text-gray-600">Largura (cm)</label>
-                <input 
-                  type="number" 
-                  value={larguraPers} 
+                <input
+                  type="number"
+                  value={larguraPers}
                   onChange={(e) => setLarguraPers(e.target.value)}
                   className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-center"
                 />
               </div>
               <div className="flex flex-col gap-1">
                 <label className="text-sm font-medium text-gray-600">Altura (cm)</label>
-                <input 
-                  type="number" 
-                  value={alturaPers} 
+                <input
+                  type="number"
+                  value={alturaPers}
                   onChange={(e) => setAlturaPers(e.target.value)}
                   className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-center"
                 />
@@ -364,10 +402,10 @@ Retirar na loja, não estamos fazendo entrega.`;
         <section className="bg-white rounded-xl shadow-sm p-5 space-y-4 border border-gray-100">
           <div className="flex items-center justify-between">
             <label className="font-medium text-gray-700">Quantidade deste Item:</label>
-            <input 
-              type="number" 
+            <input
+              type="number"
               min="1"
-              value={quantidade} 
+              value={quantidade}
               onChange={(e) => setQuantidade(Math.max(1, Number(e.target.value)))}
               className="w-20 p-2 border border-gray-300 rounded-lg text-center font-bold"
             />
@@ -378,7 +416,7 @@ Retirar na loja, não estamos fazendo entrega.`;
             <p className="text-xs text-blue-600">Área Desenvolvida: {calculoAtual.areaChapa.toFixed(4)} m² | Corte: {(calculoAtual.minutosCorte + calculoAtual.segundosCorte).toFixed(2)} min</p>
           </div>
 
-          <button 
+          <button
             type="button"
             onClick={handleAdicionarItem}
             className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition"
@@ -392,9 +430,9 @@ Retirar na loja, não estamos fazendo entrega.`;
       <div className="lg:col-span-2 space-y-6">
         <div className="bg-white rounded-xl shadow-sm p-4 flex items-center justify-between border border-gray-100">
           <label className="font-semibold text-gray-600">Ajuste de Markup Global (%):</label>
-          <input 
-            type="number" 
-            value={porcentagem} 
+          <input
+            type="number"
+            value={porcentagem}
             onChange={(e) => setPorcentagem(Number(e.target.value))}
             className="w-24 p-2 border border-gray-300 rounded-lg text-center font-bold bg-gray-50"
           />
@@ -403,7 +441,7 @@ Retirar na loja, não estamos fazendo entrega.`;
         <section className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 space-y-4 min-h-[450px] flex flex-col justify-between">
           <div>
             <h2 className="text-2xl font-bold text-gray-700 pb-3 border-b border-gray-100 mb-4">Resumo do Orçamento Multi-Material</h2>
-            
+
             {itens.length === 0 ? (
               <div className="text-center py-12 text-gray-400">
                 <p className="text-lg">Nenhum item adicionado ainda.</p>
@@ -421,7 +459,7 @@ Retirar na loja, não estamos fazendo entrega.`;
                     </div>
                     <div className="flex items-center gap-4">
                       <span className="font-bold text-green-700">R$ {item.valorTotalItem.toFixed(2)}</span>
-                      <button 
+                      <button
                         onClick={() => handleRemoverItem(item.id)}
                         className="text-red-500 hover:text-red-700 text-sm font-medium p-1 transition"
                       >
@@ -443,13 +481,12 @@ Retirar na loja, não estamos fazendo entrega.`;
             <button
               onClick={handleCopiarOrcamento}
               disabled={itens.length === 0}
-              className={`w-full py-4 text-xl font-bold rounded-xl transition shadow-md flex items-center justify-center gap-2 ${
-                itens.length === 0 
-                  ? 'bg-gray-200 text-gray-400 cursor-not-allowed' 
-                  : copiado 
-                    ? 'bg-emerald-600 text-white' 
-                    : 'bg-green-600 text-white hover:bg-green-500'
-              }`}
+              className={`w-full py-4 text-xl font-bold rounded-xl transition shadow-md flex items-center justify-center gap-2 ${itens.length === 0
+                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                : copiado
+                  ? 'bg-emerald-600 text-white'
+                  : 'bg-green-600 text-white hover:bg-green-500'
+                }`}
             >
               {copiado ? '✓ Copiado com Sucesso!' : 'Copiar Orçamento Consolidado'}
             </button>
