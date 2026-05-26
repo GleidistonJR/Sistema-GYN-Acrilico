@@ -14,12 +14,16 @@ export default function CalculadorChapa() {
   const [tipoMaterial, setTipoMaterial] = useState<string>('acrilico');
   const [corChapa, setCorChapa] = useState<string>('cristal');
   const [espessuraChapa, setEspessuraChapa] = useState<string>('2');
-  const [larguraChapa, setLarguraChapa] = useState<string>('0'); // X
-  const [alturaChapa, setAlturaChapa] = useState<string>('0');   // Y
-
+  
+  // Mapeamento correto: Comprimento (X) e Altura da Chapa (Y) para o modo chapa. 
+  // No modo caixa: larguraChapa = Comprimento (C), alturaChapa = Altura (A), profundidadeCaixa = Largura (L)
+  const [larguraChapa, setLarguraChapa] = useState<string>('0'); // Comprimento (C)
+  const [alturaChapa, setAlturaChapa] = useState<string>('0');   // Altura (A)
+  
   // Estados específicos para Caixa
-  const [profundidadeCaixa, setProfundidadeCaixa] = useState<string>('0'); // Z
+  const [profundidadeCaixa, setProfundidadeCaixa] = useState<string>('0'); // Largura (L)
   const [tipoTampa, setTipoTampa] = useState<string>('semTampa');
+
 
   // Personalização e Quantidade
   const [tipoPers, setTipoPers] = useState<string>('nenhum');
@@ -33,14 +37,14 @@ export default function CalculadorChapa() {
 
   // Função interna para calcular os valores em tempo real ANTES de adicionar à lista
   const calculoAtual = useMemo(() => {
-    const nLargura = Number(larguraChapa) / 100; // X
-    const nAltura = Number(alturaChapa) / 100;   // Y
-    const nProfundidade = Number(profundidadeCaixa) / 100; // Z
+    const nComprimento = Number(larguraChapa) / 100; // C (antigo X)
+    const nAltura = Number(alturaChapa) / 100;       // A (antigo Y)
+    const nLargura = Number(profundidadeCaixa) / 100; // L (antigo Z)
 
     const chaveMaterial = tipoMaterial === 'acrilico' ? espessuraChapa : tipoMaterial;
     const configMat = MATERIAIS_CONFIG[chaveMaterial] || { valorMetroQuadrado: 0, speed: 1, label: '' };
 
-    // Fator de espessura adaptativo para o cálculo legado de caixas
+    // Fator de espessura adaptativo para o cálculo de caixas
     let espessuraCalculoCaixa = 0;
     if (modoCalculo === 'caixa') {
       const espessurasMap: { [key: string]: number } = {
@@ -58,25 +62,28 @@ export default function CalculadorChapa() {
     let areaChapa = 0;
     let perimetro = 0;
 
-    // LÓGICA DE GEOMETRIA: CHAPA VS CAIXA
+    // LÓGICA DE GEOMETRIA CORRIGIDA: C x L x A
     if (modoCalculo === 'chapa') {
-      areaChapa = nLargura * nAltura;
-      perimetro = (nLargura * 2 + nAltura * 2) * 100;
+      areaChapa = nComprimento * nAltura; // Para chapa simples, Comprimento x Altura
+      perimetro = (nComprimento * 2 + nAltura * 2) * 100;
     } else {
-      // Cálculos herdados do seu sistema de caixas
+      // Fórmulas adaptadas para o padrão: C = Comprimento, L = Largura, A = Altura
       if (tipoTampa === 'semTampa') {
-        areaChapa = (nLargura * nAltura * 1) + (nLargura * nProfundidade * 2) + (nAltura * nProfundidade * 2);
-        perimetro = (nLargura * 6 + nAltura * 6 + nProfundidade * 8) * 100;
+        // Base (C * L) + 2x Laterais Maiores (C * A) + 2x Laterais Menores (L * A)
+        areaChapa = (nComprimento * nLargura * 1) + (nComprimento * nAltura * 2) + (nLargura * nAltura * 2);
+        perimetro = (nComprimento * 6 + nLargura * 6 + nAltura * 8) * 100;
       } else if (tipoTampa === 'tampaLacrada') {
-        areaChapa = (nLargura * nAltura * 2) + (nLargura * nProfundidade * 2) + (nAltura * nProfundidade * 2);
-        perimetro = (nLargura * 8 + nAltura * 8 + nProfundidade * 8) * 100;
-      } else if (tipoTampa === 'tampa3cm' && nLargura > 0) {
-        areaChapa = (nLargura * nAltura * 2) + (nLargura * nProfundidade * 2) + (nAltura * nProfundidade * 2) + (nLargura * 0.03 * 2) + (nAltura * 0.03 * 2);
-        perimetro = (nLargura * 12 + nAltura * 12 + nProfundidade * 8 + (0.03 * 8)) * 100;
+        // 2x (C * L) + 2x (C * A) + 2x (L * A)
+        areaChapa = (nComprimento * nLargura * 2) + (nComprimento * nAltura * 2) + (nLargura * nAltura * 2);
+        perimetro = (nComprimento * 8 + nLargura * 8 + nAltura * 8) * 100;
+      } else if (tipoTampa === 'tampa3cm' && nComprimento > 0) {
+        // Caixa lacrada + abas da tampa de 3cm
+        areaChapa = (nComprimento * nLargura * 2) + (nComprimento * nAltura * 2) + (nLargura * nAltura * 2) + (nComprimento * 0.03 * 2) + (nLargura * 0.03 * 2);
+        perimetro = (nComprimento * 12 + nLargura * 12 + nAltura * 8 + (0.03 * 8)) * 100;
       } else {
-        // Tampa Total
-        areaChapa = (nLargura * nAltura * 2) + (nLargura * nProfundidade * 2) + (nAltura * nProfundidade * 2) + (nLargura * nProfundidade * 2) + (nAltura * nProfundidade * 2);
-        perimetro = (nLargura * 12 + nAltura * 12 + nProfundidade * 16) * 100;
+        // Tampa Total (Abas na medida total da altura da caixa)
+        areaChapa = (nComprimento * nLargura * 2) + (nComprimento * nAltura * 2) + (nLargura * nAltura * 2) + (nComprimento * nAltura * 2) + (nLargura * nAltura * 2);
+        perimetro = (nComprimento * 12 + nLargura * 12 + nAltura * 16) * 100;
       }
     }
 
@@ -91,7 +98,7 @@ export default function CalculadorChapa() {
 
     const fatorPorcentagem = porcentagem / 100 + 1;
 
-    // Define o valor base do material aplicando a respectiva tabela de preços
+    // Define o valor base do material
     const valorMetroBase = modoCalculo === 'chapa' ? configMat.valorMetroQuadrado : espessuraCalculoCaixa;
     const valorMaterialItem = (areaChapa * valorMetroBase * corPorcento + valorCorte) * fatorPorcentagem;
 
@@ -105,7 +112,7 @@ export default function CalculadorChapa() {
     const valorUnitario = valorMaterialItem + valorPersItem;
     const valorTotalItem = valorUnitario * quantidade;
 
-    // Montagem da descrição textual estruturada para o clipboard
+    // Montagem do texto do orçamento atualizado para C x L x A
     const labelMaterial = tipoMaterial === 'acrilico'
       ? `Acrílico ${corChapa.toUpperCase()} ${espessuraChapa}mm`
       : MATERIAIS_CONFIG[tipoMaterial]?.label || tipoMaterial;
@@ -120,7 +127,8 @@ export default function CalculadorChapa() {
       else if (tipoTampa === 'tampa3cm') descTampa = 'Encaixe com abas de 3cm';
       else descTampa = 'Encaixe com abas na medida total da altura';
 
-      txtItem = `- ${quantidade}x Caixa em ${labelMaterial}, medindo ${larguraChapa}x${alturaChapa}x${profundidadeCaixa}cm (LxAxP) [${descTampa}]`;
+      // Exibição corrigida para o cliente: Comprimento x Largura x Altura (C x L x A)
+      txtItem = `- ${quantidade}x Caixa em ${labelMaterial}, medindo ${larguraChapa}x${profundidadeCaixa}x${alturaChapa}cm (CxLxA) [${descTampa}]`;
     }
 
     if (tipoPers !== 'nenhum') {
@@ -141,18 +149,17 @@ export default function CalculadorChapa() {
   }, [modoCalculo, tipoMaterial, corChapa, espessuraChapa, larguraChapa, alturaChapa, profundidadeCaixa, tipoTampa, tipoPers, larguraPers, alturaPers, quantidade, porcentagem]);
 
   const handleAdicionarItem = () => {
-    // Converte para número e garante que as dimensões sejam maiores que zero
-    const nLargura = Number(larguraChapa);
+    const nComprimento = Number(larguraChapa);
     const nAltura = Number(alturaChapa);
-    const nProfundidade = Number(profundidadeCaixa);
+    const nLargura = Number(profundidadeCaixa);
 
-    if (isNaN(nLargura) || nLargura <= 0 || isNaN(nAltura) || nAltura <= 0) {
-      alert("Por favor, insira uma largura e altura válidas maiores que zero.");
+    if (isNaN(nComprimento) || nComprimento <= 0 || isNaN(nAltura) || nAltura <= 0) {
+      alert("Por favor, insira medidas válidas maiores que zero.");
       return;
     }
 
-    if (modoCalculo === 'caixa' && (isNaN(nProfundidade) || nProfundidade <= 0)) {
-      alert("Por favor, insira uma profundidade válida maior que zero para a caixa.");
+    if (modoCalculo === 'caixa' && (isNaN(nLargura) || nLargura <= 0)) {
+      alert("Por favor, insira uma largura válida maior que zero para a caixa.");
       return;
     }
 
@@ -161,7 +168,7 @@ export default function CalculadorChapa() {
       tipoMaterial: modoCalculo === 'caixa' ? `Caixa (${tipoMaterial})` : tipoMaterial,
       corChapa,
       espessuraChapa,
-      larguraChapa: nLargura,
+      larguraChapa: nComprimento,
       alturaChapa: nAltura,
       tipoPers,
       larguraPers: Number(larguraPers),
@@ -177,7 +184,7 @@ export default function CalculadorChapa() {
 
     setItens([...itens, novoItem]);
 
-    // Resetar campos padrão limpando a string para o usuário digitar de novo
+    // Resetar campos
     setLarguraChapa('0');
     setAlturaChapa('0');
     setProfundidadeCaixa('0');
@@ -210,12 +217,9 @@ Para início da produção é solicitado 50% do valor antecipado e o restante no
 Forma de pagamento: Dinheiro, PIX ou cartão de crédito em 2x, e débito.
 Retirar na loja, não estamos fazendo entrega.`;
 
-    // 2. Método Alternativo de Fallback (Para acesso via IP / HTTP)
     try {
       const textArea = document.createElement("textarea");
       textArea.value = textoFinal;
-
-      // Evita dar scroll na tela ao adicionar o elemento
       textArea.style.top = "0";
       textArea.style.left = "0";
       textArea.style.position = "fixed";
@@ -225,7 +229,6 @@ Retirar na loja, não estamos fazendo entrega.`;
       textArea.focus();
       textArea.select();
 
-      // Executa o comando de cópia antigo que funciona em HTTP comum
       const copiadoSucesso = document.execCommand('copy');
       document.body.removeChild(textArea);
 
@@ -242,10 +245,10 @@ Retirar na loja, não estamos fazendo entrega.`;
   };
 
   return (
-    <main className="max-w-7xl mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-3 gap-6 text-gray-800 bg-gray-200">
+    <main className="max-w-4/5 mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-5 gap-6 text-gray-800 bg-gray-200">
 
       {/* COLUNA DA ESQUERDA: CONFIGURAÇÃO DO ITEM */}
-      <div className="space-y-6 lg:col-span-1">
+      <div className="space-y-6 lg:col-span-2">
 
         {/* Seletor de Modo de Operação */}
         <div className="bg-white rounded-xl shadow-sm p-4 flex gap-2 border border-gray-100">
@@ -324,37 +327,43 @@ Retirar na loja, não estamos fazendo entrega.`;
             </select>
           </div>
 
-          {/* Dimensões Dinâmicas */}
+          {/* NOVOS LABELS DE DIMENSÕES ADAPTADOS PARA C x L x A */}
           <div className={`grid gap-4 pt-2 ${modoCalculo === 'chapa' ? 'grid-cols-2' : 'grid-cols-3'}`}>
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-gray-600">Largura X (cm)</label>
+              <label className="text-xs font-medium text-gray-600">
+                {modoCalculo === 'chapa' ? 'Comprimento X (cm)' : 'Comprimento X (cm)'}
+              </label>
               <input
                 type="number"
                 value={larguraChapa}
                 onChange={(e) => setLarguraChapa(e.target.value)}
-                className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-center"
+                className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-center font-semibold"
               />
             </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-gray-600">Altura Y (cm)</label>
-              <input
-                type="number"
-                value={alturaChapa}
-                onChange={(e) => setAlturaChapa(e.target.value)}
-                className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-center"
-              />
-            </div>
+            
             {modoCalculo === 'caixa' && (
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-gray-600">Profund. Z (cm)</label>
+                <label className="text-xs font-medium text-gray-600">Largura Y (cm)</label>
                 <input
                   type="number"
                   value={profundidadeCaixa}
                   onChange={(e) => setProfundidadeCaixa(e.target.value)}
-                  className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-center focus:border-blue-500 font-bold"
+                  className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-center font-semibold focus:border-blue-500"
                 />
               </div>
             )}
+
+            <div className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-gray-600">
+                {modoCalculo === 'chapa' ? 'Largura Y (cm)' : 'Altura Z (cm)'}
+              </label>
+              <input
+                type="number"
+                value={alturaChapa}
+                onChange={(e) => setAlturaChapa(e.target.value)}
+                className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-center font-semibold"
+              />
+            </div>
           </div>
         </section>
 
@@ -426,8 +435,8 @@ Retirar na loja, não estamos fazendo entrega.`;
         </section>
       </div>
 
-      {/* COLUNA DA DIREITA: ORÇAMENTO CONSOLIDADO MULTI-MATERIAL */}
-      <div className="lg:col-span-2 space-y-6">
+      {/* COLUNA DA DIREITA: ORÇAMENTO CONSOLIDADO */}
+      <div className="lg:col-span-3 space-y-6">
         <div className="bg-white rounded-xl shadow-sm p-4 flex items-center justify-between border border-gray-100">
           <label className="font-semibold text-gray-600">Ajuste de Markup Global (%):</label>
           <input
