@@ -271,7 +271,7 @@ Retirar na loja, não estamos fazendo entrega.`;
   };
 
   return (
-    <main className="max-w-4/5 mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-5 gap-6 text-gray-800 bg-gray-200">
+    <main className="lg:max-w-4/5 mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-5 gap-6 text-gray-800 bg-gray-200">
 
       {/* COLUNA DA ESQUERDA: CONFIGURAÇÃO DO ITEM */}
       <div className="space-y-6 lg:col-span-2">
