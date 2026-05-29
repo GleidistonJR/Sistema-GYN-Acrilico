@@ -31,6 +31,23 @@ export const PERSONALIZACAO_CONFIG: Record<string, { label: string; valor: numbe
   "acrilicoEspelhado": { label: "Acrílico Espelhado", valor: 400 },
 };
 
+export const CHAPA_CONFIG: Record<string, { label: string; valor: number }> = {
+  "2": { label: "Chapa de Acrilico 2mm, (2x1)Metros", valor: 363 },
+  "3": { label: "Chapa de Acrilico 3mm, (2x1)Metros", valor: 537 },
+  "4": { label: "Chapa de Acrilico 4mm, (2x1)Metros", valor: 715 },
+  "5": { label: "Chapa de Acrilico 5mm, (2x1)Metros", valor: 894 },
+  "6": { label: "Chapa de Acrilico 6mm, (2x1)Metros", valor: 1072 },
+  "8": { label: "Chapa de Acrilico 8mm, (2x1)Metros", valor: 1430 },
+  "10": { label: "Chapa de Acrilico 10mm, (2x1)Metros", valor: 1788 },
+  "12": { label: "Chapa de Acrilico 12mm, (2x1)Metros", valor: 2234 },
+  "15": { label: "Chapa de Acrilico 15mm, (2x1)Metros", valor: 2933 },
+  "20": { label: "Chapa de Acrilico 20mm, (2x1)Metros", valor: 4140 },
+  "pvc": { label: "Chapa PVC, (2,4x1,2)Metros", valor: 216 },
+  "abs": { label: "Chapa ABS-Trotek, (1x0,6)Metros", valor: 650 },
+  "espelhado": { label: "Chapa de Acrilico espelhado, (2x1)Metros", valor: 423 },
+  "psai": { label: "Chapa de PSAI, (2x1)Metros", valor: 90 },
+};
+
 // Definição de um item do orçamento
 export interface ItemOrcamento {
   id: string;

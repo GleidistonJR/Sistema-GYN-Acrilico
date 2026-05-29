@@ -29,8 +29,8 @@ export default function RegistroPonto() {
 
 
   return (
-    <main className='py-16'>
-      <h1 className='text-6xl my-6 text-center text-gray-700 font-bold'>Registrar Ponto</h1>
+    <main className='py-0'>
+      <h1 className='text-6xl my-5 text-center text-gray-700 font-bold'>Registrar Ponto</h1>
 
       <div className='text-center text-3xl w-100 mx-auto'>
 
@@ -38,7 +38,7 @@ export default function RegistroPonto() {
           format="###.###.###-##"
           mask="_"
           placeholder="000.000.000-00"
-          className='border rounded my-5 text-black p-2 w-full'
+          className='border rounded mb-5 text-black p-2 w-full'
           value={cpf}
           // values é um objeto que contém 'value' (apenas números) e 'formattedValue' (com máscara)
           onValueChange={(values) => {

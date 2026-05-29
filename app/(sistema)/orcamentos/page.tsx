@@ -1,7 +1,8 @@
 'use client';
+import { Eye, Pencil, Trash2 } from 'lucide-react';
 
 import React, { useState, useMemo } from 'react';
-import { MATERIAIS_CONFIG, PERSONALIZACAO_CONFIG, ItemOrcamento } from './constants';
+import { MATERIAIS_CONFIG, PERSONALIZACAO_CONFIG, CHAPA_CONFIG, ItemOrcamento } from './constants';
 
 export default function CalculadorChapa() {
   // Ajuste global de markup
@@ -14,12 +15,12 @@ export default function CalculadorChapa() {
   const [tipoMaterial, setTipoMaterial] = useState<string>('acrilico');
   const [corChapa, setCorChapa] = useState<string>('cristal');
   const [espessuraChapa, setEspessuraChapa] = useState<string>('2');
-  
+
   // Mapeamento correto: Comprimento (X) e Altura da Chapa (Y) para o modo chapa. 
   // No modo caixa: larguraChapa = Comprimento (C), alturaChapa = Altura (A), profundidadeCaixa = Largura (L)
   const [larguraChapa, setLarguraChapa] = useState<string>('0'); // Comprimento (C)
   const [alturaChapa, setAlturaChapa] = useState<string>('0');   // Altura (A)
-  
+
   // Estados específicos para Caixa
   const [profundidadeCaixa, setProfundidadeCaixa] = useState<string>('0'); // Largura (L)
   const [tipoTampa, setTipoTampa] = useState<string>('semTampa');
@@ -35,16 +36,49 @@ export default function CalculadorChapa() {
   const [itens, setItens] = useState<ItemOrcamento[]>([]);
   const [copiado, setCopiado] = useState<boolean>(false);
 
+
+
   // Função interna para calcular os valores em tempo real ANTES de adicionar à lista
   const calculoAtual = useMemo(() => {
-    const nComprimento = Number(larguraChapa) / 100; // C (antigo X)
-    const nAltura = Number(alturaChapa) / 100;       // A (antigo Y)
-    const nLargura = Number(profundidadeCaixa) / 100; // L (antigo Z)
+    // 1. ATALHO DIRETO PARA CHAPA INTEIRA (Preço Fixo da Lista)
+    if (modoCalculo === 'chapaInteira') {
+      const chaveMaterial = tipoMaterial === 'acrilico' ? espessuraChapa : tipoMaterial;
+      const configChapa = CHAPA_CONFIG[chaveMaterial] || { label: 'Chapa Inteira', valor: 0 };
+
+      // Aplica a cor (se for acrílico colorido aumenta 20%)
+      let corPorcento = 1.0;
+      if (tipoMaterial === 'acrilico' && corChapa === 'colorido') {
+        corPorcento = 1.2;
+      }
+
+      const fatorPorcentagem = porcentagem / 100 + 1;
+
+      // Cálculo final simplificado
+      const valorUnitario = configChapa.valor * corPorcento * fatorPorcentagem;
+      const valorTotalItem = valorUnitario * quantidade;
+
+      const txtItem = `- ${quantidade}x ${configChapa.label} ${tipoMaterial === 'acrilico' ? corChapa.toUpperCase() : ''}: R$ ${valorTotalItem.toFixed(2)}`;
+
+      return {
+        areaChapa: 0, // Mantém o padrão que você definiu
+        areaPers: 0,
+        valorMaterial: valorTotalItem,
+        valorPers: 0,
+        valorTotalItem,
+        minutosCorte: 0,
+        segundosCorte: 0,
+        txtItem
+      };
+    }
+
+    // 2. CÁLCULOS RESTANTES (Chapa Fracionada e Caixas)
+    const nComprimento = Number(larguraChapa) / 100;
+    const nAltura = Number(alturaChapa) / 100;
+    const nLargura = Number(profundidadeCaixa) / 100;
 
     const chaveMaterial = tipoMaterial === 'acrilico' ? espessuraChapa : tipoMaterial;
     const configMat = MATERIAIS_CONFIG[chaveMaterial] || { valorMetroQuadrado: 0, speed: 1, label: '' };
 
-    // Fator de espessura adaptativo para o cálculo de caixas
     let espessuraCalculoCaixa = 0;
     if (modoCalculo === 'caixa') {
       const espessurasMap: { [key: string]: number } = {
@@ -62,32 +96,26 @@ export default function CalculadorChapa() {
     let areaChapa = 0;
     let perimetro = 0;
 
-    // LÓGICA DE GEOMETRIA CORRIGIDA: C x L x A
     if (modoCalculo === 'chapa') {
-      areaChapa = nComprimento * nAltura; // Para chapa simples, Comprimento x Altura
+      areaChapa = nComprimento * nAltura;
       perimetro = (nComprimento * 2 + nAltura * 2) * 100;
     } else {
-      // Fórmulas adaptadas para o padrão: C = Comprimento, L = Largura, A = Altura
+      // Aqui entram as fórmulas das caixas perfeitamente isoladas
       if (tipoTampa === 'semTampa') {
-        // Base (C * L) + 2x Laterais Maiores (C * A) + 2x Laterais Menores (L * A)
         areaChapa = (nComprimento * nLargura * 1) + (nComprimento * nAltura * 2) + (nLargura * nAltura * 2);
         perimetro = (nComprimento * 6 + nLargura * 6 + nAltura * 8) * 100;
       } else if (tipoTampa === 'tampaLacrada') {
-        // 2x (C * L) + 2x (C * A) + 2x (L * A)
         areaChapa = (nComprimento * nLargura * 2) + (nComprimento * nAltura * 2) + (nLargura * nAltura * 2);
         perimetro = (nComprimento * 8 + nLargura * 8 + nAltura * 8) * 100;
       } else if (tipoTampa === 'tampa3cm' && nComprimento > 0) {
-        // Caixa lacrada + abas da tampa de 3cm
         areaChapa = (nComprimento * nLargura * 2) + (nComprimento * nAltura * 2) + (nLargura * nAltura * 2) + (nComprimento * 0.03 * 2) + (nLargura * 0.03 * 2);
         perimetro = (nComprimento * 12 + nLargura * 12 + nAltura * 8 + (0.03 * 8)) * 100;
       } else {
-        // Tampa Total (Abas na medida total da altura da caixa)
         areaChapa = (nComprimento * nLargura * 2) + (nComprimento * nAltura * 2) + (nLargura * nAltura * 2) + (nComprimento * nAltura * 2) + (nLargura * nAltura * 2);
         perimetro = (nComprimento * 12 + nLargura * 12 + nAltura * 16) * 100;
       }
     }
 
-    // Cálculo do corte (Laser/Router)
     const tempCorte = perimetro / configMat.speed;
     const minutosCorte = Math.floor(tempCorte / 60);
     const segundosCorte = (tempCorte % 60) / 100;
@@ -98,11 +126,9 @@ export default function CalculadorChapa() {
 
     const fatorPorcentagem = porcentagem / 100 + 1;
 
-    // Define o valor base do material
     const valorMetroBase = modoCalculo === 'chapa' ? configMat.valorMetroQuadrado : espessuraCalculoCaixa;
     const valorMaterialItem = (areaChapa * valorMetroBase * corPorcento + valorCorte) * fatorPorcentagem;
 
-    // Personalização
     const nLarguraPers = Number(larguraPers) / 100;
     const nAlturaPers = Number(alturaPers) / 100;
     const areaPers = nLarguraPers * nAlturaPers;
@@ -112,7 +138,6 @@ export default function CalculadorChapa() {
     const valorUnitario = valorMaterialItem + valorPersItem;
     const valorTotalItem = valorUnitario * quantidade;
 
-    // Montagem do texto do orçamento atualizado para C x L x A
     const labelMaterial = tipoMaterial === 'acrilico'
       ? `Acrílico ${corChapa.toUpperCase()} ${espessuraChapa}mm`
       : MATERIAIS_CONFIG[tipoMaterial]?.label || tipoMaterial;
@@ -127,7 +152,6 @@ export default function CalculadorChapa() {
       else if (tipoTampa === 'tampa3cm') descTampa = 'Encaixe com abas de 3cm';
       else descTampa = 'Encaixe com abas na medida total da altura';
 
-      // Exibição corrigida para o cliente: Comprimento x Largura x Altura (C x L x A)
       txtItem = `- ${quantidade}x Caixa em ${labelMaterial}, medindo ${larguraChapa}x${profundidadeCaixa}x${alturaChapa}cm (CxLxA) [${descTampa}]`;
     }
 
@@ -153,9 +177,11 @@ export default function CalculadorChapa() {
     const nAltura = Number(alturaChapa);
     const nLargura = Number(profundidadeCaixa);
 
-    if (isNaN(nComprimento) || nComprimento <= 0 || isNaN(nAltura) || nAltura <= 0) {
-      alert("Por favor, insira medidas válidas maiores que zero.");
-      return;
+    if (modoCalculo != 'chapaInteira') {
+      if (isNaN(nComprimento) || nComprimento <= 0 || isNaN(nAltura) || nAltura <= 0) {
+        alert("Por favor, insira medidas válidas maiores que zero.");
+        return;
+      }
     }
 
     if (modoCalculo === 'caixa' && (isNaN(nLargura) || nLargura <= 0)) {
@@ -185,9 +211,9 @@ export default function CalculadorChapa() {
     setItens([...itens, novoItem]);
 
     // Resetar campos
-    setLarguraChapa('0');
-    setAlturaChapa('0');
-    setProfundidadeCaixa('0');
+    //setLarguraChapa('0');
+    //setAlturaChapa('0');
+    //setProfundidadeCaixa('0');
     setQuantidade(1);
   };
 
@@ -202,7 +228,7 @@ export default function CalculadorChapa() {
   const handleCopiarOrcamento = () => {
     if (itens.length === 0) return;
 
-    const textoItens = itens.map(item => item.descricaoTexto).join('\n');
+    const textoItens = itens.map(item => item.descricaoTexto).join('\n\n');
 
     const textoFinal = `*ORÇAMENTO GOIÂNIA ACRÍLICO*
 ----------------------------------------
@@ -266,13 +292,21 @@ Retirar na loja, não estamos fazendo entrega.`;
           >
             Caixa em acrilico
           </button>
+          <button
+            type="button"
+            onClick={() => { setModoCalculo('chapaInteira'); setTipoMaterial('acrilico'); }}
+            className={`flex-1 py-2 text-sm font-bold rounded-lg transition ${modoCalculo === 'chapaInteira' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'}`}
+          >
+            Chapa Inteira
+          </button>
         </div>
 
         {/* Bloco Material */}
         <section className="bg-white rounded-xl shadow-sm p-5 space-y-4 border border-gray-100">
           <h2 className="text-xl font-bold text-gray-700 pb-2 border-b border-gray-100">1. Especificações</h2>
 
-          {modoCalculo === 'chapa' ? (
+          {/* 1. SELEÇÃO DE ACORDO COM O MODO DE CÁLCULO */}
+          {modoCalculo === 'chapa' && (
             <div className="flex flex-col gap-1">
               <label className="text-sm font-medium text-gray-600">Tipo de Material</label>
               <select
@@ -286,7 +320,9 @@ Retirar na loja, não estamos fazendo entrega.`;
                 <option value="espelhado">Espelhado</option>
               </select>
             </div>
-          ) : (
+          )}
+
+          {modoCalculo === 'caixa' && (
             <div className="flex flex-col gap-1">
               <label className="text-sm font-medium text-gray-600">Tipo de Tampa da Caixa</label>
               <select
@@ -302,76 +338,106 @@ Retirar na loja, não estamos fazendo entrega.`;
             </div>
           )}
 
-          <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-gray-600">Cor do Material</label>
-            <select
-              value={corChapa}
-              onChange={(e) => setCorChapa(e.target.value)}
-              className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg outline-none"
-            >
-              <option value="cristal">Cristal</option>
-              <option value="colorido">Colorido (1.2x)</option>
-            </select>
-          </div>
-
-          <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-gray-600">Espessura</label>
-            <select
-              value={espessuraChapa}
-              onChange={(e) => setEspessuraChapa(e.target.value)}
-              className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg outline-none"
-            >
-              {['2', '3', '4', '5', '6', '8', '10', '12', '15', '20'].map(esp => (
-                <option key={esp} value={esp}>{esp}mm</option>
-              ))}
-            </select>
-          </div>
-
-          {/* NOVOS LABELS DE DIMENSÕES ADAPTADOS PARA C x L x A */}
-          <div className={`grid gap-4 pt-2 ${modoCalculo === 'chapa' ? 'grid-cols-2' : 'grid-cols-3'}`}>
+          {modoCalculo === 'chapaInteira' && (
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-gray-600">
-                {modoCalculo === 'chapa' ? 'Comprimento X (cm)' : 'Comprimento X (cm)'}
-              </label>
-              <input
-                type="number"
-                value={larguraChapa}
-                onChange={(e) => setLarguraChapa(e.target.value)}
-                className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-center font-semibold"
-              />
+              <label className="text-sm font-medium text-gray-600">Tipo de Material (Chapa Inteira)</label>
+              <select
+                value={tipoMaterial}
+                onChange={(e) => setTipoMaterial(e.target.value)}
+                className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg outline-none"
+              >
+                {/* Aqui você pode listar apenas o que vende em chapa fechada */}
+                <option value="acrilico">Acrílico</option>
+                <option value="pvc">PVC</option>
+                <option value="abs">ABS-Trotek</option>
+                <option value="espelhado">Espelhado</option>
+                <option value="psai">PS AI</option>
+              </select>
             </div>
-            
-            {modoCalculo === 'caixa' && (
+          )}
+
+          {/* 2. FILTRO DE COR E ESPESSURA (Aparece para Chapa Comum e Chapa Inteira) */}
+          {(tipoMaterial === "acrilico") && (
+            <>
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-gray-600">Largura Y (cm)</label>
+                <label className="text-sm font-medium text-gray-600">Cor do Material</label>
+                <select
+                  value={corChapa}
+                  onChange={(e) => setCorChapa(e.target.value)}
+                  className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg outline-none"
+                >
+                  <option value="cristal">Cristal</option>
+                  <option value="colorido">Colorido (1.2x)</option>
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <label className="text-sm font-medium text-gray-600">Espessura</label>
+                <select
+                  value={espessuraChapa}
+                  onChange={(e) => setEspessuraChapa(e.target.value)}
+                  className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg outline-none"
+                >
+                  {['2', '3', '4', '5', '6', '8', '10', '12', '15', '20'].map(esp => (
+                    <option key={esp} value={esp}>{esp}mm</option>
+                  ))}
+                </select>
+              </div>
+            </>
+          )}
+
+          {/* 3. INPUTS DE DIMENSÕES (SÓ APARECEM SE NÃO FOR CHAPA INTEIRA) */}
+          {modoCalculo !== 'chapaInteira' ? (
+            <div className={`grid gap-4 pt-2 ${modoCalculo === 'chapa' ? 'grid-cols-2' : 'grid-cols-3'}`}>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-gray-600">
+                  Comprimento X (cm)
+                </label>
                 <input
                   type="number"
-                  value={profundidadeCaixa}
-                  onChange={(e) => setProfundidadeCaixa(e.target.value)}
-                  className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-center font-semibold focus:border-blue-500"
+                  value={larguraChapa}
+                  onChange={(e) => setLarguraChapa(e.target.value)}
+                  className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-center font-semibold"
                 />
               </div>
-            )}
 
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-gray-600">
-                {modoCalculo === 'chapa' ? 'Largura Y (cm)' : 'Altura Z (cm)'}
-              </label>
-              <input
-                type="number"
-                value={alturaChapa}
-                onChange={(e) => setAlturaChapa(e.target.value)}
-                className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-center font-semibold"
-              />
+              {modoCalculo === 'caixa' && (
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-gray-600">Largura Y (cm)</label>
+                  <input
+                    type="number"
+                    value={profundidadeCaixa}
+                    onChange={(e) => setProfundidadeCaixa(e.target.value)}
+                    className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-center font-semibold focus:border-blue-500"
+                  />
+                </div>
+              )}
+
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-gray-600">
+                  {modoCalculo === 'chapa' ? 'Largura Y (cm)' : 'Altura Z (cm)'}
+                </label>
+                <input
+                  type="number"
+                  value={alturaChapa}
+                  onChange={(e) => setAlturaChapa(e.target.value)}
+                  className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-center font-semibold"
+                />
+              </div>
             </div>
-          </div>
+          ) : (
+            /* AVISO VISUAL PRO USUÁRIO NO LUGAR DOS INPUTS */
+            <div className="p-3 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg text-sm font-medium text-center">
+              Cálculo baseado na medida padrão da chapa inteira (2x1 metros ou correspondente).
+            </div>
+          )}
         </section>
 
         {/* Bloco Personalização */}
         <section className="bg-white rounded-xl shadow-sm p-5 space-y-4 border border-gray-100">
           <h2 className="text-xl font-bold text-gray-700 pb-2 border-b border-gray-100">2. Personalização</h2>
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-gray-600">Tipo de Processo</label>
+            <label className="text-sm font-medium text-gray-600">Tipo de Personalização</label>
             <select
               value={tipoPers}
               onChange={(e) => setTipoPers(e.target.value)}
@@ -386,7 +452,7 @@ Retirar na loja, não estamos fazendo entrega.`;
           {tipoPers !== 'nenhum' && (
             <div className="grid grid-cols-2 gap-4 pt-2">
               <div className="flex flex-col gap-1">
-                <label className="text-sm font-medium text-gray-600">Largura (cm)</label>
+                <label className="text-sm font-medium text-gray-600">Comprimento (cm)</label>
                 <input
                   type="number"
                   value={larguraPers}
@@ -395,7 +461,7 @@ Retirar na loja, não estamos fazendo entrega.`;
                 />
               </div>
               <div className="flex flex-col gap-1">
-                <label className="text-sm font-medium text-gray-600">Altura (cm)</label>
+                <label className="text-sm font-medium text-gray-600">Largura (cm)</label>
                 <input
                   type="number"
                   value={alturaPers}
@@ -406,6 +472,21 @@ Retirar na loja, não estamos fazendo entrega.`;
             </div>
           )}
         </section>
+
+        <div className="bg-white rounded-xl shadow-sm p-4 flex items-center justify-between border border-gray-100">
+          <label className="font-semibold text-gray-600">Ajuste de Markup Global (%):</label>
+          <input
+            type="number"
+            value={porcentagem}
+            onChange={(e) => setPorcentagem(Number(e.target.value))}
+            className="w-24 p-2 border border-gray-300 rounded-lg text-center font-bold bg-gray-50"
+          />
+        </div>
+
+      </div>
+
+      {/* COLUNA DA DIREITA: ORÇAMENTO CONSOLIDADO */}
+      <div className="lg:col-span-3 space-y-6">
 
         {/* Quantidade e Botão Adicionar */}
         <section className="bg-white rounded-xl shadow-sm p-5 space-y-4 border border-gray-100">
@@ -433,19 +514,6 @@ Retirar na loja, não estamos fazendo entrega.`;
             + Adicionar ao Orçamento
           </button>
         </section>
-      </div>
-
-      {/* COLUNA DA DIREITA: ORÇAMENTO CONSOLIDADO */}
-      <div className="lg:col-span-3 space-y-6">
-        <div className="bg-white rounded-xl shadow-sm p-4 flex items-center justify-between border border-gray-100">
-          <label className="font-semibold text-gray-600">Ajuste de Markup Global (%):</label>
-          <input
-            type="number"
-            value={porcentagem}
-            onChange={(e) => setPorcentagem(Number(e.target.value))}
-            className="w-24 p-2 border border-gray-300 rounded-lg text-center font-bold bg-gray-50"
-          />
-        </div>
 
         <section className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 space-y-4 min-h-[450px] flex flex-col justify-between">
           <div>
@@ -457,23 +525,31 @@ Retirar na loja, não estamos fazendo entrega.`;
                 <p className="text-sm">Configure a chapa ou caixa ao lado e adicione à lista.</p>
               </div>
             ) : (
-              <div className="divide-y divide-gray-100 max-h-[400px] overflow-y-auto pr-2">
+              <div className="divide-y divide-gray-300 max-h-[400px] overflow-y-auto pr-2">
                 {itens.map((item) => (
                   <div key={item.id} className="py-3 flex justify-between items-center group">
                     <div className="space-y-0.5">
                       <p className="font-medium text-gray-900">{item.descricaoTexto.split(':')[0]}</p>
                       <p className="text-xs text-gray-500">
-                        Área total calculada: {item.areaChapa.toFixed(4)}m² {item.larguraPers > 0 && `| Área Pers: ${item.areaPers.toFixed(4)}m²`}
+                        Área total calculada: {item.areaChapa.toFixed(4)}m² {item.tipoPers != 'nenhum' && `| Área Pers: ${item.areaPers.toFixed(4)}m²`}
                       </p>
                     </div>
-                    <div className="flex items-center gap-4">
-                      <span className="font-bold text-green-700">R$ {item.valorTotalItem.toFixed(2)}</span>
-                      <button
-                        onClick={() => handleRemoverItem(item.id)}
-                        className="text-red-500 hover:text-red-700 text-sm font-medium p-1 transition"
-                      >
-                        Remover
-                      </button>
+                    <div className="flex flex-col  gap-4">
+                      <span className="font-bold text-lg text-green-700 text-center">R$ {item.valorTotalItem.toFixed(2)}</span>
+                      <div className='flex gap-4'>
+                        <button
+                          onClick={() => handleRemoverItem(item.id)}
+                          className="bg-amber-100 text-amber-700 p-3 m-0 rounded-full hover:bg-amber-200 hover:cursor-pointer"
+                        >
+                          <Pencil size={18} />
+                        </button>
+                        <button
+                          onClick={() => handleRemoverItem(item.id)}
+                          className="bg-red-100 text-red-700 p-3 m-0 rounded-full hover:bg-red-200 hover:cursor-pointer"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -501,6 +577,12 @@ Retirar na loja, não estamos fazendo entrega.`;
             </button>
           </div>
         </section>
+
+        <div className='flex justify-end'>
+          <button className='bg-red-600 px-10 py-2 text-2xl text-white rounded-full 
+          hover:bg-red-700 hover:cursor-pointer' onClick={() => window.location.reload()}>Limpar Tudo</button>
+
+        </div>
       </div>
     </main>
   );
