@@ -515,7 +515,7 @@ Retirar na loja, não estamos fazendo entrega.`;
           </button>
         </section>
 
-        <section className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 space-y-4 min-h-[450px] flex flex-col justify-between">
+        <section className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 space-y-4 min-h-112.5 flex flex-col justify-between">
           <div>
             <h2 className="text-2xl font-bold text-gray-700 pb-3 border-b border-gray-100 mb-4">Resumo do Orçamento Multi-Material</h2>
 
@@ -525,7 +525,7 @@ Retirar na loja, não estamos fazendo entrega.`;
                 <p className="text-sm">Configure a chapa ou caixa ao lado e adicione à lista.</p>
               </div>
             ) : (
-              <div className="divide-y divide-gray-300 max-h-[400px] overflow-y-auto pr-2">
+              <div className="divide-y divide-gray-300 max-h-100 overflow-y-auto pr-2">
                 {itens.map((item) => (
                   <div key={item.id} className="py-3 flex justify-between items-center group">
                     <div className="space-y-0.5">

@@ -10,6 +10,15 @@ interface Colaboradortype {
   salario: number;
 }
 
+interface Pontos {
+  id: number;
+  cpf: string;
+  dataHora: Date | string;
+  tipo: string;
+  colaborador: { nome: string };
+}
+
+
 // FUNÇÃO 1: CRIAR
 export async function salvarColaborador(dados: Colaboradortype) {
   try {
@@ -92,5 +101,108 @@ export async function deletarColaborador(id: number) {
     console.error("Erro ao deletar:", error);
     return { sucesso: false, erro: "Não foi possível excluir o colaborador." };
   }
+}
+
+export async function atualizarPonto(dados: Pontos, motivo: string) {
+  try {
+    if (dados.id) {
+      // Se tem ID, é um UPDATE (prisma.colaborador.update...)
+      const pontoAtualizado = await prisma.ponto.update({
+        where: {
+          id: dados.id, // Critério de busca (obrigatório ser um campo @unique)
+        },
+        data: {
+          cpf: dados.cpf,
+          dataHora: dados.dataHora,
+          tipo: dados.tipo
+        },
+      });
+
+      revalidatePath("/relatorioPontosAdmin");
+      return { sucesso: true, colaborador: pontoAtualizado };
+    }
+  } catch (error) {
+    console.error("Erro ao salvar colaborador:", error);
+    return { sucesso: false, erro: "Não foi possível salvar o colaborador." };
+  }
+}
+
+
+export async function deletarPonto(id: number) {
+  try {
+
+    await prisma.ponto.delete({
+      where: {
+        id: id,
+      },
+    });
+
+    // Isso avisa ao Next.js para limpar o cache e mostrar a lista atualizada
+    revalidatePath("/relatorioPontosAdmin");
+
+    return { sucesso: true };
+  } catch (error) {
+    console.error("Erro ao deletar:", error);
+    return { sucesso: false, erro: "Não foi possível excluir o colaborador." };
+  }
+}
+
+export async function adicionarPontoManual(formData: FormData) {
+  const colaboradorId = Number(formData.get("colaboradorId"));
+  const dataHoraRaw = formData.get("dataHora") as string;
+  const tipo = formData.get("tipo") as string;
+
+  if (!colaboradorId || !dataHoraRaw || !tipo) {
+    throw new Error("Preencha todos os campos obrigatórios.");
+  }
+
+  await prisma.ponto.create({
+    data: {
+      dataHora: new Date(dataHoraRaw),
+      tipo: tipo,
+      colaborador: {
+        connect: {
+          id: colaboradorId,
+        },
+      },
+    },
+  });
+}
+
+
+export async function adicionarAtestado(formData: FormData) {
+  const colaboradorId = Number(formData.get("colaboradorId"));
+  const dataAtestadoRaw = formData.get("data") as string;
+  const horas = Number(formData.get("horas"));
+  const minutos = Number(formData.get("minutos"));
+
+  if (!colaboradorId || !dataAtestadoRaw || isNaN(horas) || isNaN(minutos)) {
+    throw new Error("Dados obrigatórios ausentes ou inválidos.");
+  }
+
+  const [ano, mes, dia] = dataAtestadoRaw.split("-").map(Number);
+  const dataHora = new Date(ano, mes - 1, dia, 12, 0, 0, 0);
+
+  if (isNaN(dataHora.getTime())) {
+    throw new Error("A data fornecida é inválida.");
+  }
+
+  // Calculamos os minutos totais desse atestado
+  const minutosAbonados = (horas * 60) + minutos;
+
+  await prisma.ponto.create({
+    data: {
+      dataHora,
+      // SALVAMOS OS MINUTOS NO TIPO: Ex: "Atestado: 240" (para 4 horas)
+      tipo: `Atestado: ${minutosAbonados}`,
+      colaborador: {
+        connect: {
+          id: colaboradorId,
+        },
+      },
+    },
+  });
+
+  revalidatePath(`/administracao/colaboradores/${colaboradorId}`);
 }
 
