@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { adicionarAtestado } from "../actions"; // Ajuste o import do seu arquivo de actions
 
+
 interface ModalAtestadoProps {
   colaboradorId: number;
 }
@@ -41,7 +42,7 @@ export default function ModalAtestado({ colaboradorId }: ModalAtestadoProps) {
     <>
       <button
         onClick={() => setIsOpen(true)}
-        className="bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors shadow-sm"
+        className="bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors shadow-sm"
       >
         + Adicionar Atestado
       </button>
