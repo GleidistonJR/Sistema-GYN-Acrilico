@@ -206,3 +206,33 @@ export async function adicionarAtestado(formData: FormData) {
   revalidatePath(`/administracao/colaboradores/${colaboradorId}`);
 }
 
+export async function criarFeriado(colaboradorId: number | string, dataStr: string) {
+  try {
+    // 1. Converte e garante que o ID é um número válido
+    const idValido = Number(colaboradorId);
+
+    if (!idValido || isNaN(idValido)) {
+      throw new Error("ID do colaborador inválido ou não fornecido.");
+    }
+
+    const dataHoraFeriado = new Date(`${dataStr}T12:00:00`);
+
+    // 2. Cria o ponto usando o connect para evitar o erro do Prisma
+    await prisma.ponto.create({
+      data: {
+        dataHora: dataHoraFeriado,
+        tipo: "Feriado",
+        colaborador: {
+          connect: { id: idValido } // Altera de colaboradorId para connect
+        }
+      },
+    });
+
+    revalidatePath(`/administracao/colaboradores/${idValido}`);
+    
+    return { success: true };
+  } catch (error) {
+    console.error("Erro ao criar feriado:", error);
+    throw new Error("Não foi possível registrar o feriado.");
+  }
+}

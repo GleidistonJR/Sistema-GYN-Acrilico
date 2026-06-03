@@ -60,3 +60,8 @@ Ideal para testes rápidos ou prototipagem direta.
 npx prisma generate
 ```
 Rode se o editor não reconhecer os novos campos.
+
+
+## pm2 status
+## pm2 stop 'nome'
+## pm2 start 'nome'

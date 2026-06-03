@@ -53,13 +53,19 @@ export default async function DetalhesColaborador({ params, searchParams }: Deta
   const pontosPorDia: { [data: string]: Date[] } = {};
   let totalMinutosAtestado = 0;
   const diasComAtestado = new Set<string>();
-  
-  // Conjunto para monitorar todos os dias que tiveram qualquer atividade (ponto ou atestado)
+  const diasComFeriado = new Set<string>();
+
+  // Conjunto para monitorar todos os dias que tiveram qualquer atividade
   const diasAtivosNoMes = new Set<string>();
 
   colaborador.pontos.forEach((ponto) => {
     const dataStr = ponto.dataHora.toISOString().split('T')[0];
-    diasAtivosNoMes.add(dataStr); // Conta como dia trabalhado/justificado
+    diasAtivosNoMes.add(dataStr);
+
+    if (ponto.tipo === "Feriado") {
+      diasComFeriado.add(dataStr);
+      return;
+    }
 
     if (ponto.tipo.startsWith("Atestado")) {
       diasComAtestado.add(dataStr);
@@ -80,7 +86,7 @@ export default async function DetalhesColaborador({ params, searchParams }: Deta
   let totalMinutosTrabalhadosReais = 0;
   let diasCompletos = 0;
   let diasIncompletos = 0;
-  let saldoMinutosCompleto = 0; 
+  let saldoMinutosCompleto = 0;
 
   interface LinhaRelatorio {
     dataObjeto: Date;
@@ -88,8 +94,9 @@ export default async function DetalhesColaborador({ params, searchParams }: Deta
     trabalhado: number;
     abono: number;
     saldoTexto: string;
+    isFeriado: boolean;
   }
-  const linhasParaImpressao: { [data: string]: LinhaRelatorio } = {};
+  const linesParaImpressao: { [data: string]: LinhaRelatorio } = {};
 
   // 1. PROCESSAR DIAS COM BATIDAS FÍSICAS
   Object.entries(pontosPorDia).forEach(([dataStr, horarios]) => {
@@ -110,24 +117,32 @@ export default async function DetalhesColaborador({ params, searchParams }: Deta
       minutosAtestadoDoDia = Number(pontoAtestadoDoDia.tipo.split(": ")[1] || 0);
     }
 
+    const ehFeriado = diasComFeriado.has(dataStr);
     const totalCompensadoNoDia = minutosTrabalhadosNoDia + minutosAtestadoDoDia;
     const data = new Date(`${dataStr}T12:00:00`);
     const ehDiaUtil = data.getDay() >= 1 && data.getDay() <= 5;
 
     let textoSaldo = "0h 00m";
 
-    if (ehDiaUtil) {
+    if (ehFeriado) {
+      // Se houve trabalho no feriado, conta integral como extra. Se não, fica zerado (sem débito).
+      if (totalCompensadoNoDia > 0) {
+        saldoMinutosCompleto += totalCompensadoNoDia;
+        textoSaldo = `+ ${Math.floor(totalCompensadoNoDia / 60)}h ${String(totalCompensadoNoDia % 60).padStart(2, '0')}m`;
+      }
+      diasCompletos++;
+    } else if (ehDiaUtil) {
       const desvioDiario = totalCompensadoNoDia - MINUTOS_ESPERADOS_POR_DIA;
 
       if (Math.abs(desvioDiario) <= TOLERANCIA_CLT_MINUTOS) {
-        saldoMinutosCompleto += 0; 
+        saldoMinutosCompleto += 0;
         diasCompletos++;
       } else {
         saldoMinutosCompleto += desvioDiario;
-        textoSaldo = desvioDiario > 0 
-          ? `+ ${Math.floor(desvioDiario / 60)}h ${String(desvioDiario % 60).padStart(2, '0')}m` 
+        textoSaldo = desvioDiario > 0
+          ? `+ ${Math.floor(desvioDiario / 60)}h ${String(desvioDiario % 60).padStart(2, '0')}m`
           : `- ${Math.floor(Math.abs(desvioDiario) / 60)}h ${String(Math.abs(desvioDiario) % 60).padStart(2, '0')}m`;
-        
+
         if (desvioDiario > 0) { diasCompletos++; } else { diasIncompletos++; }
       }
     } else {
@@ -138,12 +153,13 @@ export default async function DetalhesColaborador({ params, searchParams }: Deta
       diasCompletos++;
     }
 
-    linhasParaImpressao[dataStr] = {
+    linesParaImpressao[dataStr] = {
       dataObjeto: data,
       batidas: horarios.map(h => h.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' })),
       trabalhado: minutosTrabalhadosNoDia,
       abono: minutosAtestadoDoDia,
-      saldoTexto: textoSaldo
+      saldoTexto: textoSaldo,
+      isFeriado: ehFeriado
     };
   });
 
@@ -155,9 +171,13 @@ export default async function DetalhesColaborador({ params, searchParams }: Deta
 
       const data = new Date(`${dataStr}T12:00:00`);
       const ehDiaUtil = data.getDay() >= 1 && data.getDay() <= 5;
+      const ehFeriado = diasComFeriado.has(dataStr);
       let textoSaldo = "0h 00m";
 
-      if (ehDiaUtil) {
+      if (ehFeriado) {
+        textoSaldo = "0h 00m";
+        diasCompletos++;
+      } else if (ehDiaUtil) {
         const desvioDiario = minsAtestado - MINUTOS_ESPERADOS_POR_DIA;
 
         if (Math.abs(desvioDiario) <= TOLERANCIA_CLT_MINUTOS) {
@@ -165,8 +185,8 @@ export default async function DetalhesColaborador({ params, searchParams }: Deta
           diasCompletos++;
         } else {
           saldoMinutosCompleto += desvioDiario;
-          textoSaldo = desvioDiario > 0 
-            ? `+ ${Math.floor(desvioDiario / 60)}h ${String(desvioDiario % 60).padStart(2, '0')}m` 
+          textoSaldo = desvioDiario > 0
+            ? `+ ${Math.floor(desvioDiario / 60)}h ${String(desvioDiario % 60).padStart(2, '0')}m`
             : `- ${Math.floor(Math.abs(desvioDiario) / 60)}h ${String(Math.abs(desvioDiario) % 60).padStart(2, '0')}m`;
           if (desvioDiario > 0) { diasCompletos++; } else { diasIncompletos++; }
         }
@@ -178,24 +198,41 @@ export default async function DetalhesColaborador({ params, searchParams }: Deta
         diasCompletos++;
       }
 
-      linhasParaImpressao[dataStr] = {
+      linesParaImpressao[dataStr] = {
         dataObjeto: data,
         batidas: [],
         trabalhado: 0,
         abono: minsAtestado,
-        saldoTexto: textoSaldo
+        saldoTexto: textoSaldo,
+        isFeriado: ehFeriado
       };
+    }
+  });
+
+  // 3. PROCESSAR DIAS QUE SÓ TIVERAM FERIADO (SEM PONTO E SEM ATESTADO)
+  diasComFeriado.forEach(dataStr => {
+    if (!linesParaImpressao[dataStr]) {
+      const data = new Date(`${dataStr}T12:00:00`);
+      linesParaImpressao[dataStr] = {
+        dataObjeto: data,
+        batidas: [],
+        trabalhado: 0,
+        abono: 0,
+        saldoTexto: "0h 00m",
+        isFeriado: true
+      };
+      diasCompletos++;
     }
   });
 
   const totalDiasAtestado = diasComAtestado.size;
   const totalMinutosComputados = totalMinutosTrabalhadosReais + totalMinutosAtestado;
-  const totalDiasTrabalhados = diasAtivosNoMes.size; // Total de dias com movimentação
+  const totalDiasTrabalhados = diasAtivosNoMes.size - diasComFeriado.size; // Desconta os feriados puramente salvos do contador de dias de trabalho
   const isPositivo = saldoMinutosCompleto >= 0;
 
   const formatarMinutos = (minutosTotais: number) => {
     const hrs = Math.floor(minutosTotais / 60);
-    const mins = minutosTotais = minutosTotais % 60;
+    const mins = minutosTotais % 60;
     return `${hrs}h ${mins.toString().padStart(2, '0')}m`;
   };
 
@@ -206,7 +243,7 @@ export default async function DetalhesColaborador({ params, searchParams }: Deta
   };
 
   const saldoFormatado = formatarMinutos(Math.abs(saldoMinutosCompleto));
-  const jornadasOrdenadas = Object.values(linhasParaImpressao).sort((a, b) => a.dataObjeto.getTime() - b.dataObjeto.getTime());
+  const jornadasOrdenadas = Object.values(linesParaImpressao).sort((a, b) => a.dataObjeto.getTime() - b.dataObjeto.getTime());
 
   return (
     <>
@@ -257,17 +294,16 @@ export default async function DetalhesColaborador({ params, searchParams }: Deta
               <span className="text-[11px] text-blue-500 text-center mt-1">Horas Efetivas + Abonos de Atestados</span>
             </div>
 
-            <div className={`p-4 rounded-lg flex flex-col justify-center items-center border transition-colors ${
-              saldoMinutosCompleto === 0 ? 'bg-blue-50 border-blue-200 text-blue-800' :
+            <div className={`p-4 rounded-lg flex flex-col justify-center items-center border transition-colors ${saldoMinutosCompleto === 0 ? 'bg-blue-50 border-blue-200 text-blue-800' :
               isPositivo ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'
-            }`}>
+              }`}>
               <span className="text-xs font-bold uppercase tracking-wider text-center">Saldo Atual do Banco de Horas</span>
               <span className="text-3xl font-extrabold mt-2">
                 {saldoMinutosCompleto === 0 ? '0h 00m' : isPositivo ? `+ ${saldoFormatado}` : `- ${saldoFormatado}`}
               </span>
               <span className="text-[11px] font-medium mt-1 text-center">
-                {saldoMinutosCompleto === 0 ? 'Jornadas estritas ou dentro da tolerância legal' : 
-                 isPositivo ? 'Crédito acumulado para o colaborador' : 'Horas em débito (A regularizar)'}
+                {saldoMinutosCompleto === 0 ? 'Jornadas estritas ou dentro da tolerância legal' :
+                  isPositivo ? 'Crédito acumulado para o colaborador' : 'Horas em débito (A regularizar)'}
               </span>
             </div>
           </div>
@@ -276,11 +312,11 @@ export default async function DetalhesColaborador({ params, searchParams }: Deta
         {/* PAINEL DE METRICAS */}
         <h2 className="text-xl font-bold mb-1 text-gray-800">Indicadores de Frequência do Mês</h2>
         <p className="text-xs text-gray-500 mb-4">Métricas calculadas com base na jornada diária padrão de 8h 30m nos dias úteis movimentados.</p>
-        
+
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           <div className="bg-white p-4 rounded-xl border shadow-sm border-l-4 border-l-emerald-500">
             <span className="text-xs font-bold text-emerald-700 uppercase block">Dias Trabalhados</span>
-            <span className="text-xl font-bold text-emerald-600 block mt-1">{totalDiasTrabalhados} dias</span>
+            <span className="text-xl font-bold text-emerald-600 block mt-1">{totalDiasTrabalhados < 0 ? 0 : totalDiasTrabalhados} dias</span>
             <span className="text-[11px] text-gray-400 block mt-0.5 leading-tight">Dias com registros de ponto ou abonos</span>
           </div>
 
@@ -306,12 +342,13 @@ export default async function DetalhesColaborador({ params, searchParams }: Deta
         <TabelaHistoricoPonto
           pontosIniciais={colaborador.pontos}
           nomeColaborador={colaborador.nome}
+          colaboradorId={colaborador.id}
         />
       </main>
 
       {/* ---------------- ESPELHO DE IMPRESSÃO OFICIAL (APENAS VISÍVEL NO CONTEXTO DE IMPRESSÃO) ---------------- */}
       <div className="hidden print:block w-full text-black bg-white font-sans p-4 text-[11px]">
-        
+
         {/* Cabeçalho Corporativo */}
         <div className="border border-black p-3 text-center mb-4">
           <h1 className="text-base font-bold uppercase tracking-wide">Goiânia Acrílico Ltda</h1>
@@ -349,10 +386,22 @@ export default async function DetalhesColaborador({ params, searchParams }: Deta
                   {j.dataObjeto.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} - {j.dataObjeto.toLocaleDateString('pt-BR', { weekday: 'short' })}
                 </td>
                 <td className="border-r border-black p-1 pl-2 font-mono tracking-wider">
-                  {j.batidas.length > 0 ? j.batidas.join('   |   ') : (j.abono > 0 ? `[ATESTADO MÉDICO: ${formatarMinutos(j.abono)}]` : '-')}
+                  {j.isFeriado ? (
+                    <span className="font-sans font-bold text-gray-700">FERIADO / RECESSO OFICIAL</span>
+                  ) : j.batidas.length > 0 ? (
+                    j.batidas.join('   |   ')
+                  ) : j.abono > 0 ? (
+                    `[ATESTADO MÉDICO: ${formatarMinutos(j.abono)}]`
+                  ) : (
+                    '-'
+                  )}
                 </td>
-                <td className="border-r border-black p-1 text-center font-mono">{formatarMinutos(j.trabalhado)}</td>
-                <td className="border-r border-black p-1 text-center font-mono">{j.abono > 0 ? formatarMinutos(j.abono) : '-'}</td>
+                <td className="border-r border-black p-1 text-center font-mono">
+                  {j.isFeriado && j.trabalhado === 0 ? "Feriado" : formatarMinutos(j.trabalhado)}
+                </td>
+                <td className="border-r border-black p-1 text-center font-mono">
+                  {j.abono > 0 ? formatarMinutos(j.abono) : '-'}
+                </td>
                 <td className="p-1 text-center font-mono font-bold">{j.saldoTexto}</td>
               </tr>
             ))}
@@ -365,7 +414,7 @@ export default async function DetalhesColaborador({ params, searchParams }: Deta
           <div className="grid grid-cols-4 gap-2 text-center font-mono">
             <div>
               <span className="text-[9px] font-sans block text-gray-500">Dias Ativos / Trabalhados:</span>
-              <strong className="text-sm">{totalDiasTrabalhados} dia(s)</strong>
+              <strong className="text-sm">{totalDiasTrabalhados < 0 ? 0 : totalDiasTrabalhados} dia(s)</strong>
             </div>
             <div>
               <span className="text-[9px] font-sans block text-gray-500">Horas Trabalhadas (Físico):</span>
