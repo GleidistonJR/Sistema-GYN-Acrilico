@@ -3,8 +3,7 @@ import { notFound } from "next/navigation";
 import ModalAtestado from "./ModalAtestado";
 import TabelaHistoricoPonto from "./TabelaHistoricoPonto";
 import ModalCriarPonto from "./ModalCriarPonto";
-import { Printer } from "lucide-react"; // Importação do ícone para o botão
-import BotaoImprimir from "./BotaoImprimir"; // Ajuste o caminho se necessário
+import BotaoImprimir from "./BotaoImprimir";
 
 interface DetalhesProps {
   params: Promise<{ id: string }>;
@@ -54,9 +53,13 @@ export default async function DetalhesColaborador({ params, searchParams }: Deta
   const pontosPorDia: { [data: string]: Date[] } = {};
   let totalMinutosAtestado = 0;
   const diasComAtestado = new Set<string>();
+  
+  // Conjunto para monitorar todos os dias que tiveram qualquer atividade (ponto ou atestado)
+  const diasAtivosNoMes = new Set<string>();
 
   colaborador.pontos.forEach((ponto) => {
     const dataStr = ponto.dataHora.toISOString().split('T')[0];
+    diasAtivosNoMes.add(dataStr); // Conta como dia trabalhado/justificado
 
     if (ponto.tipo.startsWith("Atestado")) {
       diasComAtestado.add(dataStr);
@@ -79,7 +82,6 @@ export default async function DetalhesColaborador({ params, searchParams }: Deta
   let diasIncompletos = 0;
   let saldoMinutosCompleto = 0; 
 
-  // Estrutura auxiliar para renderizar a tabela limpa de impressão no final do arquivo
   interface LinhaRelatorio {
     dataObjeto: Date;
     batidas: string[];
@@ -188,11 +190,12 @@ export default async function DetalhesColaborador({ params, searchParams }: Deta
 
   const totalDiasAtestado = diasComAtestado.size;
   const totalMinutosComputados = totalMinutosTrabalhadosReais + totalMinutosAtestado;
+  const totalDiasTrabalhados = diasAtivosNoMes.size; // Total de dias com movimentação
   const isPositivo = saldoMinutosCompleto >= 0;
 
   const formatarMinutos = (minutosTotais: number) => {
     const hrs = Math.floor(minutosTotais / 60);
-    const mins = minutosTotais % 60;
+    const mins = minutosTotais = minutosTotais % 60;
     return `${hrs}h ${mins.toString().padStart(2, '0')}m`;
   };
 
@@ -217,9 +220,7 @@ export default async function DetalhesColaborador({ params, searchParams }: Deta
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-3">
-            {/* NOSSO BOTÃO DE IMPRESSÃO DIRETAMENTE NA TELA */}
             <BotaoImprimir />
-            
             <ModalCriarPonto colaboradorId={colaborador.id} />
             <ModalAtestado colaboradorId={colaborador.id} />
 
@@ -277,28 +278,28 @@ export default async function DetalhesColaborador({ params, searchParams }: Deta
         <p className="text-xs text-gray-500 mb-4">Métricas calculadas com base na jornada diária padrão de 8h 30m nos dias úteis movimentados.</p>
         
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <div className="bg-white p-4 rounded-xl border shadow-sm">
-            <span className="text-xs font-bold text-gray-500 uppercase block">Horas Trabalhadas</span>
-            <span className="text-xl font-bold text-gray-800 block mt-1">{formatarMinutos(totalMinutosTrabalhadosReais)}</span>
-            <span className="text-[11px] text-gray-400 block mt-0.5 leading-tight">Tempo em atividade física presencial</span>
+          <div className="bg-white p-4 rounded-xl border shadow-sm border-l-4 border-l-emerald-500">
+            <span className="text-xs font-bold text-emerald-700 uppercase block">Dias Trabalhados</span>
+            <span className="text-xl font-bold text-emerald-600 block mt-1">{totalDiasTrabalhados} dias</span>
+            <span className="text-[11px] text-gray-400 block mt-0.5 leading-tight">Dias com registros de ponto ou abonos</span>
           </div>
 
           <div className="bg-white p-4 rounded-xl border shadow-sm">
             <span className="text-xs font-bold text-purple-700 uppercase block">Horas Abonadas</span>
             <span className="text-xl font-bold text-purple-600 block mt-1">{formatarMinutos(totalMinutosAtestado)}</span>
-            <span className="text-[11px] text-purple-500 block mt-0.5 leading-tight">Tempo justificado por atestados médicos ({totalDiasAtestado} dia(s)).</span>
+            <span className="text-[11px] text-purple-500 block mt-0.5 leading-tight">Justificado por atestados médicos ({totalDiasAtestado} dia(s)).</span>
           </div>
 
-          <div className="bg-white p-4 rounded-xl border shadow-sm border-l-4 border-l-blue-500">
+          <div className="bg-white p-4 rounded-xl border shadow-sm">
             <span className="text-xs font-bold text-blue-700 uppercase block">Jornadas Cumpridas</span>
             <span className="text-xl font-bold text-blue-600 block mt-1">{diasCompletos} dias</span>
-            <span className="text-[11px] text-gray-400 block mt-0.5 leading-tight">Dias em que a meta foi atingida (com tolerância CLT).</span>
+            <span className="text-[11px] text-gray-400 block mt-0.5 leading-tight">Meta atingida (com tolerância CLT).</span>
           </div>
 
-          <div className="bg-white p-4 rounded-xl border shadow-sm border-l-4 border-l-orange-500">
+          <div className="bg-white p-4 rounded-xl border shadow-sm">
             <span className="text-xs font-bold text-orange-700 uppercase block">Jornadas Incompletas</span>
             <span className="text-xl font-bold text-orange-600 block mt-1">{diasIncompletos} dias</span>
-            <span className="text-[11px] text-gray-400 block mt-0.5 leading-tight">Dias úteis trabalhados que fecharam mais de 10 min abaixo da meta.</span>
+            <span className="text-[11px] text-gray-400 block mt-0.5 leading-tight">Dias úteis que fecharam abaixo da meta diária.</span>
           </div>
         </div>
 
@@ -307,9 +308,6 @@ export default async function DetalhesColaborador({ params, searchParams }: Deta
           nomeColaborador={colaborador.nome}
         />
       </main>
-
-
-
 
       {/* ---------------- ESPELHO DE IMPRESSÃO OFICIAL (APENAS VISÍVEL NO CONTEXTO DE IMPRESSÃO) ---------------- */}
       <div className="hidden print:block w-full text-black bg-white font-sans p-4 text-[11px]">
@@ -361,10 +359,14 @@ export default async function DetalhesColaborador({ params, searchParams }: Deta
           </tbody>
         </table>
 
-        {/* Metrificação Geral */}
+        {/* Metrificação Geral Otimizada com Dias Trabalhados */}
         <div className="border border-black p-2 bg-gray-50/50 mb-8 text-[10px]">
           <h3 className="font-bold uppercase border-b border-black pb-0.5 mb-1.5 text-gray-700">Resumo Acumulado do Período</h3>
-          <div className="grid grid-cols-3 gap-2 text-center font-mono">
+          <div className="grid grid-cols-4 gap-2 text-center font-mono">
+            <div>
+              <span className="text-[9px] font-sans block text-gray-500">Dias Ativos / Trabalhados:</span>
+              <strong className="text-sm">{totalDiasTrabalhados} dia(s)</strong>
+            </div>
             <div>
               <span className="text-[9px] font-sans block text-gray-500">Horas Trabalhadas (Físico):</span>
               <strong className="text-sm">{formatarMinutos(totalMinutosTrabalhadosReais)}</strong>
@@ -374,7 +376,7 @@ export default async function DetalhesColaborador({ params, searchParams }: Deta
               <strong className="text-sm">{formatarMinutos(totalMinutosAtestado)}</strong>
             </div>
             <div>
-              <span className="text-[9px] font-sans block text-gray-500">Saldo Consolidado do Banco:</span>
+              <span className="text-[9px] font-sans block text-gray-500">Saldo Líquido do Banco:</span>
               <strong className="text-sm">
                 {saldoMinutosCompleto === 0 ? '0h 00m' : isPositivo ? `+ ${saldoFormatado}` : `- ${saldoFormatado}`}
               </strong>
