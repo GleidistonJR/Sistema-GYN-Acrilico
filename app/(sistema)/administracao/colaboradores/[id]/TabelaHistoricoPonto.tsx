@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from 'react';
-import { Pencil, Trash2, CalendarDays } from 'lucide-react';
+import { Pencil, Trash2, CalendarDays, FilePlus2 } from 'lucide-react';
 import ModalEdicaoPonto from './ModalEdicaoPonto';
-import { deletarPonto, criarFeriado } from '../actions'; // 1. IMPORTADA A NOVA ACTION AQUI
+// Importando a sua action que gerencia o FormData do modal
+import { deletarPonto, criarFeriado, adicionarAtestado } from '../actions'; 
 
 interface Ponto {
   id: number;
@@ -14,7 +15,7 @@ interface Ponto {
 interface TabelaProps {
   pontosIniciais: Ponto[];
   nomeColaborador: string;
-  colaboradorId: number; // 2. ADICIONADO O ID NAS PROPS PARA SABER DE QUEM É O FERIADO
+  colaboradorId: number; 
 }
 
 interface LinhaDiaria {
@@ -31,6 +32,11 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
   const [pontos, setPontos] = useState<Ponto[]>(pontosIniciais);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [pontoSelecionado, setPontoSelecionado] = useState<any | null>(null);
+
+  // ESTADOS PARA O SEU MODAL DE ATESTADO
+  const [isAtestadoOpen, setIsAtestadoOpen] = useState(false);
+  const [isAtestadoPending, setIsAtestadoPending] = useState(false);
+  const [dataAtestadoSelecionada, setDataAtestadoSelecionada] = useState("");
 
   const MINUTOS_ESPERADOS_DIARIOS = 510; // 8h 30m
   const TOLERANCIA_CLT = 10;
@@ -57,19 +63,47 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
     }
   };
 
-  // 3. FUNÇÃO DE DISPARO DA ACTION ATUALIZADA
   const handleMarcarFeriado = async (dataStr: string) => {
     const dataFormatadaBR = dataStr.split('-').reverse().join('/');
     if (confirm(`Deseja marcar o dia ${dataFormatadaBR} como Feriado/Recesso?`)) {
       try {
         await criarFeriado(colaboradorId, dataStr);
-        // Recarrega a página para puxar os dados atualizados do banco via Server Side
         window.location.reload(); 
       } catch (err) {
         alert("Erro ao salvar feriado no banco de dados.");
       }
     }
   };
+
+  // ABRE O SEU MODAL CAPTURANDO A DATA DA LINHA CLICADA
+  const handleAbrirModalAtestado = (dataStr: string) => {
+    setDataAtestadoSelecionada(dataStr);
+    setIsAtestadoOpen(true);
+  };
+
+  // SUBMIT DO SEU MODAL ADAPTADO PARA A LINHA
+  async function handleAtestadoSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setIsAtestadoPending(true);
+
+    const formData = new FormData(event.currentTarget);
+    const horas = Number(formData.get("horas_input"));
+    const minutos = Number(formData.get("minutos_input"));
+    
+    formData.append("colaboradorId", colaboradorId.toString());
+    formData.append("horas", horas.toString());
+    formData.append("minutos", minutos.toString());
+
+    try {
+      await adicionarAtestado(formData);
+      setIsAtestadoOpen(false);
+      window.location.reload(); // Recarrega a página para atualizar o espelho
+    } catch (error) {
+      alert("Erro ao salvar atestado");
+    } finally {
+      setIsAtestadoPending(false);
+    }
+  }
 
   // --- LÓGICA DE AGRUPAMENTO DIÁRIO COM CALENDÁRIO COMPLETO ---
   const mapaDias: { [key: string]: LinhaDiaria } = {};
@@ -136,15 +170,15 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
   listaDatasOrdenadas.forEach((dia) => {
     dia.batidasFisicas.sort((a, b) => new Date(a.dataHora).getTime() - new Date(b.dataHora).getTime());
 
-    let minutosDoDia = 0;
+    let minutesDoDia = 0;
     for (let i = 0; i < dia.batidasFisicas.length; i += 2) {
       if (dia.batidasFisicas[i + 1]) {
         const entrada = new Date(dia.batidasFisicas[i].dataHora).getTime();
         const saida = new Date(dia.batidasFisicas[i + 1].dataHora).getTime();
-        minutosDoDia += Math.floor((saida - entrada) / 1000 / 60);
+        minutesDoDia += Math.floor((saida - entrada) / 1000 / 60);
       }
     }
-    dia.minutosTrabalhados = minutosDoDia;
+    dia.minutosTrabalhados = minutesDoDia;
   });
 
   return (
@@ -164,7 +198,7 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
               <th className="p-4">Sequência de Marcações (Batidas)</th>
               <th className="p-4 text-center">Total Computado</th>
               <th className="p-4 text-center">Status da Jornada</th>
-              <th className="p-4 text-center">Ações</th>
+              <th className="p-4 text-center">Ações Em Bloco</th>
             </tr>
           </thead>
           <tbody>
@@ -175,12 +209,12 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
                 const ehDiaUtil = diaDaSemana >= 1 && diaDaSemana <= 5;
                 const desvio = totalCompensado - MINUTOS_ESPERADOS_DIARIOS;
 
-                const temRegistroVálido = dia.batidasFisicas.length > 0 || dia.atestados.length > 0 || dia.feriados.length > 0;
+                const temRegistroValido = dia.batidasFisicas.length > 0 || dia.atestados.length > 0 || dia.feriados.length > 0;
 
                 let tagStatus = { texto: "Fim de Semana", classe: "bg-gray-100 text-gray-600 border border-gray-200" };
 
                 if (ehDiaUtil) {
-                  if (!temRegistroVálido) {
+                  if (!temRegistroValido) {
                     tagStatus = { texto: "Falta Sem Justificativa", classe: "bg-red-100 text-red-700 border border-red-300 font-bold" };
                   } else if (dia.feriados.length > 0) {
                     tagStatus = { texto: "Feriado / Recesso", classe: "bg-amber-100 text-amber-800 border border-amber-300 font-semibold" };
@@ -204,6 +238,9 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
                 if (dia.atestados.length > 0 && totalCompensado >= MINUTOS_ESPERADOS_DIARIOS) {
                   tagStatus = { texto: "Abonado pelo Art. 58", classe: "bg-purple-50 text-purple-700 border border-purple-200" };
                 }
+
+                const ehFaltaMeioSemana = ehDiaUtil && tagStatus.texto === "Falta Sem Justificativa";
+                const ehIncompletoMeioSemana = ehDiaUtil && tagStatus.texto.startsWith("Incompleta");
 
                 return (
                   <tr key={dia.dataStr} className="border-b hover:bg-gray-50/70 transition-colors">
@@ -263,7 +300,7 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
                           </div>
                         ))}
 
-                        {!temRegistroVálido && (
+                        {!temRegistroValido && (
                           <span className="text-xs italic text-gray-400 font-normal">Sem movimentações no ponto</span>
                         )}
 
@@ -291,16 +328,34 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
                     </td>
 
                     <td className="p-4 text-center whitespace-nowrap">
-                      {!temRegistroVálido || tagStatus.texto === "Falta Sem Justificativa" ? (
-                        <button
-                          onClick={() => handleMarcarFeriado(dia.dataStr)}
-                          className="text-xs bg-gray-100 hover:bg-amber-100 text-gray-600 hover:text-amber-800 border px-2 py-1 rounded transition-colors font-medium flex items-center gap-1 m-auto shadow-sm cursor-pointer"
-                        >
-                          <CalendarDays size={12} /> + Feriado
-                        </button>
-                      ) : (
-                        <span className="text-gray-400 text-xs italic">Ajustável por batida</span>
-                      )}
+                      <div className="flex items-center justify-center gap-1.5">
+                        
+                        {ehFaltaMeioSemana && (
+                          <button
+                            onClick={() => handleMarcarFeriado(dia.dataStr)}
+                            className="text-[11px] bg-white hover:bg-amber-50 text-gray-600 hover:text-amber-800 border border-gray-200 hover:border-amber-300 px-2 py-1 rounded transition-all font-medium flex items-center gap-1 shadow-sm cursor-pointer"
+                          >
+                            <CalendarDays size={12} /> + Feriado
+                          </button>
+                        )}
+
+                        {/* DISPARA A ABERTURA DO MODAL PASSANDO A DATA CORRETA */}
+                        {(ehFaltaMeioSemana || ehIncompletoMeioSemana) && (
+                          <button
+                            onClick={() => handleAbrirModalAtestado(dia.dataStr)}
+                            className="text-[11px] bg-white hover:bg-purple-50 text-gray-600 hover:text-purple-800 border border-gray-200 hover:border-purple-300 px-2 py-1 rounded transition-all font-medium flex items-center gap-1 shadow-sm cursor-pointer"
+                          >
+                            <FilePlus2 size={12} /> + Atestado
+                          </button>
+                        )}
+
+                        {!ehFaltaMeioSemana && !ehIncompletoMeioSemana && (
+                          <span className="text-gray-400 text-xs italic">
+                            {!ehDiaUtil ? "Fim de Semana" : "Jornada Regular"}
+                          </span>
+                        )}
+
+                      </div>
                     </td>
                   </tr>
                 );
@@ -316,11 +371,94 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
         </table>
       </div>
 
+      {/* MODAL DE EDIÇÃO DE PONTO TRADICIONAL */}
       <ModalEdicaoPonto 
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         dadosEdicao={pontoSelecionado}
       />
+
+      {/* ========================================================== */}
+      {/* SEU MODAL DE ATESTADO COM ESTILO INTERNO ATUALIZADO         */}
+      {/* ========================================================== */}
+      {isAtestadoOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full border overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            <div className="bg-gray-50 p-4 border-b flex justify-between items-center">
+              <h3 className="font-bold text-gray-700 text-lg">Lançar Atestado / Abono</h3>
+              <button 
+                onClick={() => setIsAtestadoOpen(false)} 
+                className="text-gray-400 hover:text-gray-600 font-bold text-xl"
+              >
+                &times;
+              </button>
+            </div>
+
+            <form onSubmit={handleAtestadoSubmit} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">Data do Afastamento</label>
+                <input 
+                  type="date" 
+                  name="data" 
+                  value={dataAtestadoSelecionada}
+                  readOnly // Mantém travado na data em que ele clicou na tabela
+                  required 
+                  className="w-full border rounded-lg p-2 bg-gray-100 text-gray-500 cursor-not-allowed focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Horas Abonadas</label>
+                  <input 
+                    type="number" 
+                    name="horas_input" 
+                    min="0" 
+                    max="23" 
+                    defaultValue="8" 
+                    required
+                    className="w-full border rounded-lg p-2 bg-gray-50 focus:outline-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Minutos Abonados</label>
+                  <input 
+                    type="number" 
+                    name="minutos_input" 
+                    min="0" 
+                    max="59" 
+                    defaultValue="30" 
+                    required
+                    className="w-full border rounded-lg p-2 bg-gray-50 focus:outline-blue-500"
+                  />
+                </div>
+              </div>
+
+              <p className="text-xs text-gray-400 italic">
+                O tempo preenchido será somado como crédito para abater as horas em falta do colaborador neste dia específico.
+              </p>
+
+              <div className="flex justify-end gap-2 pt-2 border-t">
+                <button
+                  type="button"
+                  onClick={() => setIsAtestadoOpen(false)}
+                  className="px-4 py-2 text-sm font-medium text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
+                  disabled={isAtestadoPending}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                  disabled={isAtestadoPending}
+                >
+                  {isAtestadoPending ? "Salvando..." : "Confirmar e Abater"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
