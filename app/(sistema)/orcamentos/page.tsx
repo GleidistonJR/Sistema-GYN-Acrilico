@@ -5,6 +5,23 @@ import React, { useState, useMemo } from 'react';
 import { MATERIAIS_CONFIG, PERSONALIZACAO_CONFIG, CHAPA_CONFIG, ItemOrcamento } from './constants';
 
 export default function CalculadorChapa() {
+
+  const [isOpen, setIsOpen] = useState(false);
+
+  // Função para copiar o texto para a área de transferência
+  const copiarTexto = (e) => {
+    const texto = e.target.getAttribute('data-texto');
+    if (texto) {
+      navigator.clipboard.writeText(texto.trim())
+        .then(() => {
+          console.log('Texto copiado com sucesso!');
+        })
+        .catch((err) => {
+          console.error('Erro ao copiar texto: ', err);
+        });
+    }
+  };
+
   // Ajuste global de markup
   const [porcentagem, setPorcentagem] = useState<number>(65);
 
@@ -271,317 +288,397 @@ Retirar na loja, não estamos fazendo entrega.`;
   };
 
   return (
-    <main className="lg:max-w-4/5 mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-5 gap-6 text-gray-800 bg-gray-200">
 
-      {/* COLUNA DA ESQUERDA: CONFIGURAÇÃO DO ITEM */}
-      <div className="space-y-6 lg:col-span-2">
+    <main >
+      {/* Botão Hambúrguer (Fica fixo no topo esquerdo) */}
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="fixed top-5 left-5 z-50 p-2 text-white rounded-md shadow-md hover:text-gray-300 focus:outline-none"
+        aria-label="Abrir menu"
+      >
+        {isOpen ? (
+          // Ícone de X (Fechar)
+          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        ) : (
+          // Ícone de Três Barras (Hambúrguer)
+          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        )}
+      </button>
 
-        {/* Seletor de Modo de Operação */}
-        <div className="bg-white rounded-xl shadow-sm p-4 flex gap-2 border border-gray-100">
+      {/* Menu Lateral (Transiciona baseado no estado isOpen) */}
+      <div className={`fixed top-0 left-0 h-full w-80 bg-white p-5 pt-20 space-y-3 shadow-2xl z-40 transform transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}>
+
+        <div>
           <button
-            type="button"
-            onClick={() => { setModoCalculo('chapa'); setTipoMaterial('acrilico'); }}
-            className={`flex-1 py-2 text-sm font-bold rounded-lg transition ${modoCalculo === 'chapa' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'}`}
-          >
-            Chapa Cortada
-          </button>
-          <button
-            type="button"
-            onClick={() => { setModoCalculo('caixa'); setTipoMaterial('acrilico'); }}
-            className={`flex-1 py-2 text-sm font-bold rounded-lg transition ${modoCalculo === 'caixa' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'}`}
-          >
-            Caixa em acrilico
-          </button>
-          <button
-            type="button"
-            onClick={() => { setModoCalculo('chapaInteira'); setTipoMaterial('acrilico'); }}
-            className={`flex-1 py-2 text-sm font-bold rounded-lg transition ${modoCalculo === 'chapaInteira' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'}`}
-          >
-            Chapa Inteira
+            onClick={copiarTexto}
+            className="btn-copiar w-full text-left border px-5 py-2 bg-green-600 text-white font-semibold rounded hover:bg-green-500 hover:cursor-pointer"
+            data-texto={"Por gentileza enviar *CNPJ* para cadastro e emissão do pedido.\n\n*Ou os dados abaixo:*\nNome Completo:\nCPF:\nEndereço:\nCEP:"}>
+            Dados Cadastro
           </button>
         </div>
 
-        {/* Bloco Material */}
-        <section className="bg-white rounded-xl shadow-sm p-5 space-y-4 border border-gray-100">
-          <h2 className="text-xl font-bold text-gray-700 pb-2 border-b border-gray-100">1. Especificações</h2>
+        <div>
+          <button
+            onClick={copiarTexto}
+            className="btn-copiar w-full text-left border px-5 py-2 bg-green-600 text-white font-semibold rounded hover:bg-green-500 hover:cursor-pointer"
+            data-texto={"*Chave PIX:*\n23.650.001/0001-87"}
+          >
+            Chave PIX
+          </button>
+        </div>
 
-          {/* 1. SELEÇÃO DE ACORDO COM O MODO DE CÁLCULO */}
-          {modoCalculo === 'chapa' && (
-            <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium text-gray-600">Tipo de Material</label>
-              <select
-                value={tipoMaterial}
-                onChange={(e) => setTipoMaterial(e.target.value)}
-                className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg outline-none"
-              >
-                <option value="acrilico">Acrílico</option>
-                <option value="pvc">PVC</option>
-                <option value="abs">ABS - Trotek</option>
-                <option value="espelhado">Espelhado</option>
-              </select>
-            </div>
-          )}
+        <div>
+          <button
+            onClick={copiarTexto}
+            className="btn-copiar w-full text-left border px-5 py-2 bg-green-600 text-white font-semibold rounded hover:bg-green-500 hover:cursor-pointer"
+            data-texto={"*Localização:*\nhttps://maps.app.goo.gl/ZssR5mjt2B3f9PULA\n\nRua C-162 nº 124 Qd. 252 Lt. 18 - Setor Jardim América - Goiânia - GO - CEP. 74.255-110"}
+          >
+            Endereço
+          </button>
+        </div>
 
-          {modoCalculo === 'caixa' && (
-            <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium text-gray-600">Tipo de Tampa da Caixa</label>
-              <select
-                value={tipoTampa}
-                onChange={(e) => setTipoTampa(e.target.value)}
-                className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg outline-none font-medium"
-              >
-                <option value="semTampa">Sem Tampa</option>
-                <option value="tampaLacrada">Tampa Lacrada</option>
-                <option value="tampa3cm">Tampa Encaixe (Abas 3cm)</option>
-                <option value="tampaTotal">Tampa Encaixe (Medida Total)</option>
-              </select>
-            </div>
-          )}
+        <div>
+          <button
+            onClick={copiarTexto}
+            className="btn-copiar w-full text-left border px-5 py-2 bg-green-600 text-white font-semibold rounded hover:bg-green-500 hover:cursor-pointer"
+            data-texto={"*Horário de funcionamento:*\nsegunda à sexta-feira\ndas 08:00 às 18:00 horas\n\n*Fechamos para almoço*\ndas 12:00 as 13:30."}>
+            Horario Funcionamento
+          </button>
+        </div>
 
-          {modoCalculo === 'chapaInteira' && (
-            <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium text-gray-600">Tipo de Material (Chapa Inteira)</label>
-              <select
-                value={tipoMaterial}
-                onChange={(e) => setTipoMaterial(e.target.value)}
-                className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg outline-none"
-              >
-                {/* Aqui você pode listar apenas o que vende em chapa fechada */}
-                <option value="acrilico">Acrílico</option>
-                <option value="pvc">PVC</option>
-                <option value="abs">ABS-Trotek</option>
-                <option value="espelhado">Espelhado</option>
-                <option value="psai">PS AI</option>
-              </select>
-            </div>
-          )}
+        <div className="pt-4 border-t border-gray-200 space-y-2">
+          <a href="https://solucoes.receita.fazenda.gov.br/Servicos/cnpjreva/cnpjreva_solicitacao.asp" target="_blank" rel="noreferrer" className="block text-center border px-5 py-2 bg-yellow-500 text-white font-semibold rounded hover:bg-yellow-400 hover:cursor-pointer">
+            CNPJ
+          </a>
 
-          {/* 2. FILTRO DE COR E ESPESSURA (Aparece para Chapa Comum e Chapa Inteira) */}
-          {(tipoMaterial === "acrilico") && (
-            <>
-              <div className="flex flex-col gap-1">
-                <label className="text-sm font-medium text-gray-600">Cor do Material</label>
-                <select
-                  value={corChapa}
-                  onChange={(e) => setCorChapa(e.target.value)}
-                  className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg outline-none"
-                >
-                  <option value="cristal">Cristal</option>
-                  <option value="colorido">Colorido (1.2x)</option>
-                </select>
-              </div>
+          <a href="https://www.situacao-cadastral.com/" target="_blank" rel="noreferrer" className="block text-center border px-5 py-2 bg-yellow-500 text-white font-semibold rounded hover:bg-yellow-400 hover:cursor-pointer">
+            CPF
+          </a>
 
-              <div className="flex flex-col gap-1">
-                <label className="text-sm font-medium text-gray-600">Espessura</label>
-                <select
-                  value={espessuraChapa}
-                  onChange={(e) => setEspessuraChapa(e.target.value)}
-                  className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg outline-none"
-                >
-                  {['2', '3', '4', '5', '6', '8', '10', '12', '15', '20'].map(esp => (
-                    <option key={esp} value={esp}>{esp}mm</option>
-                  ))}
-                </select>
-              </div>
-            </>
-          )}
-
-          {/* 3. INPUTS DE DIMENSÕES (SÓ APARECEM SE NÃO FOR CHAPA INTEIRA) */}
-          {modoCalculo !== 'chapaInteira' ? (
-            <div className={`grid gap-4 pt-2 ${modoCalculo === 'chapa' ? 'grid-cols-2' : 'grid-cols-3'}`}>
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-gray-600">
-                  Comprimento X (cm)
-                </label>
-                <input
-                  type="number"
-                  value={larguraChapa}
-                  onChange={(e) => setLarguraChapa(e.target.value)}
-                  className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-center font-semibold"
-                />
-              </div>
-
-              {modoCalculo === 'caixa' && (
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs font-medium text-gray-600">Largura Y (cm)</label>
-                  <input
-                    type="number"
-                    value={profundidadeCaixa}
-                    onChange={(e) => setProfundidadeCaixa(e.target.value)}
-                    className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-center font-semibold focus:border-blue-500"
-                  />
-                </div>
-              )}
-
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-gray-600">
-                  {modoCalculo === 'chapa' ? 'Largura Y (cm)' : 'Altura Z (cm)'}
-                </label>
-                <input
-                  type="number"
-                  value={alturaChapa}
-                  onChange={(e) => setAlturaChapa(e.target.value)}
-                  className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-center font-semibold"
-                />
-              </div>
-            </div>
-          ) : (
-            /* AVISO VISUAL PRO USUÁRIO NO LUGAR DOS INPUTS */
-            <div className="p-3 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg text-sm font-medium text-center">
-              Cálculo baseado na medida padrão da chapa inteira (2x1 metros ou correspondente).
-            </div>
-          )}
-        </section>
-
-        {/* Bloco Personalização */}
-        <section className="bg-white rounded-xl shadow-sm p-5 space-y-4 border border-gray-100">
-          <h2 className="text-xl font-bold text-gray-700 pb-2 border-b border-gray-100">2. Personalização</h2>
-          <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-gray-600">Tipo de Personalização</label>
-            <select
-              value={tipoPers}
-              onChange={(e) => setTipoPers(e.target.value)}
-              className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg outline-none"
-            >
-              {Object.entries(PERSONALIZACAO_CONFIG).map(([chave, conf]) => (
-                <option key={chave} value={chave}>{conf.label}</option>
-              ))}
-            </select>
-          </div>
-
-          {tipoPers !== 'nenhum' && (
-            <div className="grid grid-cols-2 gap-4 pt-2">
-              <div className="flex flex-col gap-1">
-                <label className="text-sm font-medium text-gray-600">Comprimento (cm)</label>
-                <input
-                  type="number"
-                  value={larguraPers}
-                  onChange={(e) => setLarguraPers(e.target.value)}
-                  className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-center"
-                />
-              </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-sm font-medium text-gray-600">Largura (cm)</label>
-                <input
-                  type="number"
-                  value={alturaPers}
-                  onChange={(e) => setAlturaPers(e.target.value)}
-                  className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-center"
-                />
-              </div>
-            </div>
-          )}
-        </section>
-
-        <div className="bg-white rounded-xl shadow-sm p-4 flex items-center justify-between border border-gray-100">
-          <label className="font-semibold text-gray-600">Ajuste de Markup Global (%):</label>
-          <input
-            type="number"
-            value={porcentagem}
-            onChange={(e) => setPorcentagem(Number(e.target.value))}
-            className="w-24 p-2 border border-gray-300 rounded-lg text-center font-bold bg-gray-50"
-          />
+          <a href="http://www.sintegra.gov.br/" target="_blank" rel="noreferrer" className="block text-center border px-5 py-2 bg-yellow-500 text-white font-semibold rounded hover:bg-yellow-400 hover:cursor-pointer">
+            Inscrição Estadual
+          </a>
         </div>
 
       </div>
+      <div className="lg:max-w-4/5 mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-5 gap-6 text-gray-800 bg-gray-200">
 
-      {/* COLUNA DA DIREITA: ORÇAMENTO CONSOLIDADO */}
-      <div className="lg:col-span-3 space-y-6">
 
-        {/* Quantidade e Botão Adicionar */}
-        <section className="bg-white rounded-xl shadow-sm p-5 space-y-4 border border-gray-100">
-          <div className="flex items-center justify-between">
-            <label className="font-medium text-gray-700">Quantidade deste Item:</label>
+        {/* COLUNA DA ESQUERDA: CONFIGURAÇÃO DO ITEM */}
+        <div className="space-y-6 lg:col-span-2">
+
+          {/* Seletor de Modo de Operação */}
+          <div className="bg-white rounded-xl shadow-sm p-4 flex gap-2 border border-gray-100">
+            <button
+              type="button"
+              onClick={() => { setModoCalculo('chapa'); setTipoMaterial('acrilico'); }}
+              className={`flex-1 py-2 text-sm font-bold rounded-lg transition ${modoCalculo === 'chapa' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'}`}
+            >
+              Chapa Cortada
+            </button>
+            <button
+              type="button"
+              onClick={() => { setModoCalculo('caixa'); setTipoMaterial('acrilico'); }}
+              className={`flex-1 py-2 text-sm font-bold rounded-lg transition ${modoCalculo === 'caixa' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'}`}
+            >
+              Caixa em acrilico
+            </button>
+            <button
+              type="button"
+              onClick={() => { setModoCalculo('chapaInteira'); setTipoMaterial('acrilico'); }}
+              className={`flex-1 py-2 text-sm font-bold rounded-lg transition ${modoCalculo === 'chapaInteira' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-600'}`}
+            >
+              Chapa Inteira
+            </button>
+          </div>
+
+          {/* Bloco Material */}
+          <section className="bg-white rounded-xl shadow-sm p-5 space-y-4 border border-gray-100">
+            <h2 className="text-xl font-bold text-gray-700 pb-2 border-b border-gray-100">1. Especificações</h2>
+
+            {/* 1. SELEÇÃO DE ACORDO COM O MODO DE CÁLCULO */}
+            {modoCalculo === 'chapa' && (
+              <div className="flex flex-col gap-1">
+                <label className="text-sm font-medium text-gray-600">Tipo de Material</label>
+                <select
+                  value={tipoMaterial}
+                  onChange={(e) => setTipoMaterial(e.target.value)}
+                  className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg outline-none"
+                >
+                  <option value="acrilico">Acrílico</option>
+                  <option value="pvc">PVC</option>
+                  <option value="abs">ABS - Trotek</option>
+                  <option value="espelhado">Espelhado</option>
+                </select>
+              </div>
+            )}
+
+            {modoCalculo === 'caixa' && (
+              <div className="flex flex-col gap-1">
+                <label className="text-sm font-medium text-gray-600">Tipo de Tampa da Caixa</label>
+                <select
+                  value={tipoTampa}
+                  onChange={(e) => setTipoTampa(e.target.value)}
+                  className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg outline-none font-medium"
+                >
+                  <option value="semTampa">Sem Tampa</option>
+                  <option value="tampaLacrada">Tampa Lacrada</option>
+                  <option value="tampa3cm">Tampa Encaixe (Abas 3cm)</option>
+                  <option value="tampaTotal">Tampa Encaixe (Medida Total)</option>
+                </select>
+              </div>
+            )}
+
+            {modoCalculo === 'chapaInteira' && (
+              <div className="flex flex-col gap-1">
+                <label className="text-sm font-medium text-gray-600">Tipo de Material (Chapa Inteira)</label>
+                <select
+                  value={tipoMaterial}
+                  onChange={(e) => setTipoMaterial(e.target.value)}
+                  className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg outline-none"
+                >
+                  {/* Aqui você pode listar apenas o que vende em chapa fechada */}
+                  <option value="acrilico">Acrílico</option>
+                  <option value="pvc">PVC</option>
+                  <option value="abs">ABS-Trotek</option>
+                  <option value="espelhado">Espelhado</option>
+                  <option value="psai">PS AI</option>
+                </select>
+              </div>
+            )}
+
+            {/* 2. FILTRO DE COR E ESPESSURA (Aparece para Chapa Comum e Chapa Inteira) */}
+            {(tipoMaterial === "acrilico") && (
+              <>
+                <div className="flex flex-col gap-1">
+                  <label className="text-sm font-medium text-gray-600">Cor do Material</label>
+                  <select
+                    value={corChapa}
+                    onChange={(e) => setCorChapa(e.target.value)}
+                    className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg outline-none"
+                  >
+                    <option value="cristal">Cristal</option>
+                    <option value="colorido">Colorido (1.2x)</option>
+                  </select>
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <label className="text-sm font-medium text-gray-600">Espessura</label>
+                  <select
+                    value={espessuraChapa}
+                    onChange={(e) => setEspessuraChapa(e.target.value)}
+                    className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg outline-none"
+                  >
+                    {['2', '3', '4', '5', '6', '8', '10', '12', '15', '20'].map(esp => (
+                      <option key={esp} value={esp}>{esp}mm</option>
+                    ))}
+                  </select>
+                </div>
+              </>
+            )}
+
+            {/* 3. INPUTS DE DIMENSÕES (SÓ APARECEM SE NÃO FOR CHAPA INTEIRA) */}
+            {modoCalculo !== 'chapaInteira' ? (
+              <div className={`grid gap-4 pt-2 ${modoCalculo === 'chapa' ? 'grid-cols-2' : 'grid-cols-3'}`}>
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-gray-600">
+                    Comprimento X (cm)
+                  </label>
+                  <input
+                    type="number"
+                    value={larguraChapa}
+                    onChange={(e) => setLarguraChapa(e.target.value)}
+                    className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-center font-semibold"
+                  />
+                </div>
+
+                {modoCalculo === 'caixa' && (
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-medium text-gray-600">Largura Y (cm)</label>
+                    <input
+                      type="number"
+                      value={profundidadeCaixa}
+                      onChange={(e) => setProfundidadeCaixa(e.target.value)}
+                      className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-center font-semibold focus:border-blue-500"
+                    />
+                  </div>
+                )}
+
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-medium text-gray-600">
+                    {modoCalculo === 'chapa' ? 'Largura Y (cm)' : 'Altura Z (cm)'}
+                  </label>
+                  <input
+                    type="number"
+                    value={alturaChapa}
+                    onChange={(e) => setAlturaChapa(e.target.value)}
+                    className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-center font-semibold"
+                  />
+                </div>
+              </div>
+            ) : (
+              /* AVISO VISUAL PRO USUÁRIO NO LUGAR DOS INPUTS */
+              <div className="p-3 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg text-sm font-medium text-center">
+                Cálculo baseado na medida padrão da chapa inteira (2x1 metros ou correspondente).
+              </div>
+            )}
+          </section>
+
+          {/* Bloco Personalização */}
+          <section className="bg-white rounded-xl shadow-sm p-5 space-y-4 border border-gray-100">
+            <h2 className="text-xl font-bold text-gray-700 pb-2 border-b border-gray-100">2. Personalização</h2>
+            <div className="flex flex-col gap-1">
+              <label className="text-sm font-medium text-gray-600">Tipo de Personalização</label>
+              <select
+                value={tipoPers}
+                onChange={(e) => setTipoPers(e.target.value)}
+                className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg outline-none"
+              >
+                {Object.entries(PERSONALIZACAO_CONFIG).map(([chave, conf]) => (
+                  <option key={chave} value={chave}>{conf.label}</option>
+                ))}
+              </select>
+            </div>
+
+            {tipoPers !== 'nenhum' && (
+              <div className="grid grid-cols-2 gap-4 pt-2">
+                <div className="flex flex-col gap-1">
+                  <label className="text-sm font-medium text-gray-600">Comprimento (cm)</label>
+                  <input
+                    type="number"
+                    value={larguraPers}
+                    onChange={(e) => setLarguraPers(e.target.value)}
+                    className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-center"
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-sm font-medium text-gray-600">Largura (cm)</label>
+                  <input
+                    type="number"
+                    value={alturaPers}
+                    onChange={(e) => setAlturaPers(e.target.value)}
+                    className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg text-center"
+                  />
+                </div>
+              </div>
+            )}
+          </section>
+
+          <div className="bg-white rounded-xl shadow-sm p-4 flex items-center justify-between border border-gray-100">
+            <label className="font-semibold text-gray-600">Ajuste de Markup Global (%):</label>
             <input
               type="number"
-              min="1"
-              value={quantidade}
-              onChange={(e) => setQuantidade(Math.max(1, Number(e.target.value)))}
-              className="w-20 p-2 border border-gray-300 rounded-lg text-center font-bold"
+              value={porcentagem}
+              onChange={(e) => setPorcentagem(Number(e.target.value))}
+              className="w-24 p-2 border border-gray-300 rounded-lg text-center font-bold bg-gray-50"
             />
           </div>
 
-          <div className="bg-blue-50 p-3 rounded-lg text-sm text-blue-800 space-y-1">
-            <p><strong>Subtotal do Item:</strong> R$ {calculoAtual.valorTotalItem.toFixed(2)}</p>
-            <p className="text-xs text-blue-600">Área Desenvolvida: {calculoAtual.areaChapa.toFixed(4)} m² | Corte: {(calculoAtual.minutosCorte + calculoAtual.segundosCorte).toFixed(2)} min</p>
-          </div>
+        </div>
 
-          <button
-            type="button"
-            onClick={handleAdicionarItem}
-            className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition"
-          >
-            + Adicionar ao Orçamento
-          </button>
-        </section>
+        {/* COLUNA DA DIREITA: ORÇAMENTO CONSOLIDADO */}
+        <div className="lg:col-span-3 space-y-6">
 
-        <section className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 space-y-4 min-h-112.5 flex flex-col justify-between">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-700 pb-3 border-b border-gray-100 mb-4">Resumo do Orçamento Multi-Material</h2>
+          {/* Quantidade e Botão Adicionar */}
+          <section className="bg-white rounded-xl shadow-sm p-5 space-y-4 border border-gray-100">
+            <div className="flex items-center justify-between">
+              <label className="font-medium text-gray-700">Quantidade deste Item:</label>
+              <input
+                type="number"
+                min="1"
+                value={quantidade}
+                onChange={(e) => setQuantidade(Math.max(1, Number(e.target.value)))}
+                className="w-20 p-2 border border-gray-300 rounded-lg text-center font-bold"
+              />
+            </div>
 
-            {itens.length === 0 ? (
-              <div className="text-center py-12 text-gray-400">
-                <p className="text-lg">Nenhum item adicionado ainda.</p>
-                <p className="text-sm">Configure a chapa ou caixa ao lado e adicione à lista.</p>
-              </div>
-            ) : (
-              <div className="divide-y divide-gray-300 max-h-100 overflow-y-auto pr-2">
-                {itens.map((item) => (
-                  <div key={item.id} className="py-3 flex justify-between items-center group">
-                    <div className="space-y-0.5">
-                      <p className="font-medium text-gray-900">{item.descricaoTexto.split(':')[0]}</p>
-                      <p className="text-xs text-gray-500">
-                        Área total calculada: {item.areaChapa.toFixed(4)}m² {item.tipoPers != 'nenhum' && `| Área Pers: ${item.areaPers.toFixed(4)}m²`}
-                      </p>
-                    </div>
-                    <div className="flex flex-col  gap-4">
-                      <span className="font-bold text-lg text-green-700 text-center">R$ {item.valorTotalItem.toFixed(2)}</span>
-                      <div className='flex gap-4'>
-                        <button
-                          onClick={() => handleRemoverItem(item.id)}
-                          className="bg-amber-100 text-amber-700 p-3 m-0 rounded-full hover:bg-amber-200 hover:cursor-pointer"
-                        >
-                          <Pencil size={18} />
-                        </button>
-                        <button
-                          onClick={() => handleRemoverItem(item.id)}
-                          className="bg-red-100 text-red-700 p-3 m-0 rounded-full hover:bg-red-200 hover:cursor-pointer"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="pt-6 border-t border-gray-100 space-y-4">
-            <div className="flex justify-between items-baseline">
-              <span className="text-xl font-medium text-gray-500">Valor Final Somado:</span>
-              <span className="text-5xl font-black text-green-600">R$ {valorTotalOrcamento.toFixed(2)}</span>
+            <div className="bg-blue-50 p-3 rounded-lg text-sm text-blue-800 space-y-1">
+              <p><strong>Subtotal do Item:</strong> R$ {calculoAtual.valorTotalItem.toFixed(2)}</p>
+              <p className="text-xs text-blue-600">Área Desenvolvida: {calculoAtual.areaChapa.toFixed(4)} m² | Corte: {(calculoAtual.minutosCorte + calculoAtual.segundosCorte).toFixed(2)} min</p>
             </div>
 
             <button
-              onClick={handleCopiarOrcamento}
-              disabled={itens.length === 0}
-              className={`w-full py-4 text-xl font-bold rounded-xl transition shadow-md flex items-center justify-center gap-2 ${itens.length === 0
-                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                : copiado
-                  ? 'bg-emerald-600 text-white'
-                  : 'bg-green-600 text-white hover:bg-green-500'
-                }`}
+              type="button"
+              onClick={handleAdicionarItem}
+              className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition"
             >
-              {copiado ? '✓ Copiado com Sucesso!' : 'Copiar Orçamento Consolidado'}
+              + Adicionar ao Orçamento
             </button>
-          </div>
-        </section>
+          </section>
 
-        <div className='flex justify-end'>
-          <button className='bg-red-600 px-10 py-2 text-2xl text-white rounded-full 
+          <section className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 space-y-4 min-h-112.5 flex flex-col justify-between">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-700 pb-3 border-b border-gray-100 mb-4">Resumo do Orçamento Multi-Material</h2>
+
+              {itens.length === 0 ? (
+                <div className="text-center py-12 text-gray-400">
+                  <p className="text-lg">Nenhum item adicionado ainda.</p>
+                  <p className="text-sm">Configure a chapa ou caixa ao lado e adicione à lista.</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-300 max-h-100 overflow-y-auto pr-2">
+                  {itens.map((item) => (
+                    <div key={item.id} className="py-3 flex justify-between items-center group">
+                      <div className="space-y-0.5">
+                        <p className="font-medium text-gray-900">{item.descricaoTexto.split(':')[0]}</p>
+                        <p className="text-xs text-gray-500">
+                          Área total calculada: {item.areaChapa.toFixed(4)}m² {item.tipoPers != 'nenhum' && `| Área Pers: ${item.areaPers.toFixed(4)}m²`}
+                        </p>
+                      </div>
+                      <div className="flex flex-col  gap-4">
+                        <span className="font-bold text-lg text-green-700 text-center">R$ {item.valorTotalItem.toFixed(2)}</span>
+                        <div className='flex gap-4'>
+                          <button
+                            onClick={() => handleRemoverItem(item.id)}
+                            className="bg-amber-100 text-amber-700 p-3 m-0 rounded-full hover:bg-amber-200 hover:cursor-pointer"
+                          >
+                            <Pencil size={18} />
+                          </button>
+                          <button
+                            onClick={() => handleRemoverItem(item.id)}
+                            className="bg-red-100 text-red-700 p-3 m-0 rounded-full hover:bg-red-200 hover:cursor-pointer"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="pt-6 border-t border-gray-100 space-y-4">
+              <div className="flex justify-between items-baseline">
+                <span className="text-xl font-medium text-gray-500">Valor Final Somado:</span>
+                <span className="text-5xl font-black text-green-600">R$ {valorTotalOrcamento.toFixed(2)}</span>
+              </div>
+
+              <button
+                onClick={handleCopiarOrcamento}
+                disabled={itens.length === 0}
+                className={`w-full py-4 text-xl font-bold rounded-xl transition shadow-md flex items-center justify-center gap-2 ${itens.length === 0
+                  ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                  : copiado
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-green-600 text-white hover:bg-green-500'
+                  }`}
+              >
+                {copiado ? '✓ Copiado com Sucesso!' : 'Copiar Orçamento Consolidado'}
+              </button>
+            </div>
+          </section>
+
+          <div className='flex justify-end'>
+            <button className='bg-red-600 px-10 py-2 text-2xl text-white rounded-full 
           hover:bg-red-700 hover:cursor-pointer' onClick={() => window.location.reload()}>Limpar Tudo</button>
 
+          </div>
         </div>
       </div>
     </main>
