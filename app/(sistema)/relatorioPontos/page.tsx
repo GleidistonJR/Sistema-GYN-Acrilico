@@ -10,44 +10,44 @@ interface Pontos {
   colaborador: { nome: string };
 }
 
+// Função auxiliar para pegar a data de hoje no fuso do Brasil formato YYYY-MM-DD
+const obterDataHojeString = () => {
+  const dataFuso = new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+  const [dia, mes, ano] = dataFuso.split('/');
+  return `${ano}-${mes}-${dia}`;
+};
+
 export default function Relatorios() {
   const [pontos, setPontos] = useState<Pontos[]>([]);
-  const [filtro, setFiltro] = useState("");
-  const [pagina, setPagina] = useState(1); // Novo estado para controlar a página
-
-  // Resetar para a página 1 quando o usuário digitar uma nova busca
-  const handleFiltroChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFiltro(e.target.value);
-    setPagina(1);
-  };
+  const [dataFiltro, setDataFiltro] = useState(obterDataHojeString());
 
   useEffect(() => {
-    const delayBusca = setTimeout(() => {
-      const carregar = async () => {
-        // Passamos o filtro e a página atual para a action
-        const dados = await buscarPontos(filtro, pagina);
-        setPontos(dados);
-      };
+    const carregar = async () => {
+      if (!dataFiltro) return;
 
-      carregar();
-    }, 300);
+      // Agora passamos apenas a data para a Server Action
+      const dados = await buscarPontos(dataFiltro);
+      setPontos(dados);
+    };
 
-    return () => clearTimeout(delayBusca);
-  }, [filtro, pagina]); // Atualiza o useEffect se o filtro OU a página mudarem
+    carregar();
+  }, [dataFiltro]); // Atualiza sempre que mudar a data
 
   return (
     <main className="text-gray-700 pb-10">
       <h1 className="text-3xl my-6 text-center text-gray-700 font-bold">Relatório Ponto</h1>
 
-      <div className='text-center w-full'>
+      <div className='text-center w-full flex flex-col items-center mb-5'>
+        <label htmlFor="buscarData" className="text-sm font-semibold text-gray-500 mb-1">
+          Filtrar pontos por dia:
+        </label>
         <input
-          type="search"
-          value={filtro}
-          onChange={handleFiltroChange}
-          name="buscarColaborador"
-          id="buscarColaborador"
-          className='border rounded my-5 w-80 p-2'
-          placeholder='Buscar Colaborador'
+          type="date"
+          value={dataFiltro}
+          onChange={(e) => setDataFiltro(e.target.value)}
+          name="buscarData"
+          id="buscarData"
+          className='border rounded p-2 text-gray-700 font-medium shadow-sm focus:outline-green-500'
         />
       </div>
 
@@ -70,40 +70,25 @@ export default function Relatorios() {
                   hour: '2-digit',
                   minute: '2-digit'
                 })}</td>
-                <td className="p-2" > <span className={`px-2.5 py-1 rounded-full text-sm font-semibold ${ponto.tipo === 'Entrada' ? 'bg-green-100 text-green-800' :
+                <td className="p-2" > 
+                  <span className={`px-2.5 py-1 rounded-full text-sm font-semibold ${
+                    ponto.tipo === 'Entrada' ? 'bg-green-100 text-green-800' :
                     ponto.tipo.startsWith('Atestado') ? 'bg-purple-100 text-purple-800' : 'bg-orange-100 text-orange-800'
                   }`}>
-                  {ponto.tipo.startsWith("Atestado") ? "Atestado" : ponto.tipo}</span></td>
+                    {ponto.tipo.startsWith("Atestado") ? "Atestado" : ponto.tipo}
+                  </span>
+                </td>
               </tr>
             ))
           ) : (
             <tr className="text-center border-b">
-              <td colSpan={4} className="p-2">Nenhum ponto encontrado!</td>
+              <td colSpan={4} className="p-2 text-gray-500 italic">
+                Nenhum ponto registrado nesta data.
+              </td>
             </tr>
           )}
         </tbody>
       </table>
-
-      {/* CONTROLES DE PAGINAÇÃO */}
-      <div className="flex justify-center items-center gap-4 mt-6">
-        <button
-          disabled={pagina === 1}
-          onClick={() => setPagina((prev) => prev - 1)}
-          className="px-4 py-2 border rounded bg-white hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Anterior
-        </button>
-
-        <span className="font-semibold text-sm">Página {pagina}</span>
-
-        <button
-          disabled={pontos.length < 20} // Se veio menos de 20 registros, significa que é a última página
-          onClick={() => setPagina((prev) => prev + 1)}
-          className="px-4 py-2 border rounded bg-white hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Próximo
-        </button>
-      </div>
     </main >
   );
 }

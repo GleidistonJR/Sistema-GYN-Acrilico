@@ -10,46 +10,27 @@ interface Pontos {
   colaborador: { nome: string };
 }
 
-export async function buscarPontos(filtro?: string, pagina: number = 1): Promise<Pontos[]> {
-  const itensPorPagina = 20;
-  const skip = (pagina - 1) * itensPorPagina;
+export async function buscarPontos(dataString: string) {
+  // Monta o início e fim do dia baseado no fuso horário para abranger o dia todo
+  const inicioDia = new Date(`${dataString}T00:00:00-03:00`);
+  const fimDia = new Date(`${dataString}T23:59:59-03:00`);
 
-  try {
-    const pontos = await prisma.ponto.findMany({
-      where: filtro ? {
-        OR: [
-          {
-            cpf: {
-              contains: filtro // Busca parcial no CPF
-            }
-          },
-          {
-            colaborador: {
-              nome: {
-                contains: filtro
-              }
-            }
-          }
-        ]
-      } : {},
-      include: {
-        colaborador: {
-          select: {
-            nome: true
-          }
-        }
-      },
-      take: itensPorPagina, // Limita em 20 resultados
-      skip: skip,           // Pula os resultados das páginas anteriores
-      orderBy: {
-        dataHora: 'desc',
-      },
-    });
+  const pontos = await prisma.ponto.findMany({
+    where: {
+      dataHora: {
+        gte: inicioDia,
+        lte: fimDia
+      }
+    },
+    include: {
+      colaborador: {
+        select: { nome: true }
+      }
+    },
+    orderBy: {
+      dataHora: 'asc' // Alterado para 'asc' para mostrar na ordem em que o dia aconteceu
+    },
+  });
 
-    return pontos as unknown as Pontos[];
-
-  } catch (error) {
-    console.error("Erro ao buscar pontos:", error);
-    return [];
-  }
+  return pontos;
 }

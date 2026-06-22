@@ -94,7 +94,7 @@ export default function PainelFrequenciaInterativo({
   return (
     <>
       {/* ---------------- INTERFACE DO SISTEMA ---------------- */}
-      <main className="p-8 max-w-5xl m-auto text-gray-700 print:hidden">
+      <main className="p-8 max-w-3/4 m-auto text-gray-700 print:hidden">
         <div className="flex flex-col lg:flex-row justify-between items-center mb-6 gap-4 border-b pb-4">
           <div>
             <h1 className="text-3xl font-bold text-center lg:text-left text-gray-800">Espelho de Ponto Individual</h1>
@@ -103,9 +103,7 @@ export default function PainelFrequenciaInterativo({
 
           <div className="flex flex-wrap items-center justify-center gap-3">
             <BotaoImprimir />
-            <ModalCriarPonto colaboradorId={colaborador.id} />
-            <ModalAtestado colaboradorId={colaborador.id} />
-
+            
             <form method="GET" className="flex items-center gap-2 bg-white p-2 rounded-lg border shadow-sm">
               <label htmlFor="mes" className="text-xs font-semibold uppercase text-gray-500 tracking-wider pl-1">Período:</label>
               <input

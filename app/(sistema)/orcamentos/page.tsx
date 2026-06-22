@@ -351,6 +351,15 @@ Retirar na loja, não estamos fazendo entrega.`;
           </button>
         </div>
 
+        <div>
+          <button
+            onClick={copiarTexto}
+            className="btn-copiar w-full text-left border px-5 py-2 bg-green-600 text-white font-semibold rounded hover:bg-green-500 hover:cursor-pointer"
+            data-texto={"Tempo médio para ser produzido de 5 dias úteis.\nPara início da produção é solicitado 50% do valor antecipado e o restante no ato da retirada.\nForma de pagamento: Dinheiro, PIX ou cartão de crédito em 2x, e débito.\nRetirar na loja, não estamos fazendo entrega.\n"}>
+            Condições para Produção
+          </button>
+        </div>
+
         <div className="pt-4 border-t border-gray-200 space-y-2">
           <a href="https://solucoes.receita.fazenda.gov.br/Servicos/cnpjreva/cnpjreva_solicitacao.asp" target="_blank" rel="noreferrer" className="block text-center border px-5 py-2 bg-yellow-500 text-white font-semibold rounded hover:bg-yellow-400 hover:cursor-pointer">
             CNPJ

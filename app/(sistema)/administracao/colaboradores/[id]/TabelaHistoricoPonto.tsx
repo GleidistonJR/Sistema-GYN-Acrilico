@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from 'react';
-import { Pencil, Trash2, CalendarDays, FilePlus2 } from 'lucide-react';
+import { Pencil, Trash2, CalendarDays, FilePlus2, PlusCircle } from 'lucide-react';
 import ModalEdicaoPonto from './ModalEdicaoPonto';
-// Importando a sua action que gerencia o FormData do modal
+import ModalCriarPonto from './ModalCriarPonto'; // Importando o seu modal de criação
 import { deletarPonto, criarFeriado, adicionarAtestado } from '../actions'; 
 
 interface Ponto {
@@ -30,10 +30,16 @@ interface LinhaDiaria {
 
 export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, colaboradorId }: TabelaProps) {
   const [pontos, setPontos] = useState<Ponto[]>(pontosIniciais);
+  
+  // Controle do Modal de Edição Tradicional
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [pontoSelecionado, setPontoSelecionado] = useState<any | null>(null);
 
-  // ESTADOS PARA O SEU MODAL DE ATESTADO
+  // Controle do seu Modal de Criação Manual de Ponto
+  const [isCriarPontoOpen, setIsCriarPontoOpen] = useState(false);
+  const [dataCriarPontoSelecionada, setDataCriarPontoSelecionada] = useState("");
+
+  // Controle do seu Modal de Atestado
   const [isAtestadoOpen, setIsAtestadoOpen] = useState(false);
   const [isAtestadoPending, setIsAtestadoPending] = useState(false);
   const [dataAtestadoSelecionada, setDataAtestadoSelecionada] = useState("");
@@ -53,6 +59,12 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
       colaborador: { nome: nomeColaborador }
     });
     setIsModalOpen(true);
+  };
+
+  // Abre o seu modal de criação enviando a data da linha clicada
+  const handleAdicionarPontoManual = (dataStr: string) => {
+    setDataCriarPontoSelecionada(dataStr);
+    setIsCriarPontoOpen(true);
   };
 
   const handleDeletar = async (id: number) => {
@@ -75,13 +87,11 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
     }
   };
 
-  // ABRE O SEU MODAL CAPTURANDO A DATA DA LINHA CLICADA
   const handleAbrirModalAtestado = (dataStr: string) => {
     setDataAtestadoSelecionada(dataStr);
     setIsAtestadoOpen(true);
   };
 
-  // SUBMIT DO SEU MODAL ADAPTADO PARA A LINHA
   async function handleAtestadoSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setIsAtestadoPending(true);
@@ -97,7 +107,7 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
     try {
       await adicionarAtestado(formData);
       setIsAtestadoOpen(false);
-      window.location.reload(); // Recarrega a página para atualizar o espelho
+      window.location.reload(); 
     } catch (error) {
       alert("Erro ao salvar atestado");
     } finally {
@@ -195,7 +205,7 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
           <thead>
             <tr className="bg-gray-100 text-gray-700 font-semibold uppercase text-xs tracking-wider border-b">
               <th className="p-4">Data / Dia</th>
-              <th className="p-4">Sequência de Marcações (Batidas)</th>
+              <th className="p-4">Sequência de Marcações</th>
               <th className="p-4 text-center">Total Computado</th>
               <th className="p-4 text-center">Status da Jornada</th>
               <th className="p-4 text-center">Ações Em Bloco</th>
@@ -251,8 +261,8 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
                       </span>
                     </td>
 
-                    <td className="p-4">
-                      <div className="flex flex-wrap gap-1.5 items-center">
+                    <td className="p-2">
+                      <div className="grid grid-cols-2 gap-1.5 items-center">
                         {dia.batidasFisicas.map((ponto, idx) => {
                           const horaFormatada = new Date(ponto.dataHora).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
                           const ehEntrada = idx % 2 === 0;
@@ -277,7 +287,7 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
                         {dia.atestados.map((atestado) => (
                           <div key={atestado.id} className="flex items-center gap-1 bg-purple-50 border border-purple-200 rounded px-2 py-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-purple-500" />
-                            <span className="text-xs font-medium text-purple-700">Médico: {formatarMinutos(Number(atestado.tipo.split(": ")[1] || 0))}</span>
+                            <span className="text-xs font-medium text-purple-700">{formatarMinutos(Number(atestado.tipo.split(": ")[1] || 0))}</span>
                             
                             <div className="flex items-center gap-0.5 ml-2 border-l border-purple-200 pl-1 text-purple-400">
                               <button onClick={() => handleEditar(atestado)} title="Editar abono" className="hover:text-amber-600 p-0.5 transition-colors">
@@ -301,7 +311,7 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
                         ))}
 
                         {!temRegistroValido && (
-                          <span className="text-xs italic text-gray-400 font-normal">Sem movimentações no ponto</span>
+                          <span className="text-xs italic text-gray-400 font-normal col-span-2">Sem movimentações no ponto</span>
                         )}
 
                         {dia.batidasFisicas.length % 2 !== 0 && (
@@ -328,8 +338,18 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
                     </td>
 
                     <td className="p-4 text-center whitespace-nowrap">
-                      <div className="flex items-center justify-center gap-1.5">
+                      <div className="flex items-center justify-start gap-1.5">
                         
+                        {/* Botão para Inserir Novo Ponto Manual com o ModalCriarPonto */}
+                        {ehDiaUtil && (
+                          <button
+                            onClick={() => handleAdicionarPontoManual(dia.dataStr)}
+                            className="text-[11px] bg-white hover:bg-green-50 text-gray-600 hover:text-green-800 border border-gray-200 hover:border-green-300 px-2 py-1 rounded transition-all font-medium flex items-center gap-1 shadow-sm cursor-pointer"
+                          >
+                            <PlusCircle size={12} className="text-green-600" /> + Ponto
+                          </button>
+                        )}
+
                         {ehFaltaMeioSemana && (
                           <button
                             onClick={() => handleMarcarFeriado(dia.dataStr)}
@@ -339,7 +359,6 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
                           </button>
                         )}
 
-                        {/* DISPARA A ABERTURA DO MODAL PASSANDO A DATA CORRETA */}
                         {(ehFaltaMeioSemana || ehIncompletoMeioSemana) && (
                           <button
                             onClick={() => handleAbrirModalAtestado(dia.dataStr)}
@@ -349,9 +368,9 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
                           </button>
                         )}
 
-                        {!ehFaltaMeioSemana && !ehIncompletoMeioSemana && (
+                        {!ehDiaUtil && (
                           <span className="text-gray-400 text-xs italic">
-                            {!ehDiaUtil ? "Fim de Semana" : "Jornada Regular"}
+                            Fim de Semana
                           </span>
                         )}
 
@@ -378,11 +397,17 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
         dadosEdicao={pontoSelecionado}
       />
 
-      {/* ========================================================== */}
-      {/* SEU MODAL DE ATESTADO COM ESTILO INTERNO ATUALIZADO         */}
-      {/* ========================================================== */}
+      {/* SEU MODAL ORIGINAL DE CRIAÇÃO MANUAL ADAPTADO */}
+      <ModalCriarPonto 
+        colaboradorId={colaboradorId}
+        isOpen={isCriarPontoOpen}
+        onClose={() => setIsCriarPontoOpen(false)}
+        dataInicial={dataCriarPontoSelecionada}
+      />
+
+      {/* MODAL DE ATESTADO / ABONO */}
       {isAtestadoOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 text-black">
           <div className="bg-white rounded-xl shadow-xl max-w-md w-full border overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             <div className="bg-gray-50 p-4 border-b flex justify-between items-center">
               <h3 className="font-bold text-gray-700 text-lg">Lançar Atestado / Abono</h3>
@@ -401,7 +426,7 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
                   type="date" 
                   name="data" 
                   value={dataAtestadoSelecionada}
-                  readOnly // Mantém travado na data em que ele clicou na tabela
+                  readOnly 
                   required 
                   className="w-full border rounded-lg p-2 bg-gray-100 text-gray-500 cursor-not-allowed focus:outline-none"
                 />
