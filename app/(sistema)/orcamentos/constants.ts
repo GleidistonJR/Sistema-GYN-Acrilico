@@ -48,6 +48,13 @@ export const CHAPA_CONFIG: Record<string, { label: string; valor: number }> = {
   "psai": { label: "Chapa de PSAI, (2x1)Metros", valor: 90 },
 };
 
+export const TAXAS_ORCAMENTO = {
+  IMPOSTO: 15,     // 15%
+  MAO_DE_OBRA: 30, // %
+  PROJETO: 30,     // %
+  ESPECIAL: 35,    // %
+};
+
 // Definição de um item do orçamento
 export interface ItemOrcamento {
   id: string;

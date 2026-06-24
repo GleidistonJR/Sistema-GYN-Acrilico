@@ -28,7 +28,7 @@ export async function buscarPontos(dataString: string) {
       }
     },
     orderBy: {
-      dataHora: 'asc' // Alterado para 'asc' para mostrar na ordem em que o dia aconteceu
+      dataHora: 'desc' // Alterado para 'asc' para mostrar na ordem em que o dia aconteceu
     },
   });
 
