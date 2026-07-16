@@ -47,6 +47,9 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
   const MINUTOS_ESPERADOS_DIARIOS = 510; // 8h 30m
   const TOLERANCIA_CLT = 10;
 
+  // Data de hoje formatada como 'YYYY-MM-DD' para comparação segura de datas locais
+  const hojeStr = new Date().toLocaleDateString('sv-SE');
+
   const formatarMinutos = (minutosTotais: number) => {
     const hrs = Math.floor(minutosTotais / 60);
     const mins = minutosTotais % 60;
@@ -220,10 +223,16 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
                 const desvio = totalCompensado - MINUTOS_ESPERADOS_DIARIOS;
 
                 const temRegistroValido = dia.batidasFisicas.length > 0 || dia.atestados.length > 0 || dia.feriados.length > 0;
+                
+                // Verifica se a data desta linha é futura em relação a hoje
+                const ehDiaFuturo = dia.dataStr > hojeStr;
 
                 let tagStatus = { texto: "Fim de Semana", classe: "bg-gray-100 text-gray-600 border border-gray-200" };
 
-                if (ehDiaUtil) {
+                if (ehDiaFuturo) {
+                  // Se for um dia futuro, não exibe falta nem cobra horas
+                  tagStatus = { texto: "Não Iniciado", classe: "bg-gray-50 text-gray-400 border border-gray-200 italic font-normal" };
+                } else if (ehDiaUtil) {
                   if (!temRegistroValido) {
                     tagStatus = { texto: "Falta Sem Justificativa", classe: "bg-red-100 text-red-700 border border-red-300 font-bold" };
                   } else if (dia.feriados.length > 0) {
@@ -314,7 +323,7 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
                           <span className="text-xs italic text-gray-400 font-normal col-span-2">Sem movimentações no ponto</span>
                         )}
 
-                        {dia.batidasFisicas.length % 2 !== 0 && (
+                        {dia.batidasFisicas.length % 2 !== 0 && !ehDiaFuturo && (
                           <span className="text-[11px] bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded animate-pulse font-medium">
                             Falta Saída
                           </span>
@@ -323,7 +332,7 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
                     </td>
 
                     <td className="p-4 text-center font-semibold font-mono text-gray-800 whitespace-nowrap">
-                      {dia.feriados.length > 0 ? "0h 00m" : formatarMinutos(totalCompensado)}
+                      {dia.feriados.length > 0 || ehDiaFuturo ? "0h 00m" : formatarMinutos(totalCompensado)}
                       {dia.minutosAtestado > 0 && (
                         <span className="text-[10px] text-purple-500 font-sans block font-normal">
                           (Físico: {formatarMinutos(dia.minutosTrabalhados)})

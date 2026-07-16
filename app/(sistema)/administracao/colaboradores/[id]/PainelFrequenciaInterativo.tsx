@@ -26,7 +26,7 @@ export default function PainelFrequenciaInterativo({
   const MINUTOS_JORNADA_DIARIA = 8 * 60 + 30; // 510 minutos (8h30m)
   const TOLERANCIA_CLT = 10;
 
-  // Função interna para formatar o cabeçalho de impressão (Evita o erro de serialização do Next.js)
+  // Função interna para formatar o cabeçalho de impressão
   const formatarMesAnoCabecalho = (mesAnoStr: string) => {
     if (!mesAnoStr) return "";
     const [ano, mes] = mesAnoStr.split("-");
@@ -34,13 +34,21 @@ export default function PainelFrequenciaInterativo({
     return d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).toUpperCase();
   };
 
+  // Obter data de hoje sem considerar a hora para comparação precisa
+  const hoje = new Date();
+  const hojeSemHora = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
+
   let totalMinutosTrabalhados = 0;
   let totalMinutosAtestado = 0;
   let qtdDiasFaltas = 0;
   let qtdDiasJustificados = 0;
 
+  // Variáveis para o cálculo inteligente do saldo real (até o dia de hoje)
+  let saldoAcumuladoAteHoje = 0;
+  let diasUteisCalculadosAteHoje = 0;
+
   linhasParaImpressao.forEach(linha => {
-    totalMinutosTrabalhados += linha.trabalhado; // Corrigido de line para linha
+    totalMinutosTrabalhados += linha.trabalhado;
     totalMinutosAtestado += linha.abono;
 
     if (linha.statusDia === "FALTA") {
@@ -49,17 +57,35 @@ export default function PainelFrequenciaInterativo({
     if (linha.statusDia === "TRABALHADO" || linha.statusDia === "ATESTADO") {
       qtdDiasJustificados++;
     }
+
+    // --- CÁLCULO INTELIGENTE DO SALDO REAL ---
+    const dataLinha = new Date(linha.dataObjeto);
+    const dataLinhaSemHora = new Date(dataLinha.getFullYear(), dataLinha.getMonth(), dataLinha.getDate());
+
+    // Só processa para o saldo se for hoje ou um dia que já passou
+    if (dataLinhaSemHora <= hojeSemHora) {
+      if (linha.statusDia !== "FOLGA" && linha.statusDia !== "FERIADO") {
+        diasUteisCalculadosAteHoje++;
+
+        const totalCompensadoDia = linha.trabalhado + linha.abono;
+        const desvioDia = totalCompensadoDia - MINUTOS_JORNADA_DIARIA;
+
+        // Se o desvio do dia for maior que a tolerância (ex: +11min ou -11min), acumula o saldo real
+        if (Math.abs(desvioDia) > TOLERANCIA_CLT) {
+          saldoAcumuladoAteHoje += desvioDia;
+        }
+        // Caso contrário (desvio de até 10min), o saldo do dia é considerado ZERO (Jornada Completa)
+      } else if ((linha.statusDia === "FERIADO" || linha.statusDia === "FOLGA") && linha.trabalhado > 0) {
+        // Se trabalhou em folga/feriado, todo o tempo trabalhado vira saldo positivo direto
+        saldoAcumuladoAteHoje += linha.trabalhado;
+      }
+    }
   });
 
   const totalMinutosEsperadosNoMes = diasConsiderados * MINUTOS_JORNADA_DIARIA;
-  const totalMinutosComputados = totalMinutosTrabalhados + totalMinutosAtestado;
   
-  let saldoMinutosCompleto = totalMinutosComputados - totalMinutosEsperadosNoMes;
-
-  if (Math.abs(saldoMinutosCompleto) <= TOLERANCIA_CLT) {
-    saldoMinutosCompleto = 0;
-  }
-
+  // O saldo final agora herda a soma dos desvios diários que estouraram a tolerância
+  const saldoMinutosCompleto = saldoAcumuladoAteHoje;
   const isPositivo = saldoMinutosCompleto >= 0;
 
   const formatarMinutos = (minutosTotais: number) => {
@@ -74,9 +100,11 @@ export default function PainelFrequenciaInterativo({
     let textoSaldo = "0h 00m";
 
     if (linha.statusDia !== "FERIADO" && linha.statusDia !== "FOLGA") {
-      const totalCompensadoDia = linha.trabalhado + linha.abono;
-      const desvio = totalCompensadoDia - MINUTOS_JORNADA_DIARIA;
+      const totalCompensadoDia = WebGLSampler
+      const totalCompensado = linha.trabalhado + linha.abono;
+      const desvio = totalCompensado - MINUTOS_JORNADA_DIARIA;
       
+      // Exibe o saldo na tabela apenas se passar da tolerância diária de 10 min
       if (Math.abs(desvio) > TOLERANCIA_CLT) {
         const hrs = Math.floor(Math.abs(desvio) / 60);
         const mins = Math.abs(desvio) % 60;
@@ -144,7 +172,7 @@ export default function PainelFrequenciaInterativo({
                 {saldoMinutosCompleto === 0 ? '0h 00m' : isPositivo ? `+ ${saldoFormatado}` : `- ${saldoFormatado}`}
               </span>
               <span className="text-[11px] font-medium mt-1 text-center">
-                {isPositivo ? 'Crédito acumulado real' : 'Funcionário em débito com a empresa'}
+                {saldoMinutosCompleto === 0 ? 'Saldo zerado / em dia' : isPositivo ? 'Crédito acumulado real' : 'Funcionário em débito com a empresa'}
               </span>
             </div>
           </div>
