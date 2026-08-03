@@ -2,13 +2,11 @@
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
-// Certifique-se de importar o seu cliente do prisma configurado
-// import { prisma } from "@/lib/prisma"; 
 
 export async function salvarPontoNoBanco(cpf: string) {
   try {
-
-    const colaborador = await prisma.colaborador.findFirst({
+    // 1. Usando findUnique em vez de findFirst (é mais rápido no Postgres)
+    const colaborador = await prisma.colaborador.findUnique({
       where: { cpf: cpf },
     });
 
@@ -21,34 +19,28 @@ export async function salvarPontoNoBanco(cpf: string) {
     const ultimoPonto = await prisma.ponto.findFirst({
       where: { cpf: cpf },
       orderBy: {
-        id: 'desc',
+        // 2. MUDANÇA CRÍTICA: Ordenar por dataHora em vez de id
+        dataHora: 'desc', 
       }
     });
 
     // --- LÓGICA INTELIGENTE DE DATA ---
     let proximoTipoPonto: 'Entrada' | 'Saida' = 'Entrada';
+    
+    // Capturamos o momento exato agora em uma variável
+    const agora = new Date();
 
     if (ultimoPonto) {
-      // Pega a data de hoje e a data do último ponto no formato DD/MM/AAAA
-      // Usando o fuso do Brasil para garantir que a virada do dia aconteça no horário certo
-      const hojeStr = new Date().toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
-      
-      // ATENÇÃO AQUI: Mudado de 'createdAt' para 'dataHora' que é o campo do seu Schema
+      const hojeStr = agora.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
       const ultimoPontoStr = new Date(ultimoPonto.dataHora).toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
 
       const ehHoje = hojeStr === ultimoPontoStr;
 
       if (ehHoje) {
-        // Se for no mesmo dia, segue a lógica normal de alternar
         proximoTipoPonto = ultimoPonto.tipo === 'Saida' ? 'Entrada' : 'Saida';
       } else {
-        // Se o último ponto foi em outro dia, força 'Entrada'
-        // Deixando o ponto esquecido do dia anterior em aberto para o supervisor resolver
         proximoTipoPonto = 'Entrada';
       }
-    } else {
-      // Se não houver nenhum ponto anterior no sistema, por padrão é Entrada
-      proximoTipoPonto = 'Entrada';
     }
     // ----------------------------------
 
@@ -57,7 +49,8 @@ export async function salvarPontoNoBanco(cpf: string) {
       data: {
         cpf: cpf,
         tipo: proximoTipoPonto,
-        // O campo dataHora será preenchido automaticamente com @default(now()) do seu SQLite
+        // 3. Passando a data explicitamente para evitar conflitos de fuso no Neon
+        dataHora: agora, 
       },
     });
 
@@ -65,7 +58,7 @@ export async function salvarPontoNoBanco(cpf: string) {
     return { sucesso: true };
 
   } catch (error) {
-    console.error(error);
-    return { sucesso: false, mensagem: "Erro interno ao salvar ponto" };
+    console.error("Erro interno ao salvar ponto no Postgres:", error);
+    return { sucesso: false, mensagem: "Erro ao salvar ponto. Tente novamente." };
   }
 }
