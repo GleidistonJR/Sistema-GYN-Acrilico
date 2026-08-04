@@ -20,13 +20,13 @@ export async function salvarPontoNoBanco(cpf: string) {
       where: { cpf: cpf },
       orderBy: {
         // 2. MUDANÇA CRÍTICA: Ordenar por dataHora em vez de id
-        dataHora: 'desc', 
+        dataHora: 'desc',
       }
     });
 
     // --- LÓGICA INTELIGENTE DE DATA ---
     let proximoTipoPonto: 'Entrada' | 'Saida' = 'Entrada';
-    
+
     // Capturamos o momento exato agora em uma variável
     const agora = new Date();
 
@@ -50,15 +50,22 @@ export async function salvarPontoNoBanco(cpf: string) {
         cpf: cpf,
         tipo: proximoTipoPonto,
         // 3. Passando a data explicitamente para evitar conflitos de fuso no Neon
-        dataHora: agora, 
+        dataHora: agora,
       },
     });
 
     revalidatePath("/relatorios");
     return { sucesso: true };
 
-  } catch (error) {
-    console.error("Erro interno ao salvar ponto no Postgres:", error);
-    return { sucesso: false, mensagem: "Erro ao salvar ponto. Tente novamente." };
+  } catch (error: any) {
+    // Exibe no console da Vercel / terminal local o objeto completo
+    console.error("=== ERRO DETALHADO AO SALVAR PONTO ===");
+    console.error(error);
+
+    // Retorna a mensagem real para você ver na tela durante os testes
+    return {
+      sucesso: false,
+      mensagem: error?.message || "Erro desconhecido ao salvar"
+    };
   }
 }

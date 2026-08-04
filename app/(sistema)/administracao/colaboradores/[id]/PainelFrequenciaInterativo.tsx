@@ -20,7 +20,7 @@ export default function PainelFrequenciaInterativo({
   diasUteisIniciais,
   mesInicialValue
 }: PainelProps) {
-  
+
   const [diasConsiderados, setDiasConsiderados] = useState<number>(diasUteisIniciais || 21);
 
   const MINUTOS_JORNADA_DIARIA = 8 * 60 + 30; // 510 minutos (8h30m)
@@ -83,7 +83,7 @@ export default function PainelFrequenciaInterativo({
   });
 
   const totalMinutosEsperadosNoMes = diasConsiderados * MINUTOS_JORNADA_DIARIA;
-  
+
   // O saldo final agora herda a soma dos desvios diários que estouraram a tolerância
   const saldoMinutosCompleto = saldoAcumuladoAteHoje;
   const isPositivo = saldoMinutosCompleto >= 0;
@@ -100,10 +100,9 @@ export default function PainelFrequenciaInterativo({
     let textoSaldo = "0h 00m";
 
     if (linha.statusDia !== "FERIADO" && linha.statusDia !== "FOLGA") {
-      const totalCompensadoDia = WebGLSampler
       const totalCompensado = linha.trabalhado + linha.abono;
       const desvio = totalCompensado - MINUTOS_JORNADA_DIARIA;
-      
+
       // Exibe o saldo na tabela apenas se passar da tolerância diária de 10 min
       if (Math.abs(desvio) > TOLERANCIA_CLT) {
         const hrs = Math.floor(Math.abs(desvio) / 60);
@@ -131,7 +130,7 @@ export default function PainelFrequenciaInterativo({
 
           <div className="flex flex-wrap items-center justify-center gap-3">
             <BotaoImprimir />
-            
+
             <form method="GET" className="flex items-center gap-2 bg-white p-2 rounded-lg border shadow-sm">
               <label htmlFor="mes" className="text-xs font-semibold uppercase text-gray-500 tracking-wider pl-1">Período:</label>
               <input
