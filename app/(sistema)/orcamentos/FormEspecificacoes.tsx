@@ -256,7 +256,7 @@ export default function FormEspecificacoes({
               onChange={(e) => setTemImposto(e.target.checked)}
               className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
             />
-            <span className="font-medium text-gray-700 text-sm">Imposto (+15%)</span>
+            <span className="font-medium text-gray-700 text-sm">Imposto</span>
           </label>
 
           <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-100 select-none">
@@ -266,7 +266,7 @@ export default function FormEspecificacoes({
               onChange={(e) => setTemMaoDeObra(e.target.checked)}
               className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
             />
-            <span className="font-medium text-gray-700 text-sm">Mão de Obra (+30%)</span>
+            <span className="font-medium text-gray-700 text-sm">Mão de Obra</span>
           </label>
 
           <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-100 select-none">
@@ -276,7 +276,7 @@ export default function FormEspecificacoes({
               onChange={(e) => setTemProjeto(e.target.checked)}
               className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
             />
-            <span className="font-medium text-gray-700 text-sm">Projeto (+30%)</span>
+            <span className="font-medium text-gray-700 text-sm">Projeto</span>
           </label>
 
           <label className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-100 select-none">
@@ -286,7 +286,7 @@ export default function FormEspecificacoes({
               onChange={(e) => setTemEspecial(e.target.checked)}
               className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
             />
-            <span className="font-medium text-gray-700 text-sm">Especial (+35%)</span>
+            <span className="font-medium text-gray-700 text-sm">Especial</span>
           </label>
         </div>
       </section>
