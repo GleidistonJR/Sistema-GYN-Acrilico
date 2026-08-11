@@ -245,7 +245,6 @@ export default function FormEspecificacoes({
         )}
       </section>
 
-      {/* Bloco Adicionais (Checklist de Serviços) */}
       <section className="bg-white rounded-xl shadow-sm p-5 space-y-3 border border-gray-100">
         <h2 className="text-xl font-bold text-gray-700 pb-2 border-b border-gray-100">3. Custos e Serviços Adicionais</h2>
         <div className="grid grid-cols-2 gap-4 pt-1">

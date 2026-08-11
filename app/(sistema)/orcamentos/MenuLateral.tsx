@@ -14,7 +14,7 @@ export default function MenuLateral({ isOpen }: MenuLateralProps) {
   };
 
   return (
-    <div className={`fixed top-0 left-0 h-full w-80 bg-white p-5 pt-20 space-y-3 shadow-2xl z-40 transform transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+    <div className={`fixed top-0 left-0 h-full w-80 bg-white p-5 pt-34 space-y-3 shadow-2xl z-40 transform transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
       <div>
         <button
           onClick={copiarTexto}

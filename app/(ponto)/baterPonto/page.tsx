@@ -30,7 +30,7 @@ export default function RegistroPonto() {
 
   return (
     <main className='py-0'>
-      <h1 className='text-6xl my-5 text-center text-gray-700 font-bold'>Registrar Ponto</h1>
+      <h1 className='text-6xl py-5 text-center text-gray-700 font-bold'>Registrar Ponto</h1>
 
       <div className='text-center text-3xl w-100 mx-auto'>
 

@@ -8,6 +8,8 @@ export default function RegistroPonto() {
     <main className='grid grid-cols-1 md:grid-cols-4'>
 
       <nav className="col-span-1 bg-gray-200 flex flex-row md:flex-col p-2 gap-2 md:min-h-screen text-center overflow-x-auto">
+        <Link href="/baterPonto" className="bg-[#003f8d] text-white p-2 rounded font-semibold text-sm">Bater Ponto</Link>
+        <Link href="/relatorioPontos" className="bg-[#003f8d] text-white p-2 rounded font-semibold text-sm">Relatorio Pontos</Link>
         <Link href="/administracao/colaboradores" className="bg-[#003f8d] text-white p-2 rounded font-semibold text-sm">Colaboradores</Link>
         <Link href="/administracao/relatorioPontosAdmin" className="bg-[#003f8d] text-white p-2 rounded font-semibold text-sm">Pontos</Link>
         <Link href="/administracao/produtos" className="bg-[#003f8d] text-white p-2 rounded font-semibold text-sm">Produtos</Link>

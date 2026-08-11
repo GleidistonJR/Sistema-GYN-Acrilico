@@ -35,21 +35,24 @@ export default function Relatorios() {
 
   return (
     <main className="text-gray-700 pb-10">
-      <h1 className="text-3xl my-6 text-center text-gray-700 font-bold">Relatório Ponto</h1>
+      <div className='grid grid-cols-3 py-5'>
+        <h1 className="col-start-2 text-4xl py-6 text-center text-gray-700 font-bold">Relatório Ponto</h1>
 
-      <div className='text-center w-full flex flex-col items-center mb-5'>
-        <label htmlFor="buscarData" className="text-sm font-semibold text-gray-500 mb-1">
-          Filtrar pontos por dia:
-        </label>
-        <input
-          type="date"
-          value={dataFiltro}
-          onChange={(e) => setDataFiltro(e.target.value)}
-          name="buscarData"
-          id="buscarData"
-          className='border rounded p-2 text-gray-700 font-medium shadow-sm focus:outline-green-500'
-        />
+        <div className='text-center w-full flex flex-col items-center mb-5'>
+          <label htmlFor="buscarData" className="text-sm font-semibold text-gray-500 mb-1">
+            Filtrar pontos por dia:
+          </label>
+          <input
+            type="date"
+            value={dataFiltro}
+            onChange={(e) => setDataFiltro(e.target.value)}
+            name="buscarData"
+            id="buscarData"
+            className='border rounded p-2 text-gray-700 font-medium shadow-sm focus:outline-green-500'
+          />
+        </div>
       </div>
+
 
       <table className="w-full lg:w-5/6 m-auto border-collapse border">
         <thead>
@@ -70,11 +73,10 @@ export default function Relatorios() {
                   hour: '2-digit',
                   minute: '2-digit'
                 })}</td>
-                <td className="p-2" > 
-                  <span className={`px-2.5 py-1 rounded-full text-sm font-semibold ${
-                    ponto.tipo === 'Entrada' ? 'bg-green-100 text-green-800' :
-                    ponto.tipo.startsWith('Atestado') ? 'bg-purple-100 text-purple-800' : 'bg-orange-100 text-orange-800'
-                  }`}>
+                <td className="p-2" >
+                  <span className={`px-2.5 py-1 rounded-full text-sm font-semibold ${ponto.tipo === 'Entrada' ? 'bg-green-100 text-green-800' :
+                      ponto.tipo.startsWith('Atestado') ? 'bg-purple-100 text-purple-800' : 'bg-orange-100 text-orange-800'
+                    }`}>
                     {ponto.tipo.startsWith("Atestado") ? "Atestado" : ponto.tipo}
                   </span>
                 </td>
