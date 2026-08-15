@@ -1,6 +1,6 @@
 "use client";
 
-import { PERSONALIZACAO_CONFIG } from './constants';
+import { PERSONALIZACAO_CONFIG } from './utils/constants';
 
 interface FormEspecificacoesProps {
   modoCalculo: string;
@@ -84,7 +84,7 @@ export default function FormEspecificacoes({
       <section className="bg-white rounded-xl shadow-sm p-5 space-y-4 border border-gray-100">
         <h2 className="text-xl font-bold text-gray-700 pb-2 border-b border-gray-100">1. Especificações</h2>
 
-        {modoCalculo === 'chapa' && (
+        {(modoCalculo == 'chapa' || modoCalculo == 'chapaInteira')  && (
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium text-gray-600">Tipo de Material</label>
             <select
@@ -116,24 +116,8 @@ export default function FormEspecificacoes({
           </div>
         )}
 
-        {modoCalculo === 'chapaInteira' && (
-          <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-gray-600">Tipo de Material (Chapa Inteira)</label>
-            <select
-              value={tipoMaterial}
-              onChange={(e) => setTipoMaterial(e.target.value)}
-              className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg outline-none"
-            >
-              <option value="acrilico">Acrílico</option>
-              <option value="pvc">PVC</option>
-              <option value="abs">ABS-Trotek</option>
-              <option value="espelhado">Espelhado</option>
-              <option value="psai">PS AI</option>
-            </select>
-          </div>
-        )}
 
-        {tipoMaterial === "acrilico" && (
+        {tipoMaterial == "acrilico" && (
           <>
             <div className="flex flex-col gap-1">
               <label className="text-sm font-medium text-gray-600">Cor do Material</label>

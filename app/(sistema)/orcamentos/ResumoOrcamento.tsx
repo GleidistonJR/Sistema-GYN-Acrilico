@@ -1,7 +1,7 @@
 "use client";
 
 import { Pencil, Trash2 } from 'lucide-react';
-import { ItemOrcamento } from './constants';
+import { ItemOrcamento } from './utils/constants';
 
 interface ResumoOrcamentoProps {
   itens: ItemOrcamento[];
@@ -19,12 +19,15 @@ interface ResumoOrcamentoProps {
   valorTotalOrcamento: number;
   handleCopiarOrcamento: () => void;
   copiado: boolean;
+  abrirModal: (id: string) => void;
 }
+
+
 
 export default function ResumoOrcamento({
   itens, quantidade, setQuantidade, calculoAtual,
   handleAdicionarItem, handleRemoverItem,
-  valorTotalOrcamento, handleCopiarOrcamento, copiado
+  valorTotalOrcamento, handleCopiarOrcamento, copiado, abrirModal
 }: ResumoOrcamentoProps) {
   return (
     <div className="lg:col-span-3 space-y-6">
@@ -54,7 +57,7 @@ export default function ResumoOrcamento({
           )}
           <p className="text-xs text-blue-600">
             Área Desenvolvida: {calculoAtual.areaChapa.toFixed(4)} m² | Corte: {
-              calculoAtual.minutosCorte > 0 
+              calculoAtual.minutosCorte > 0
                 ? `${calculoAtual.minutosCorte} min e ${calculoAtual.segundosCorte} seg`
                 : `${calculoAtual.segundosCorte} seg`
             }
@@ -73,7 +76,7 @@ export default function ResumoOrcamento({
       {/* Listagem Consolidada */}
       <section className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 space-y-4 min-h-112.5 flex flex-col justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-700 pb-3 border-b border-gray-100 mb-4">Resumo do Orçamento Multi-Material</h2>
+          <h2 className="text-2xl font-bold text-gray-700 pb-3 border-b border-gray-100 mb-4">Resumo do Orçamento</h2>
 
           {itens.length === 0 ? (
             <div className="text-center py-12 text-gray-400">
@@ -101,7 +104,7 @@ export default function ResumoOrcamento({
                     </div>
                     <div className='flex gap-4'>
                       <button
-                        onClick={() => handleRemoverItem(item.id)}
+                        onClick={() => abrirModal(item.id)}
                         className="bg-amber-100 text-amber-700 p-3 m-0 rounded-full hover:bg-amber-200 hover:cursor-pointer"
                       >
                         <Pencil size={18} />
@@ -129,13 +132,12 @@ export default function ResumoOrcamento({
           <button
             onClick={handleCopiarOrcamento}
             disabled={itens.length === 0}
-            className={`w-full py-4 text-xl font-bold rounded-xl transition shadow-md flex items-center justify-center gap-2 ${
-              itens.length === 0
+            className={`w-full py-4 text-xl font-bold rounded-xl transition shadow-md flex items-center justify-center gap-2 ${itens.length === 0
                 ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
                 : copiado
                   ? 'bg-emerald-600 text-white'
                   : 'bg-green-600 text-white hover:bg-green-500 hover:cursor-pointer'
-            }`}
+              }`}
           >
             {copiado ? '✓ Copiado com Sucesso!' : 'Copiar Orçamento Consolidado'}
           </button>
@@ -143,8 +145,8 @@ export default function ResumoOrcamento({
       </section>
 
       <div className='flex justify-end'>
-        <button 
-          className='bg-red-600 px-10 py-2 text-2xl text-white rounded-full hover:bg-red-700 hover:cursor-pointer transition-colors' 
+        <button
+          className='bg-red-600 px-10 py-2 text-2xl text-white rounded-full hover:bg-red-700 hover:cursor-pointer transition-colors'
           onClick={() => window.location.reload()}
         >
           Limpar Tudo

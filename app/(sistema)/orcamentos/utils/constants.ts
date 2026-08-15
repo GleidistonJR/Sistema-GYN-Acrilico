@@ -48,28 +48,38 @@ export const CHAPA_CONFIG: Record<string, { label: string; valor: number }> = {
   "psai": { label: "Chapa de PSAI, (2x1)Metros", valor: 90 },
 };
 
-export const TAXAS_ORCAMENTO = {
-  IMPOSTO: 15,     // 15%
-  MAO_DE_OBRA: 30, // %
-  PROJETO: 30,     // %
-  ESPECIAL: 35,    // %
-};
+// Interface para guardar o estado das taxas daquele item específico
+export interface TaxasItem {
+  temImposto: boolean;
+  temMaoDeObra: boolean;
+  temProjeto: boolean;
+  temEspecial: boolean;
+  porcentagemTotal: number; // Ex: 35 (se for 10% + 15% + 10%)
+}
 
-// Definição de um item do orçamento
 export interface ItemOrcamento {
   id: string;
-  tipoMaterial: string;
+  modoCalculo: string;
+  tipoDeChapa: string;
   corChapa: string;
   espessuraChapa: string;
   larguraChapa: number;
   alturaChapa: number;
+  profundidadeCaixa: number;
+  tipoTampa: string;
+
   tipoPers: string;
   larguraPers: number;
   alturaPers: number;
   quantidade: number;
-  // Valores calculados para histórico do item
+
+  // Histórico de Cálculo
   areaChapa: number;
   areaPers: number;
+
+  valorBaseUnitario: number;  // <--- NOVO: Valor puro do item SEM NENHUMA TAXA
+  taxasAplicadas: TaxasItem;  // <--- NOVO: Quais taxas estão ativas neste item
+
   valorMaterial: number;
   valorPers: number;
   valorTotalItem: number;
