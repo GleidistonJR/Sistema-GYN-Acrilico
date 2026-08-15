@@ -25,6 +25,8 @@ export default function LoginPage() {
     }
   };
 
+  const classeInput = "w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg outline-none transition-colors focus:border-amber-400 focus:ring-1 focus:ring-amber-400 mt-2";
+
   return (
     <main className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8">
@@ -48,7 +50,7 @@ export default function LoginPage() {
               required
               value={usuario}
               onChange={(e) => setUsuario(e.target.value)}
-              className="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-black"
+              className={classeInput}
               placeholder="Digite seu usuário"
             />
           </div>
@@ -60,14 +62,14 @@ export default function LoginPage() {
               required
               value={senha}
               onChange={(e) => setSenha(e.target.value)}
-              className="mt-1 block w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all text-black"
+              className={classeInput}
               placeholder="••••••••"
             />
           </div>
 
           <button
             type="submit"
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-colors shadow-lg active:transform active:scale-95"
+            className="w-full bg-[#0A2540] text-white hover:bg-[#0f3a6b] hover:cursor-pointer font-bold py-3 rounded-lg transition-colors shadow-lg active:transform active:scale-95"
           >
             Entrar no Sistema
           </button>

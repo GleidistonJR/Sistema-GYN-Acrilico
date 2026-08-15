@@ -27,10 +27,11 @@ export default function RegistroPonto() {
     }
   }
 
+  const buttonEstilo = "bg-[#0A2540] text-white hover:bg-[#0f3a6b] hover:cursor-pointer"
 
   return (
     <main className='py-0'>
-      <h1 className='text-6xl py-5 text-center text-gray-700 font-bold'>Registrar Ponto</h1>
+      <h1 className='text-5xl py-5 text-center text-gray-700 font-bold'>Registrar Ponto</h1>
 
       <div className='text-center text-3xl w-100 mx-auto'>
 
@@ -49,7 +50,7 @@ export default function RegistroPonto() {
         <br />
 
         <button
-          className='bg-blue-500 text-white rounded w-full py-2 hover:bg-blue-600 text-3xl'
+          className={buttonEstilo + 'rounded w-full py-2 text-3xl'}
           onClick={registrarPonto}
         >
           Registrar

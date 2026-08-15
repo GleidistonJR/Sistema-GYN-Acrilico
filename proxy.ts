@@ -3,7 +3,7 @@ import type { NextRequest } from 'next/server';
 
 const regrasDeAcesso: { rota: string; rolesPermitidas: string[] }[] = [
   { rota: '/administracao', rolesPermitidas: ['ADMIN'] },
-  { rota: '/baterPonto', rolesPermitidas: ['ADMIN', 'OUTROS'] },
+  { rota: '/baterPonto', rolesPermitidas: ['ADMIN', 'OUTRO'] },
   { rota: '/colaboradores', rolesPermitidas: ['ADMIN',] },
   { rota: '/relatorioPontos', rolesPermitidas: ['ADMIN', 'USER'] },
 ];

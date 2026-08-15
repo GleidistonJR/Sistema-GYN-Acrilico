@@ -56,6 +56,8 @@ export default function Relatorios() {
   }
 
 
+
+
   return (
     <main className="text-gray-700">
       <h1 className="text-3xl my-6 text-center text-gray-700 font-bold">Gestão de Colaboradores</h1>
