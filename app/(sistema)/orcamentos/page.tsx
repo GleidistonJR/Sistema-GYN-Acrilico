@@ -36,6 +36,14 @@ export default function CalculadorChapa() {
   // 4. Lista Final de Itens
   const [itens, setItens] = useState<ItemOrcamento[]>([]);
 
+  const handleCopiarOrcamento = () => {
+    const textoFinal = `*ORÇAMENTO GOIÂNIA ACRÍLICO*\n-------------------------------------\n${itens.map(i => i.descricaoTexto).join('\n\n')}\n-------------------------------------\n*TOTAL: R$ ${valorTotalOrcamento.toFixed(2)}*\n\n*ENTRADA: R$ ${(valorTotalOrcamento / 2).toFixed(2)}*\n\nTempo médio para ser produzido de 5 dias úteis.\nPara início da produção é solicitado 50% do valor antecipado e o restante no ato da retirada.\nForma de pagamento: Dinheiro, PIX ou cartão de crédito em 2x, e débito.\nRetirar na loja, não estamos fazendo entrega.`;
+    navigator.clipboard.writeText(textoFinal).then(() => {
+      setCopiado(true);
+      setTimeout(() => setCopiado(false), 2000);
+    });
+  };
+
   function CarregarEdicao(id: string) {
 
     // 1. Busca na lista o item que tem esse id
@@ -54,7 +62,7 @@ export default function CalculadorChapa() {
       setLarguraPersInp(String(itemModificando.larguraPers));
       setAlturaPersInp(String(itemModificando.alturaPers));
       setQtdItemInp(itemModificando.quantidade);
-      
+
       setImpostoInp(itemModificando.taxasAplicadas.temImposto);
       setMaoDeObraInp(itemModificando.taxasAplicadas.temMaoDeObra);
       setProjetoInp(itemModificando.taxasAplicadas.temProjeto);
@@ -101,7 +109,7 @@ export default function CalculadorChapa() {
 
       areaChapa: calculoAtual.areaChapa,
       areaPers: calculoAtual.areaPers,
-      
+
       valorBaseUnitario: calculoAtual.valorBaseUnitario,
       taxasAplicadas: {
         temImposto: impostoInp, temMaoDeObra: maoDeObraInp, temProjeto: projetoInp, temEspecial: especialInp,
@@ -153,7 +161,7 @@ export default function CalculadorChapa() {
           itens={itens} quantidade={qtdItemInp} setQuantidade={setQtdItemInp}
           calculoAtual={calculoAtual} handleAdicionarItem={handleAdicionarItem}
           handleRemoverItem={(id) => setItens(itens.filter(i => i.id !== id))}
-          valorTotalOrcamento={valorTotalOrcamento} handleCopiarOrcamento={() => { }}
+          valorTotalOrcamento={valorTotalOrcamento} handleCopiarOrcamento={handleCopiarOrcamento}
           copiado={copiado} abrirModal={(id) => CarregarEdicao(id)}
         />
       </div>
