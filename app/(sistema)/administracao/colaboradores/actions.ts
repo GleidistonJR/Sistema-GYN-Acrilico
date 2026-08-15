@@ -1,14 +1,8 @@
 "use server";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache"; // Importante para atualizar a tela
-
-interface Colaboradortype {
-  id?: number; // Opcional, pois no 'Novo' ele ainda não existe
-  nome: string;
-  cargo: string;
-  cpf: string;
-  salario: number;
-}
+import bcrypt from "bcryptjs"
+import { Colaboradortype } from "./ModalRegistro"; // Importante para atualizar a tela
 
 interface Pontos {
   id: number;
@@ -23,18 +17,50 @@ interface Pontos {
 export async function salvarColaborador(dados: Colaboradortype) {
   try {
     if (dados.id) {
-      // Se tem ID, é um UPDATE (prisma.colaborador.update...)
+      // Atualiza os dados normais do colaborador
       const colaboradorAtualizado = await prisma.colaborador.update({
-        where: {
-          id: dados.id, // Critério de busca (obrigatório ser um campo @unique)
-        },
+        where: { id: dados.id },
         data: {
-          nome: dados.nome, // Novos dados
+          nome: dados.nome,
           cargo: dados.cargo,
           cpf: dados.cpf,
           salario: dados.salario,
         },
       });
+
+      // Se veio email e senha, criamos ou atualizamos o usuário
+      if (dados.email && dados.senha) {
+        const colaboradorComUser = await prisma.colaborador.findUnique({
+          where: { id: dados.id },
+          select: { userId: true },
+        });
+
+        const senhaHash = await bcrypt.hash(dados.senha, 10);
+
+        if (!colaboradorComUser?.userId) {
+          // Não tem usuário ainda -> cria
+          await prisma.user.create({
+            data: {
+              email: dados.email,
+              password: senhaHash,
+              role: dados.role ?? "USER",
+              colaborador: {
+                connect: { id: dados.id },
+              },
+            },
+          });
+        } else {
+          // Já tem usuário -> atualiza email, senha e role
+          await prisma.user.update({
+            where: { id: colaboradorComUser.userId },
+            data: {
+              email: dados.email,
+              password: senhaHash,
+              role: dados.role ?? "USER",
+            },
+          });
+        }
+      }
 
       revalidatePath("/colaboradores");
       return { sucesso: true, colaborador: colaboradorAtualizado };
@@ -57,6 +83,7 @@ export async function salvarColaborador(dados: Colaboradortype) {
     return { sucesso: false, erro: "Não foi possível salvar o colaborador." };
   }
 }
+
 
 // FUNÇÃO 2: BUSCAR
 export async function buscarColaboradores(filtroCpf?: string) {
@@ -229,7 +256,7 @@ export async function criarFeriado(colaboradorId: number | string, dataStr: stri
     });
 
     revalidatePath(`/administracao/colaboradores/${idValido}`);
-    
+
     return { success: true };
   } catch (error) {
     console.error("Erro ao criar feriado:", error);

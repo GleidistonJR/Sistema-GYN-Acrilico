@@ -85,7 +85,9 @@ export default function Header() {
           {/* Menu Desktop */}
           <nav className="hidden md:flex space-x-8 items-center text-sm font-semibold">
             <Link href="/orcamentos" className="hover:text-amber-400 transition-colors">Orçamentos</Link>
-            
+            <Link href="/baterPonto" className="hover:text-amber-400 transition-colors">Bater Ponto</Link>
+            <Link href="/relatorioPontos" className="hover:text-amber-400 transition-colors">Relatórios</Link>
+
             {/* ITEM COM DROPDOWN (DESKTOP) */}
             <div className="relative" ref={dropdownRef}>
               <button
@@ -98,12 +100,18 @@ export default function Header() {
 
               {/* CAIXA DO DROPDOWN */}
               {dropdownAberto && (
-                <div className="absolute right-0 mt-2 w-52 bg-white rounded-lg shadow-lg py-2 border border-gray-100 text-gray-700 font-medium z-50 animate-in fade-in slide-in-from-top-1 duration-150">
-                  <Link href="/administracao" className="block px-4 py-2 hover:bg-gray-100 hover:text-[#003f8d] transition-colors">
+                <div className="absolute left-0 mt-2 w-52 bg-white rounded-lg shadow-lg border border-gray-100 text-gray-800 font-medium z-50 animate-in fade-in slide-in-from-top-1 duration-150">
+                  <Link href="/administracao" className="block px-4 py-2 hover:bg-gray-100 hover:text-[#003f8d] transition-colors border-b border-gray-400">
                     Painel Geral
                   </Link>
                   <Link href="/administracao/colaboradores" className="block px-4 py-2 hover:bg-gray-100 hover:text-[#003f8d] transition-colors">
-                    Gerenciar Colaboradores
+                    Colaboradores
+                  </Link>
+                  <Link href="/relatorioPontos" className="block px-4 py-2 hover:bg-gray-100 hover:text-[#003f8d] transition-colors">
+                    Pontos
+                  </Link>
+                  <Link href="/administracao/produtos" className="block px-4 py-2 hover:bg-gray-100 hover:text-[#003f8d] transition-colors">
+                    Produtos
                   </Link>
                 </div>
               )}
@@ -123,7 +131,7 @@ export default function Header() {
       <div className={`${menuAberto ? 'block' : 'hidden'} md:hidden bg-[#002d66] border-t border-blue-800`}>
         <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 flex flex-col text-start">
           <Link href="/orcamentos" onClick={fecharMenu} className="block px-3 py-2 rounded-md hover:bg-blue-800">Orçamentos</Link>
-          
+
           {/* SEÇÃO DROPDOWN (MOBILE) */}
           <div className="block">
             <button
@@ -133,7 +141,7 @@ export default function Header() {
               Administração
               <ChevronDown size={16} className={`transition-transform duration-200 ${dropdownMobileAberto ? 'rotate-180' : ''}`} />
             </button>
-            
+
             {/* LINKS INTERNOS DO DROPDOWN MOBILE */}
             <div className={`${dropdownMobileAberto ? 'block' : 'hidden'} pl-4 bg-[#002352] mt-1 rounded-md space-y-1 py-1`}>
               <Link href="/administracao" onClick={fecharMenu} className="block px-3 py-2 text-sm text-gray-300 hover:text-white">

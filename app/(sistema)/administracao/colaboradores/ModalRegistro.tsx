@@ -3,12 +3,15 @@ import { useState, useEffect } from 'react';
 import { salvarColaborador } from './actions';
 import { PatternFormat, NumericFormat } from 'react-number-format';
 
-interface Colaboradortype {
+export interface Colaboradortype {
   id?: number; // Opcional, pois no 'Novo' ele ainda não existe
   nome: string;
   cargo: string;
   cpf: string;
   salario: number;
+  email?: string;
+  senha?: string;
+  role?: string;
 }
 
 interface ModalProps {
@@ -22,7 +25,10 @@ export default function ModalRegistro({ isOpen, onClose, dadosEdicao }: ModalPro
     nome: '',
     cargo: '',
     cpf: '',
-    salario: 0
+    salario: 0,
+    email: '',
+    senha: '',
+    role: 'USER',
   });
 
   // Este efeito roda sempre que o modal abre ou os dados de edição mudam
@@ -31,7 +37,7 @@ export default function ModalRegistro({ isOpen, onClose, dadosEdicao }: ModalPro
       setColaborador(dadosEdicao);
     } else {
       // Limpa o formulário se for um novo cadastro
-      setColaborador({ nome: '', cargo: '', cpf: '', salario: 0 });
+      setColaborador({ nome: '', cargo: '', cpf: '', salario: 0, email: '', senha: '', role: 'USER', });
     }
   }, [dadosEdicao, isOpen]);
 
@@ -106,6 +112,50 @@ export default function ModalRegistro({ isOpen, onClose, dadosEdicao }: ModalPro
             />
           </div>
 
+
+          {isEditing && (
+            <div className="border-t pt-4 mt-2">
+              <h3 className="text-md font-semibold mb-2">Criar acesso ao sistema</h3>
+
+              <div>
+                <label className="block text-md">Email:</label>
+                <input
+                  type="email"
+                  value={colaborador.email}
+                  onChange={(e) => setColaborador({ ...colaborador, email: e.target.value })}
+                  className="mt-1 block w-full border rounded-md p-2"
+                  placeholder="email@exemplo.com"
+                />
+              </div>
+
+              <div className="mt-3">
+                <label className="block text-md">Senha:</label>
+                <input
+                  type="password"
+                  value={colaborador.senha}
+                  onChange={(e) => setColaborador({ ...colaborador, senha: e.target.value })}
+                  className="mt-1 block w-full border rounded-md p-2"
+                  placeholder="Defina uma senha"
+                />
+              </div>
+
+              <div className="mt-3">
+                <label className="block text-md">Nível de acesso:</label>
+                <select
+                  value={colaborador.role}
+                  onChange={(e) => setColaborador({ ...colaborador, role: e.target.value })}
+                  className="mt-1 block w-full border rounded-md p-2 bg-white"
+                >
+                  <option value="USER" selected>Usuário</option>
+                  <option value="ADMIN">Administrador</option>
+                  <option value="OUTRO">OUTRO</option>
+                </select>
+              </div>
+
+            </div>
+          )}
+
+
           <div className="mt-6 flex justify-end gap-3">
             <button
               onClick={onClose}
@@ -133,6 +183,6 @@ export default function ModalRegistro({ isOpen, onClose, dadosEdicao }: ModalPro
           </div>
         </div>
       </div>
-    </div> // Removi o ponto e vírgula que estava aqui!
+    </div>
   );
 }

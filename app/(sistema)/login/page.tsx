@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { setCookie } from 'cookies-next';
 import { useRouter } from 'next/navigation';
+import { verificarLogin } from './actions';
 
 export default function LoginPage() {
   const [usuario, setUsuario] = useState('');
@@ -9,23 +10,18 @@ export default function LoginPage() {
   const [erro, setErro] = useState('');
   const router = useRouter();
 
-  // O Next.js carrega automaticamente as variáveis do .env para o process.env
-const adminUser = process.env.NEXT_PUBLIC_ADMIN_USER;
-const adminPass = process.env.NEXT_PUBLIC_ADMIN_PASS;
-
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErro('');
 
-    if (usuario === adminUser && senha === adminPass) {
+    const resultado = await verificarLogin(usuario, senha);
 
-      // Criamos o cookie que o Middleware procura
-      // maxAge: 3600 = 1 hora de validade
-      setCookie('sessao_admin', 'true', { maxAge: 60 * 60 * 6 });
-
+    if (resultado.sucesso) {
+      setCookie('sessao_admin', resultado.role ?? 'USER', { maxAge: 60 * 60 * 6 });
       router.refresh();
-      window.location.href = '/administracao'; // Redireciona após o sucesso
+      window.location.href = '/orcamentos';
     } else {
-      setErro('Usuário ou senha incorretos!');
+      setErro(resultado.erro ?? 'Usuário ou senha incorretos!');
     }
   };
 
