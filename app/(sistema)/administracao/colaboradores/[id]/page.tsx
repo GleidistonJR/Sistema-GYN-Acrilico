@@ -4,7 +4,7 @@ import ModalAtestado from "./ModalAtestado";
 import ModalCriarPonto from "./ModalCriarPonto";
 import BotaoImprimir from "./BotaoImprimir";
 import TabelaHistoricoPonto from "./TabelaHistoricoPonto";
-import PainelFrequenciaInterativo from "./PainelFrequenciaInterativo";
+import PainelPerfil from "./PainelPerfil";
 
 interface DetalhesProps {
   params: Promise<{ id: string }>;
@@ -81,8 +81,12 @@ export default async function DetalhesColaborador({ params, searchParams }: Deta
   const ultimoDiaMes = fimMes.getDate();
   let diasUteisPadraoContados = 0;
 
+  const hojeSemHora = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
+
   for (let dia = 1; dia <= ultimoDiaMes; dia++) {
     const dataCorrente = new Date(anoAlvo, mesAlvo, dia, 12, 0, 0);
+    const dataCorrenteSemHora = new Date(anoAlvo, mesAlvo, dia);
+    const ehDiaFuturo = dataCorrenteSemHora > hojeSemHora;
     const dataStr = dataCorrente.toISOString().split('T')[0];
     const ehDiaUtil = dataCorrente.getDay() >= 1 && dataCorrente.getDay() <= 5;
     const ehFeriado = diasComFeriado.has(dataStr);
@@ -105,7 +109,7 @@ export default async function DetalhesColaborador({ params, searchParams }: Deta
     if (ehFeriado) statusDia = "FERIADO";
     else if (minutosTrabalhadosNoDia > 0) statusDia = "TRABALHADO";
     else if (minsAtestado > 0) statusDia = "ATESTADO";
-    else if (ehDiaUtil) statusDia = "FALTA";
+    else if (ehDiaUtil && !ehDiaFuturo) statusDia = "FALTA"; // só marca falta se já passou
 
     linhasParaImpressao.push({
       dataObjeto: dataCorrente,
@@ -119,7 +123,7 @@ export default async function DetalhesColaborador({ params, searchParams }: Deta
 
   return (
     <>
-      <PainelFrequenciaInterativo 
+      <PainelPerfil
         colaborador={colaborador}
         linhasParaImpressao={linhasParaImpressao}
         diasUteisIniciais={diasUteisPadraoContados}

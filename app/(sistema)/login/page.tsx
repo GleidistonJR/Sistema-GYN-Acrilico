@@ -10,20 +10,27 @@ export default function LoginPage() {
   const [erro, setErro] = useState('');
   const router = useRouter();
 
-  const handleLogin = async (e: React.FormEvent) => {
+  async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setErro('');
 
-    const resultado = await verificarLogin(usuario, senha);
+    const dadosUser = await verificarLogin(usuario, senha);
 
-    if (resultado.sucesso) {
-      setCookie('sessao_admin', resultado.role ?? 'USER', { maxAge: 60 * 60 * 6 });
+    if (dadosUser.sucesso) {
+      const sessaoData = JSON.stringify({
+        role: dadosUser.role,
+        userId: dadosUser.userId,
+        userNome: dadosUser.userNome,
+      });
+
+      setCookie('sessao_admin', sessaoData);
+
       router.refresh();
-      window.location.href = '/orcamentos';
+      window.location.href = '/administracao/colaboradores/' + dadosUser.userId;
     } else {
-      setErro(resultado.erro ?? 'Usuário ou senha incorretos!');
+      setErro(dadosUser.erro ?? 'Usuário ou senha incorretos!');
     }
-  };
+  }
 
   const classeInput = "w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg outline-none transition-colors focus:border-amber-400 focus:ring-1 focus:ring-amber-400 mt-2";
 

@@ -6,6 +6,9 @@ export async function verificarLogin(email: string, senha: string) {
   try {
     const usuario = await prisma.user.findUnique({
       where: { email },
+      include :{
+        colaborador: true
+      }
     });
 
     if (!usuario) {
@@ -20,7 +23,10 @@ export async function verificarLogin(email: string, senha: string) {
 
     return {
       sucesso: true,
-      role: usuario.role
+      role: usuario.role,
+      userId: usuario.colaborador?.id,
+      userNome: usuario.colaborador?.nome,
+
     };
   } catch (error) {
     console.error("Erro no login:", error);
