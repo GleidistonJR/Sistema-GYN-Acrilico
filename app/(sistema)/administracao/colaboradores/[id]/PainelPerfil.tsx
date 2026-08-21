@@ -136,96 +136,85 @@ export default function PainelPerfil({
   return (
     <>
       {/* ---------------- INTERFACE DO SISTEMA ---------------- */}
-      {/* ---------------- INTERFACE DO SISTEMA ---------------- */}
-      <main className="p-4 sm:p-8 w-full max-w-5xl mx-auto text-gray-700 print:hidden">
-        <div className="flex flex-col lg:flex-row justify-between items-center mb-6 gap-4 border-b pb-4">
-          <div className="text-center lg:text-left">
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Relatorio de Pontos</h1>
-            <p className="text-sm text-gray-500 mt-1">Gestão de assiduidade, abonos médicos e banco de horas</p>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-center gap-3 w-full lg:w-auto">
-
-            {role === "ADMIN" &&
-              <BotaoImprimir />
-            }
-
-            <form method="GET" className="flex flex-wrap items-center gap-2 bg-white p-2 rounded-lg border shadow-sm w-full sm:w-auto justify-center">
-              <label htmlFor="mes" className="text-xs font-semibold uppercase text-gray-500 tracking-wider pl-1">Período:</label>
-              <input
-                type="month"
-                id="mes"
-                name="mes"
-                defaultValue={mesInicialValue}
-                className="border rounded px-2 py-1 text-sm bg-gray-50 focus:outline-blue-500"
-              />
-              <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-3 py-1 rounded transition-colors">
-                Buscar
-              </button>
-            </form>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mb-8">
-          <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border md:col-span-1">
-            <h2 className="text-xs font-bold mb-3 border-b pb-2 text-gray-400 uppercase tracking-wider">Dados do Contrato</h2>
-            <p className="mb-1.5 text-sm"><strong>Nome:</strong> {colaborador.nome}</p>
-            <p className="mb-1.5 text-sm"><strong>Cargo:</strong> {colaborador.cargo}</p>
-            <p className="mb-1.5 text-sm"><strong>CPF:</strong> {colaborador.cpf}</p>
-            <p className="text-sm"><strong>Salário Base:</strong> {colaborador.salario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
-          </div>
-
-          <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="bg-blue-50/50 p-4 rounded-lg flex flex-col justify-center items-center border border-blue-100">
-              <span className="text-xs font-bold uppercase text-blue-700 tracking-wider text-center">Horas Esperadas no Período</span>
-              <span className="text-2xl sm:text-3xl font-extrabold text-blue-600 mt-2">{formatarMinutos(totalMinutosEsperadosNoMes)}</span>
-              <span className="text-[11px] text-blue-500 text-center mt-1">Carga calculada para {diasConsiderados} dias úteis</span>
+      <div className="bg-gray-200">
+        <section className="bg-white p-4 sm:p-10 w-full max-w-5xl xl:max-w-3/4 mx-auto text-gray-700 print:hidden">
+          <div className="flex flex-col lg:flex-row justify-between items-center mb-6 gap-4 border-b pb-4">
+            <div className="text-center lg:text-left">
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Relatorio de Pontos</h1>
+              <p className="text-sm text-gray-500 mt-1">Gestão de assiduidade, abonos médicos e banco de horas</p>
             </div>
-
-            <div className={`p-4 rounded-lg flex flex-col justify-center items-center border transition-colors ${saldoMinutosCompleto === 0 ? 'bg-blue-50 border-blue-200 text-blue-800' :
-              isPositivo ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'
-              }`}>
-              <span className="text-xs font-bold uppercase tracking-wider text-center">Saldo Real do Banco de Horas</span>
-              <span className="text-2xl sm:text-3xl font-extrabold mt-2">
-                {saldoMinutosCompleto === 0 ? '0h 00m' : isPositivo ? `+ ${saldoFormatado}` : `- ${saldoFormatado}`}
-              </span>
-              <span className="text-[11px] font-medium mt-1 text-center">
-                {saldoMinutosCompleto === 0 ? 'Saldo zerado / em dia' : isPositivo ? 'Crédito acumulado real' : 'Funcionário em débito com a empresa'}
-              </span>
+            <div className="flex flex-wrap items-center justify-center gap-3 w-full lg:w-auto">
+              {role === "ADMIN" &&
+                <BotaoImprimir />
+              }
+              <form method="GET" className="flex flex-wrap items-center gap-2 bg-white p-2 rounded-lg border shadow-sm w-full sm:w-auto justify-center">
+                <label htmlFor="mes" className="text-xs font-semibold uppercase text-gray-500 tracking-wider pl-1">Período:</label>
+                <input
+                  type="month"
+                  id="mes"
+                  name="mes"
+                  defaultValue={mesInicialValue}
+                  className="border rounded px-2 py-1 text-sm bg-gray-50 focus:outline-blue-500"
+                />
+                <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-3 py-1 rounded transition-colors">
+                  Buscar
+                </button>
+              </form>
             </div>
           </div>
-        </div>
-
-        <h2 className="text-lg sm:text-xl font-bold mb-3 text-gray-800">Indicadores de Frequência do Mês</h2>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-8">
-
-          <div className="bg-white p-4 rounded-xl border shadow-sm border-l-4 border-l-red-500">
-            <span className="text-xs font-bold text-red-700 uppercase block">Dias de Faltas</span>
-            <span className="text-2xl font-extrabold text-red-600 block mt-1">{qtdDiasFaltas} falta(s)</span>
-            <span className="text-[13px] text-gray-500 block mt-1 leading-tight">Dias úteis sem ponto ou atestado médico</span>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mb-8">
+            <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border md:col-span-1">
+              <h2 className="text-xs font-bold mb-3 border-b pb-2 text-gray-400 uppercase tracking-wider">Dados do Contrato</h2>
+              <p className="mb-1.5 text-sm"><strong>Nome:</strong> {colaborador.nome}</p>
+              <p className="mb-1.5 text-sm"><strong>Cargo:</strong> {colaborador.cargo}</p>
+              <p className="mb-1.5 text-sm"><strong>CPF:</strong> {colaborador.cpf}</p>
+              <p className="text-sm"><strong>Salário Base:</strong> {colaborador.salario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+            </div>
+            <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="bg-blue-50/50 p-4 rounded-lg flex flex-col justify-center items-center border border-blue-100">
+                <span className="text-xs font-bold uppercase text-blue-700 tracking-wider text-center">Horas Esperadas no Período</span>
+                <span className="text-2xl sm:text-3xl font-extrabold text-blue-600 mt-2">{formatarMinutos(totalMinutosEsperadosNoMes)}</span>
+                <span className="text-[11px] text-blue-500 text-center mt-1">Carga calculada para {diasConsiderados} dias úteis</span>
+              </div>
+              <div className={`p-4 rounded-lg flex flex-col justify-center items-center border transition-colors ${saldoMinutosCompleto === 0 ? 'bg-blue-50 border-blue-200 text-blue-800' :
+                isPositivo ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'
+                }`}>
+                <span className="text-xs font-bold uppercase tracking-wider text-center">Saldo Real do Banco de Horas</span>
+                <span className="text-2xl sm:text-3xl font-extrabold mt-2">
+                  {saldoMinutosCompleto === 0 ? '0h 00m' : isPositivo ? `+ ${saldoFormatado}` : `- ${saldoFormatado}`}
+                </span>
+                <span className="text-[11px] font-medium mt-1 text-center">
+                  {saldoMinutosCompleto === 0 ? 'Saldo zerado / em dia' : isPositivo ? 'Crédito acumulado real' : 'Funcionário em débito com a empresa'}
+                </span>
+              </div>
+            </div>
           </div>
-
-          <div className="bg-white p-4 rounded-xl border shadow-sm border-l-4 border-l-purple-500">
-            <span className="text-xs font-bold text-purple-700 uppercase block">Horas Abonadas</span>
-            <span className="text-2xl font-extrabold text-purple-600 block mt-1">{formatarMinutos(totalMinutosAtestado)}</span>
-            <span className="text-[13px] text-gray-500 block mt-1 leading-tight">Tempo justificado por atestados médicos</span>
+          <h2 className="text-lg sm:text-xl font-bold mb-3 text-gray-800">Indicadores de Frequência do Mês</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-8">
+            <div className="bg-white p-4 rounded-xl border shadow-sm border-l-4 border-l-red-500">
+              <span className="text-xs font-bold text-red-700 uppercase block">Dias de Faltas</span>
+              <span className="text-2xl font-extrabold text-red-600 block mt-1">{qtdDiasFaltas} falta(s)</span>
+              <span className="text-[13px] text-gray-500 block mt-1 leading-tight">Dias úteis sem ponto ou atestado médico</span>
+            </div>
+            <div className="bg-white p-4 rounded-xl border shadow-sm border-l-4 border-l-purple-500">
+              <span className="text-xs font-bold text-purple-700 uppercase block">Horas Abonadas</span>
+              <span className="text-2xl font-extrabold text-purple-600 block mt-1">{formatarMinutos(totalMinutosAtestado)}</span>
+              <span className="text-[13px] text-gray-500 block mt-1 leading-tight">Tempo justificado por atestados médicos</span>
+            </div>
+            <div className="bg-white p-4 rounded-xl border shadow-sm border-l-4 border-l-emerald-500">
+              <span className="text-xs font-bold text-emerald-700 uppercase block">Dias Justificados</span>
+              <span className="text-2xl font-extrabold text-emerald-600 block mt-1">{qtdDiasJustificados} dia(s)</span>
+              <span className="text-[13px] text-gray-500 block mt-1 leading-tight">Soma de dias trabalhados + dias com atestado</span>
+            </div>
           </div>
-
-          <div className="bg-white p-4 rounded-xl border shadow-sm border-l-4 border-l-emerald-500">
-            <span className="text-xs font-bold text-emerald-700 uppercase block">Dias Justificados</span>
-            <span className="text-2xl font-extrabold text-emerald-600 block mt-1">{qtdDiasJustificados} dia(s)</span>
-            <span className="text-[13px] text-gray-500 block mt-1 leading-tight">Soma de dias trabalhados + dias com atestado</span>
-          </div>
-        </div>
-
-        <TabelaHistoricoPonto
-          pontosIniciais={colaborador.pontos}
-          nomeColaborador={colaborador.nome}
-          colaboradorId={colaborador.id}
-          role={role}
-        />
-      </main>
+          <TabelaHistoricoPonto
+            pontosIniciais={colaborador.pontos}
+            nomeColaborador={colaborador.nome}
+            colaboradorId={colaborador.id}
+            role={role}
+          />
+        </section>
+      </div>
 
 
 

@@ -71,8 +71,10 @@ export default function Header() {
     }`;
 
   return (
-    <header className="sticky top-0 z-50 print:hidden bg-gradient-to-b from-[#0A2540] to-[#051B36] border-b border-white/[0.06] shadow-[0_1px_0_0_rgba(240,162,2,0.15)]">
-      <div className="max-w-7xl mx-auto px-4">
+    <header className="sticky top-0 z-50 print:hidden bg-linear-to-b from-[#0A2540] to-[#051B36] border-b border-/[0.06] shadow-[0_1px_0_0_rgba(240,162,2,0.15)]">
+
+      <div className="mx-auto px-6">
+
         <div className="flex justify-between items-center h-16">
 
           {/* Logo */}
@@ -80,6 +82,9 @@ export default function Header() {
             <span className="text-amber-400 font-bold">Sistema</span>
             <span className="text-slate-300 font-normal">Goiânia Acrílico</span>
           </Link>
+
+
+
 
           {/* Botão Mobile */}
           <button
@@ -90,21 +95,34 @@ export default function Header() {
             {menuAberto ? <X size={22} /> : <Menu size={22} />}
           </button>
 
+
+
+
           {/* Menu Desktop */}
           <nav className="hidden md:flex items-center gap-7 text-sm font-medium">
 
+
+
             {role === 'ADMIN' || role === 'USER' ? (
+
               <Link href="/orcamentos" className={linkClasse('/orcamentos')}>Orçamentos</Link>
+
             ) : ('')}
 
 
+
+
             {role === 'ADMIN' || role === 'OUTRO' ? (
+
               <>
                 <Link href="/baterPonto" className={linkClasse('/baterPonto')}>Bater ponto</Link>
                 <Link href="/relatorioPontos" className={linkClasse('/relatorioPontos')}>Relatórios</Link>
               </>
 
             ) : ('')}
+
+
+
 
             {role === 'ADMIN' || role === 'USER' ? (
               <>
@@ -117,15 +135,17 @@ export default function Header() {
                 </button>
 
                 {dropdownAberto && (
-                  <div className="absolute right-10 top-0 mt-14 w-56 rounded-xl border border-white/10 bg-[#0A2540]/95 backdrop-blur-md shadow-2xl shadow-black/40 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
+                  <div className="absolute right-0 top-0 mt-14 w-56 rounded-xl border border-white/10 bg-[#0A2540]/95 backdrop-blur-md shadow-2xl shadow-black/40 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
                     <div className=" from-transparent via-amber-400/70 to-transparent" />
                     <Link href={"/administracao/colaboradores/" + userId} className="flex items-center px-4 py-2.5 text-sm text-slate-200 hover:bg-white/5 hover:text-amber-400 transition-colors">
                       Meu Perfil
                     </Link>
 
+
+
                     {role === 'ADMIN' && (
                       <>
-                        <div className="h-\[2px\] bg-gradient-to-r from-transparent via-amber-400/70 to-transparent" />
+                        <div className="h-\[2px\] bg-linear-to-r from-transparent via-amber-400/70 to-transparent" />
                         <Link href="/administracao" className="flex items-center px-4 py-2.5 text-sm text-slate-200 hover:bg-white/5 hover:text-amber-400 transition-colors">
                           Painel geral
                         </Link>
@@ -137,6 +157,8 @@ export default function Header() {
                         </Link>
                       </>
                     )}
+
+
 
                     <button onClick={logout} className="px-4 py-1.5 w-full text-sm font-semibold text-[#0A2540] bg-amber-400 hover:bg-amber-300 active:scale-95 transition-all duration-150"
                     >
@@ -152,10 +174,23 @@ export default function Header() {
 
 
 
+
+            {role === "OUTRO" &&
+
+              <button onClick={logout} className="px-4 py-1.5 w-30 text-sm font-semibold text-[#0A2540] bg-amber-400 hover:bg-amber-300 active:scale-95 transition-all duration-150"
+              >
+                Deslogar
+              </button>
+
+            }
+
+
+
+
             {!estaLogado &&
               <button
                 onClick={logout}
-                className="px-4 py-1.5 rounded-full text-sm font-semibold text-[#0A2540] bg-amber-400 hover:bg-amber-300 active:scale-95 transition-all duration-150"
+                className="px-4 py-1.5 text-sm font-semibold text-[#0A2540] bg-amber-400 hover:bg-amber-300 active:scale-95 transition-all duration-150"
               >
                 Acessar Sistema
               </button>
@@ -172,7 +207,7 @@ export default function Header() {
 
 
       {/* Menu Mobile */}
-      <div className={`${menuAberto ? 'max-h-[480px]' : 'max-h-0'} md:hidden overflow-hidden transition-all duration-300 bg-[#061c38] border-t border-white/[0.06]`}>
+      <div className={`${menuAberto ? 'max-h-\[480px\]' : 'max-h-0'} md:hidden overflow-hidden transition-all duration-300 bg-[#061c38] border-t border-white/[0.06]`}>
         <div className="px-4 pt-3 pb-4 flex flex-col gap-1 text-[15px]">
 
           {(role === 'ADMIN' || role === 'USER') && (

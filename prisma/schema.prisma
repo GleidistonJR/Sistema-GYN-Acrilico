@@ -12,70 +12,50 @@ model Colaborador {
   nome    String
   cargo   String
   cpf     String @unique // CPF único para não repetir funcionários
-  salario Float  // No Prisma, usamos Float ou Decimal para números com centavos
-  
+  salario Float // No Prisma, usamos Float ou Decimal para números com centavos
+
   pontos Ponto[] // Um colaborador tem muitos pontos
 
-  userId    String?  @unique
-  user      User?    @relation(fields: [userId], references: [id])
+  userId String? @unique
+  user   User?   @relation(fields: [userId], references: [id])
 }
 
 model Ponto {
-  id        Int      @id @default(autoincrement())
-  cpf       String
-  tipo      String
-  dataHora  DateTime @default(now())
+  id       Int      @id @default(autoincrement())
+  cpf      String
+  tipo     String
+  dataHora DateTime @default(now())
 
   // Criando a relação:
-  colaborador   Colaborador @relation(fields: [cpf], references: [cpf], onDelete: Cascade)
+  colaborador Colaborador @relation(fields: [cpf], references: [cpf], onDelete: Cascade)
 }
 
 model User {
-  id          String       @id @default(uuid())
-  email       String       @unique
-  password    String       // Aqui vai o hash da senha criptografada
-  role        String       @default("USER") // Ex: "ADMIN", "SUPERVISOR", "USER"
-  createdAt   DateTime     @default(now())
-  
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String // Aqui vai o hash da senha criptografada
+  role      String   @default("USER") // Ex: "ADMIN", "SUPERVISOR", "USER"
+  createdAt DateTime @default(now())
+
   colaborador Colaborador?
 }
 
-model Insumo {
-  id             String   @id @default(uuid())
-  nome           String   
-  unidadeMedida  String   // "M2", "UNIDADE", "METRO"
-  precoCusto     Float    
-  larguraChapaCm Float?   
-  alturaChapaCm  Float?   
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+model Material {
+  id        String  @id @default(uuid())
+  nome      String
+  espessura String?
+  cor       String?
+  descricao String?
+  custo     Float
+  estoque   Float
 
-  // Relações
-  produtosUsam   ProdutoInsumo[]
-  produtoDireto  Produto?        // Relação 1-para-1 inversa
+  categoriaId String
+  categoria   MaterialCatogoria @relation(fields: [categoriaId], references: [id])
 }
 
-model Produto {
-  id          String        @id @default(uuid())
-  nome        String        
-  tipoVenda   String        // "CHAPA_INTEIRA", "CORTE_SOB_MEDIDA", "PRODUTO_FABRICADO", "INSUMO_DIRETO"
-  precoBase   Float         // Preço de venda com lucro já aplicado
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  
-  // Link com o insumo original (se for gerado automaticamente)
-  insumoId    String?       @unique
-  insumo      Insumo?       @relation(fields: [insumoId], references: [id], onDelete: Cascade)
+model MaterialCatogoria {
+  id   String @id @default(uuid())
+  nome String
 
-  componentes ProdutoInsumo[]
-}
-
-model ProdutoInsumo {
-  id         String  @id @default(uuid())
-  produtoId  String
-  insumoId   String
-  quantidade Float   // Quantidade usada do insumo nessa receita
-  
-  produto    Produto @relation(fields: [produtoId], references: [id])
-  insumo     Insumo  @relation(fields: [insumoId], references: [id])
+  materiais Material[]
 }

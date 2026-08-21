@@ -1,8 +1,8 @@
 'use client';
 
 import { PatternFormat, NumericFormat } from 'react-number-format';
-import { criarInsumo } from './actions';
-import React, { useState } from 'react';
+import { criarMaterial, getCategorias } from './actions';
+import React, { useState, useEffect } from 'react';
 
 interface ModalProps {
   isOpen: boolean;
@@ -12,15 +12,26 @@ interface ModalProps {
 
 export default function Modal({ isOpen, onClose, title }: ModalProps) {
   const [dados, setDados] = useState({
-    nome: "",
-    unidadeMedida: "",
-    precoCusto: 0,
-    larguraChapaCm: 0,
-    alturaChapaCm: 0,
+    nome: '',
+    espessura: '',
+    cor: '',
+    descricao: '',
+    custo: 0,
+    estoque: 0,
+    categoria: '',
   });
 
-  async function handleInsumo() {
-    await criarInsumo(dados);
+  const [categorias, setCategorias] = useState<{ id: string; nome: string }[]>([]);
+
+  useEffect(() => {
+    if (isOpen) {
+      getCategorias().then(setCategorias);
+    }
+  }, [isOpen]);
+
+
+  async function handleMaterial() {
+    await criarMaterial(dados);
     onClose(); // Só fecha quando terminar de salvar
   }
 
@@ -51,6 +62,25 @@ export default function Modal({ isOpen, onClose, title }: ModalProps) {
         <div className="p-6">
           {/* Tudo o que você colocar aqui dentro vira o 'children' do modal */}
           <div className="space-y-4">
+
+            <label htmlFor="categoria">
+              Categoria*
+            </label>
+            <select id="categoria" name='categoria'
+              value={dados.categoria}
+              onChange={(e) => setDados({ ...dados, categoria: e.target.value })}
+              className="w-full p-2.5 border rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none">
+              <option value="">Selecione...</option>
+
+              {categorias.map((cat) => (
+                <option key={cat.id} value={cat.id}>{cat.nome}</option>
+              ))}
+
+            </select>
+
+
+
+
             <div>
               <label>
                 Nome*
@@ -63,45 +93,45 @@ export default function Modal({ isOpen, onClose, title }: ModalProps) {
               </label>
             </div>
 
-            <div>
-              <label>
-                Unidade de Medida*
-                <input
-                  type="text"
-                  placeholder="UN / M / KG"
-                  onChange={(e) => setDados({ ...dados, unidadeMedida: e.target.value })}
-                  className="w-full p-2.5 border rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                />
-              </label>
-            </div>
-
             <div className='flex gap-5'>
               <div>
                 <label>
-                  Largura Chapa
-                  <input
-                    type="text"
-                    placeholder="100"
-                    onChange={(e) => setDados({ ...dados, larguraChapaCm: Number(e.target.value) })}
+                  Espessura
+                  <select name='espessura'
+                    value={dados.espessura}
+                    onChange={(e) => setDados({ ...dados, espessura: e.target.value })}
                     className="w-full p-2.5 border rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                  />
+                  >
+                    <option value="2">2mm</option>
+                    <option value="3">3mm</option>
+                    <option value="4">4mm</option>
+                    <option value="5">5mm</option>
+                    <option value="6">6mm</option>
+                    <option value="8">8mm</option>
+                    <option value="10">10mm</option>
+                    <option value="12">12mm</option>
+                    <option value="15">15mm</option>
+                    <option value="20">20mm</option>
+                  </select>
                 </label>
               </div>
 
+
               <div>
                 <label>
-                  Altura Chapa
+                  Cor
                   <input
                     type="text"
-                    placeholder="200"
-                    onChange={(e) => setDados({ ...dados, alturaChapaCm: Number(e.target.value) })}
+                    placeholder="Cristal"
+                    onChange={(e) => setDados({ ...dados, cor: e.target.value })}
                     className="w-full p-2.5 border rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none"
                   />
                 </label>
               </div>
             </div>
 
-            <div>
+
+            <div className='flex gap-5'>
               <label>
                 Preço de Custo*
                 <NumericFormat
@@ -112,10 +142,17 @@ export default function Modal({ isOpen, onClose, title }: ModalProps) {
                   decimalScale={2}
                   // O 'values' é um objeto que a biblioteca nos dá. 
                   // Usamos o 'values.value' para pegar apenas os números.
-                  onValueChange={(e) => setDados({ ...dados, precoCusto: Number(e.value) })}
+                  onValueChange={(e) => setDados({ ...dados, custo: Number(e.value) })}
                   className="w-full border rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                   placeholder="R$ 000,00"
                 />
+              </label>
+
+              <label>
+                Estoque*
+                <input type="number" name="estoque" id="estoque"
+                  onChange={(e) => setDados({ ...dados, estoque: Number(e.target.value) })}
+                  className="w-full p-2.5 border rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none" />
               </label>
             </div>
 
@@ -129,7 +166,7 @@ export default function Modal({ isOpen, onClose, title }: ModalProps) {
                 Cancelar
               </button>
               <button
-                onClick={handleInsumo}
+                onClick={handleMaterial}
                 className="px-4 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition"
               >
                 Salvar
@@ -138,7 +175,7 @@ export default function Modal({ isOpen, onClose, title }: ModalProps) {
           </div>
         </div>
 
-      </div>
-    </div>
+      </div >
+    </div >
   );
 }

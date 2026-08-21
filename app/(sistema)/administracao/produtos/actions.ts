@@ -1,17 +1,35 @@
 "use server";
 import { prisma } from "@/lib/prisma";
 
-export async function criarInsumo(dados) {
+export async function criarMaterial(dados: any) {
 
-    // Se não tem ID, é um CREATE (prisma.colaborador.create...)
-    await prisma.insumo.create({
+    await prisma.material.create({
         data: {
             nome: dados.nome,
-            unidadeMedida: dados.unidadeMedida,
-            precoCusto: dados.precoCusto,
-            larguraChapaCm: dados.larguraChapaCm,
-            alturaChapaCm: dados.alturaChapaCm,
+            espessura: dados.espessura,
+            cor: dados.cor,
+            custo: dados.custo,
+            estoque: dados.estoque,
+            categoriaId: dados.categoria,
+
+        },
+    });
+}
+export async function criarCategoria(nome: string) {
+
+    await prisma.materialCatogoria.create({
+        data: {
+            nome: nome,
         },
     });
 }
 
+export async function getCategorias() {
+    return await prisma.materialCatogoria.findMany();
+}
+
+export async function getMateriais() {
+  return await prisma.material.findMany({
+    include: { categoria: true },
+  });
+}

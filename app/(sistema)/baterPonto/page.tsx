@@ -30,7 +30,7 @@ export default function RegistroPonto() {
   const buttonEstilo = "bg-[#0A2540] text-white hover:bg-[#0f3a6b] hover:cursor-pointer"
 
   return (
-    <main className='py-0'>
+    <section>
       <h1 className='text-5xl py-5 text-center text-gray-700 font-bold'>Registrar Ponto</h1>
 
       <div className='text-center text-3xl w-100 mx-auto'>
@@ -60,6 +60,6 @@ export default function RegistroPonto() {
           <p className="mt-4 text-gray-700 font-bold">{mensagem}</p>
         )}
       </div>
-    </main>
+    </section>
   );
 }

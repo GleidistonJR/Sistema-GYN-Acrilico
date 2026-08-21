@@ -128,7 +128,7 @@ export default function CalculadorChapa() {
   const valorTotalOrcamento = useMemo(() => itens.reduce((acc, curr) => acc + curr.valorTotalItem, 0), [itens]);
 
   return (
-    <main>
+    <>
       {/* Botão do Menu Lateral */}
       <button onClick={() => setIsOpen(!isOpen)} className="fixed top-20 left-3 z-50 p-2 text-white bg-[#0a2540] hover:bg-[#0f3a6b] hover:cursor-pointer rounded-md shadow-md">
         <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -138,34 +138,37 @@ export default function CalculadorChapa() {
 
       <MenuLateral isOpen={isOpen} />
 
-      <div className="lg:max-w-4/5 mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-5 gap-6 text-gray-800 bg-gray-200 min-h-screen">
-        <FormEspecificacoes
-          modoCalculo={modoCalculoInp} setModoCalculo={setModoCalculoInp}
-          tipoMaterial={tipoDeChapaInp} setTipoMaterial={setTipoDeChapaInp}
-          corChapa={corChapaAcrilicoInp} setCorChapa={setCorChapaAcrilicoInp}
-          espessuraChapa={espessuraChapaInp} setEspessuraChapa={setEspessuraChapaInp}
-          larguraChapa={larguraChapaInp} setLarguraChapa={setLarguraChapaInp}
-          alturaChapa={alturaChapaInp} setAlturaChapa={setAlturaChapaInp}
-          profundidadeCaixa={profundidadeChapaInp} setProfundidadeCaixa={setProfundidadeChapaInp}
-          tipoTampa={tipoTampaCaixaInp} setTipoTampa={setTipoTampaCaixaInp}
-          tipoPers={tipoPersInp} setTipoPers={setTipoPersInp}
-          larguraPers={larguraPersInp} setLarguraPers={setLarguraPersInp}
-          alturaPers={alturaPersInp} setAlturaPers={setAlturaPersInp}
-          temImposto={impostoInp} setTemImposto={setImpostoInp}
-          temMaoDeObra={maoDeObraInp} setTemMaoDeObra={setMaoDeObraInp}
-          temProjeto={projetoInp} setTemProjeto={setProjetoInp}
-          temEspecial={especialInp} setTemEspecial={setEspecialInp}
-        />
+      <div className='bg-gray-200'>
 
-        <ResumoOrcamento
-          itens={itens} quantidade={qtdItemInp} setQuantidade={setQtdItemInp}
-          calculoAtual={calculoAtual} handleAdicionarItem={handleAdicionarItem}
-          handleRemoverItem={(id) => setItens(itens.filter(i => i.id !== id))}
-          valorTotalOrcamento={valorTotalOrcamento} handleCopiarOrcamento={handleCopiarOrcamento}
-          copiado={copiado} abrirModal={(id) => CarregarEdicao(id)}
-        />
+        <div className="lg:max-w-4/5 mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-5 gap-6 text-gray-800 min-h-screen">
+          <FormEspecificacoes
+            modoCalculo={modoCalculoInp} setModoCalculo={setModoCalculoInp}
+            tipoMaterial={tipoDeChapaInp} setTipoMaterial={setTipoDeChapaInp}
+            corChapa={corChapaAcrilicoInp} setCorChapa={setCorChapaAcrilicoInp}
+            espessuraChapa={espessuraChapaInp} setEspessuraChapa={setEspessuraChapaInp}
+            larguraChapa={larguraChapaInp} setLarguraChapa={setLarguraChapaInp}
+            alturaChapa={alturaChapaInp} setAlturaChapa={setAlturaChapaInp}
+            profundidadeCaixa={profundidadeChapaInp} setProfundidadeCaixa={setProfundidadeChapaInp}
+            tipoTampa={tipoTampaCaixaInp} setTipoTampa={setTipoTampaCaixaInp}
+            tipoPers={tipoPersInp} setTipoPers={setTipoPersInp}
+            larguraPers={larguraPersInp} setLarguraPers={setLarguraPersInp}
+            alturaPers={alturaPersInp} setAlturaPers={setAlturaPersInp}
+            temImposto={impostoInp} setTemImposto={setImpostoInp}
+            temMaoDeObra={maoDeObraInp} setTemMaoDeObra={setMaoDeObraInp}
+            temProjeto={projetoInp} setTemProjeto={setProjetoInp}
+            temEspecial={especialInp} setTemEspecial={setEspecialInp}
+          />
+
+          <ResumoOrcamento
+            itens={itens} quantidade={qtdItemInp} setQuantidade={setQtdItemInp}
+            calculoAtual={calculoAtual} handleAdicionarItem={handleAdicionarItem}
+            handleRemoverItem={(id) => setItens(itens.filter(i => i.id !== id))}
+            valorTotalOrcamento={valorTotalOrcamento} handleCopiarOrcamento={handleCopiarOrcamento}
+            copiado={copiado} abrirModal={(id) => CarregarEdicao(id)}
+          />
+        </div>
       </div>
-    </main>
+    </>
   );
 }
 
