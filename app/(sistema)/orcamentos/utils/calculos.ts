@@ -7,8 +7,8 @@ interface DadosCalculo {
   tipoMaterial: string;
   corChapa: string;
   espessuraChapa: string;
+  comprimentoChapa: string;
   larguraChapa: string;
-  alturaChapa: string;
   profundidadeCaixa: string;
   tipoTampa: string;
   tipoPers: string;
@@ -20,6 +20,7 @@ interface DadosCalculo {
   temProjeto: boolean;
   temEspecial: boolean;
 }
+
 
 // Essa função só faz MATEMÁTICA, não sabe o que é React nem estado!
 export function calcularOrcamentoItem(dados: DadosCalculo) {
@@ -33,10 +34,10 @@ export function calcularOrcamentoItem(dados: DadosCalculo) {
   const fatorAcrescimo = (porcentagemAcumulada / 100) + 1;
 
   // Lógica de Chapa Inteira
-  if (dados.modoCalculo === 'chapaInteira') {
-    const chaveMaterial = dados.tipoMaterial === 'acrilico' ? dados.espessuraChapa : dados.tipoMaterial;
+  if (dados.modoCalculo === 'chapa') {
+    const chaveMaterial = dados.tipoMaterial === 'Acrílico' ? dados.espessuraChapa : dados.tipoMaterial;
     const configChapa = CHAPA_CONFIG[chaveMaterial] || { label: 'Chapa Inteira', valor: 0 };
-    let corPorcento = (dados.tipoMaterial === 'acrilico' && dados.corChapa === 'colorido') ? 1.2 : 1.0;
+    let corPorcento = (dados.tipoMaterial === 'Acrílico' && dados.corChapa === 'colorido') ? 1.2 : 1.0;
 
     const valorBaseUnitario = configChapa.valor * corPorcento;
     const valorUnitarioFinal = valorBaseUnitario * fatorAcrescimo;
@@ -46,7 +47,7 @@ export function calcularOrcamentoItem(dados: DadosCalculo) {
       ? `Valor: R$ ${valorUnitarioFinal.toFixed(2)}`
       : `Unitário: R$ ${valorUnitarioFinal.toFixed(2)} | Total: R$ ${valorTotalItem.toFixed(2)}`;
 
-    const txtItem = `- ${dados.quantidade}x ${configChapa.label} ${dados.tipoMaterial === 'acrilico' ? dados.corChapa.toUpperCase() : ''}\n  (${detalhePreco})`;
+    const txtItem = `- ${dados.quantidade}x ${configChapa.label} ${dados.tipoMaterial === 'Acrílico' ? dados.corChapa.toUpperCase() : ''}\n  (${detalhePreco})`;
 
     return {
       areaChapa: 0,
@@ -63,10 +64,10 @@ export function calcularOrcamentoItem(dados: DadosCalculo) {
   }
 
   // --- Lógica para 'chapa' e 'caixa' ---
-  const nComprimento = Number(dados.larguraChapa) / 100;
-  const nAltura = Number(dados.alturaChapa) / 100;
+  const nComprimento = Number(dados.comprimentoChapa) / 100;
+  const nAltura = Number(dados.larguraChapa) / 100;
   const nLargura = Number(dados.profundidadeCaixa) / 100;
-  const chaveMaterial = dados.tipoMaterial === 'acrilico' ? dados.espessuraChapa : dados.tipoMaterial;
+  const chaveMaterial = dados.tipoMaterial === 'Acrílico' ? dados.espessuraChapa : dados.tipoMaterial;
   const configMat = MATERIAIS_CONFIG[chaveMaterial] || { valorMetroQuadrado: 0, speed: 1, label: '' };
 
   let espessuraCalculoCaixa = 0;
@@ -77,11 +78,11 @@ export function calcularOrcamentoItem(dados: DadosCalculo) {
     espessuraCalculoCaixa = espessurasMap[dados.espessuraChapa] || 0;
   }
 
-  let corPorcento = (dados.tipoMaterial === 'acrilico' && dados.corChapa === 'colorido') ? 1.2 : 1.0;
+  let corPorcento = (dados.tipoMaterial === 'Acrílico' && dados.corChapa === 'colorido') ? 1.2 : 1.0;
   let areaChapa = 0;
   let perimetro = 0;
 
-  if (dados.modoCalculo === 'chapa') {
+  if (dados.modoCalculo === 'corte') {
     areaChapa = nComprimento * nAltura;
     perimetro = (nComprimento * 2 + nAltura * 2) * 100;
   } else {
@@ -107,7 +108,7 @@ export function calcularOrcamentoItem(dados: DadosCalculo) {
   const minutosCorte = Math.floor(tempCorteSegundos / 60);
   const segundosCorte = Math.round(tempCorteSegundos % 60);
 
-  const valorMetroBase = dados.modoCalculo === 'chapa' ? configMat.valorMetroQuadrado : espessuraCalculoCaixa;
+  const valorMetroBase = dados.modoCalculo === 'corte' ? configMat.valorMetroQuadrado : espessuraCalculoCaixa;
   const valorMaterialBasePuro = (areaChapa * valorMetroBase * corPorcento + valorCorte);
 
   const areaPers = (Number(dados.larguraPers) / 100) * (Number(dados.alturaPers) / 100);
@@ -120,8 +121,8 @@ export function calcularOrcamentoItem(dados: DadosCalculo) {
   const valorUnitarioFinal = valorBaseUnitario * fatorAcrescimo;
   const valorTotalItem = valorUnitarioFinal * dados.quantidade;
 
-  const labelMaterial = dados.tipoMaterial === 'acrilico' ? `Acrílico ${dados.corChapa.toUpperCase()} ${dados.espessuraChapa}mm` : MATERIAIS_CONFIG[dados.tipoMaterial]?.label || dados.tipoMaterial;
-  let txtItem = dados.modoCalculo === 'chapa' ? `- ${dados.quantidade}x ${labelMaterial} (${dados.larguraChapa}x${dados.alturaChapa}cm)` : `- ${dados.quantidade}x Caixa em ${labelMaterial}, medindo ${dados.larguraChapa}x${dados.profundidadeCaixa}x${dados.alturaChapa}cm [${dados.tipoTampa}]`;
+  const labelMaterial = dados.tipoMaterial === 'Acrílico' ? `Acrílico ${dados.corChapa.toUpperCase()} ${dados.espessuraChapa}mm` : MATERIAIS_CONFIG[dados.tipoMaterial]?.label || dados.tipoMaterial;
+  let txtItem = dados.modoCalculo === 'corte' ? `- ${dados.quantidade}x ${labelMaterial} (${dados.comprimentoChapa}x${dados.larguraChapa}cm)` : `- ${dados.quantidade}x Caixa em ${labelMaterial}, medindo ${dados.comprimentoChapa}x${dados.profundidadeCaixa}x${dados.larguraChapa}cm [${dados.tipoTampa}]`;
   if (dados.tipoPers !== 'nenhum') txtItem += ` com Personalização em ${configPers.label} (${dados.larguraPers}x${dados.alturaPers}cm)`;
 
   const detalhePrecoDinamico = dados.quantidade === 1

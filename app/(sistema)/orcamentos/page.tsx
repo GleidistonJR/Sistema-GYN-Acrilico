@@ -14,13 +14,15 @@ export default function CalculadorChapa() {
   const [copiado, setCopiado] = useState(false);
 
   // 2. Estados do Formulário de Especificações
-  const [modoCalculoInp, setModoCalculoInp] = useState('chapa');
-  const [tipoDeChapaInp, setTipoDeChapaInp] = useState('acrilico');
+  const [modoCalculoInp, setModoCalculoInp] = useState('corte');
+  const [tipoDeChapaInp, setTipoDeChapaInp] = useState('Acrílico');
   const [corChapaAcrilicoInp, setCorChapaAcrilicoInp] = useState('cristal');
   const [espessuraChapaInp, setEspessuraChapaInp] = useState('2');
-  const [larguraChapaInp, setLarguraChapaInp] = useState('0');
-  const [alturaChapaInp, setAlturaChapaInp] = useState('0');
-  const [profundidadeChapaInp, setProfundidadeChapaInp] = useState('0');
+
+  const [comprimentoInp, setComprimentoInp] = useState('0');
+  const [larguraInp, setLarguraInp] = useState('0');
+  const [profundidadeInp, setProfundidadeInp] = useState('0');
+
   const [tipoTampaCaixaInp, setTipoTampaCaixaInp] = useState('semTampa');
   const [tipoPersInp, setTipoPersInp] = useState('nenhum');
   const [larguraPersInp, setLarguraPersInp] = useState('0');
@@ -54,9 +56,9 @@ export default function CalculadorChapa() {
       setTipoDeChapaInp(String(itemModificando.tipoDeChapa));
       setCorChapaAcrilicoInp(String(itemModificando.corChapa));
       setEspessuraChapaInp(String(itemModificando.espessuraChapa));
-      setLarguraChapaInp(String(itemModificando.larguraChapa));
-      setAlturaChapaInp(String(itemModificando.alturaChapa));
-      setProfundidadeChapaInp(String(itemModificando.profundidadeCaixa));
+      setComprimentoInp(String(itemModificando.larguraChapa));
+      setLarguraInp(String(itemModificando.alturaChapa));
+      setProfundidadeInp(String(itemModificando.profundidadeCaixa));
       setTipoTampaCaixaInp(String(itemModificando.tipoTampa));
       setTipoPersInp(String(itemModificando.tipoPers));
       setLarguraPersInp(String(itemModificando.larguraPers));
@@ -77,15 +79,15 @@ export default function CalculadorChapa() {
   // EXECUÇÃO DA FUNÇÃO: O código de cálculo agora ocupa só 3 linhas!
   const calculoAtual = useMemo(() => {
     return calcularOrcamentoItem({
-      modoCalculo: modoCalculoInp, tipoMaterial: tipoDeChapaInp, corChapa: corChapaAcrilicoInp, espessuraChapa: espessuraChapaInp, larguraChapa: larguraChapaInp,
-      alturaChapa: alturaChapaInp, profundidadeCaixa: profundidadeChapaInp, tipoTampa: tipoTampaCaixaInp, tipoPers: tipoPersInp, larguraPers: larguraPersInp,
+      modoCalculo: modoCalculoInp, tipoMaterial: tipoDeChapaInp, corChapa: corChapaAcrilicoInp, espessuraChapa: espessuraChapaInp, comprimentoChapa: comprimentoInp,
+      larguraChapa: larguraInp, profundidadeCaixa: profundidadeInp, tipoTampa: tipoTampaCaixaInp, tipoPers: tipoPersInp, larguraPers: larguraPersInp,
       alturaPers: alturaPersInp, quantidade: qtdItemInp, temImposto: impostoInp, temMaoDeObra: maoDeObraInp, temProjeto: projetoInp, temEspecial: especialInp
     });
-  }, [modoCalculoInp, tipoDeChapaInp, corChapaAcrilicoInp, espessuraChapaInp, larguraChapaInp, alturaChapaInp, profundidadeChapaInp, tipoTampaCaixaInp, tipoPersInp, larguraPersInp, alturaPersInp, qtdItemInp, impostoInp, maoDeObraInp, projetoInp, especialInp]);
+  }, [modoCalculoInp, tipoDeChapaInp, corChapaAcrilicoInp, espessuraChapaInp, comprimentoInp, larguraInp, profundidadeInp, tipoTampaCaixaInp, tipoPersInp, larguraPersInp, alturaPersInp, qtdItemInp, impostoInp, maoDeObraInp, projetoInp, especialInp]);
 
   // Ações da Aplicação
   const handleAdicionarItem = () => {
-    if (modoCalculoInp !== 'chapaInteira' && (Number(larguraChapaInp) <= 0 || Number(alturaChapaInp) <= 0)) {
+    if (modoCalculoInp !== 'chapa' && (Number(comprimentoInp) <= 0 || Number(larguraInp) <= 0)) {
       return alert("Medidas inválidas!");
     }
 
@@ -96,9 +98,9 @@ export default function CalculadorChapa() {
 
       corChapa: corChapaAcrilicoInp,
       espessuraChapa: espessuraChapaInp,
-      larguraChapa: Number(larguraChapaInp),
-      alturaChapa: Number(alturaChapaInp),
-      profundidadeCaixa: Number(profundidadeChapaInp),
+      larguraChapa: Number(comprimentoInp),
+      alturaChapa: Number(larguraInp),
+      profundidadeCaixa: Number(profundidadeInp),
       tipoTampa: tipoTampaCaixaInp,
 
       tipoPers: tipoPersInp,
@@ -146,9 +148,11 @@ export default function CalculadorChapa() {
             tipoMaterial={tipoDeChapaInp} setTipoMaterial={setTipoDeChapaInp}
             corChapa={corChapaAcrilicoInp} setCorChapa={setCorChapaAcrilicoInp}
             espessuraChapa={espessuraChapaInp} setEspessuraChapa={setEspessuraChapaInp}
-            larguraChapa={larguraChapaInp} setLarguraChapa={setLarguraChapaInp}
-            alturaChapa={alturaChapaInp} setAlturaChapa={setAlturaChapaInp}
-            profundidadeCaixa={profundidadeChapaInp} setProfundidadeCaixa={setProfundidadeChapaInp}
+
+            comprimentoInp={comprimentoInp} setComprimentoInp={setComprimentoInp}
+            larguraInp={larguraInp} setLarguraInp={setLarguraInp}
+            profundidadeInp={profundidadeInp} setProfundidadeInp={setProfundidadeInp}
+
             tipoTampa={tipoTampaCaixaInp} setTipoTampa={setTipoTampaCaixaInp}
             tipoPers={tipoPersInp} setTipoPers={setTipoPersInp}
             larguraPers={larguraPersInp} setLarguraPers={setLarguraPersInp}

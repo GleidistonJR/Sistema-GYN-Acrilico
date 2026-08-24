@@ -80,7 +80,7 @@ export default function ResumoOrcamento({
           {itens.length === 0 ? (
             <div className="text-center py-12 text-slate-400">
               <p className="text-base font-medium">Nenhum item adicionado ainda</p>
-              <p className="text-sm">Configure a chapa ou caixa ao lado e adicione à lista.</p>
+              <p className="text-sm">Configure o corte ou caixa ao lado e adicione à lista.</p>
             </div>
           ) : (
             <div className="divide-y divide-slate-100 max-h-100 overflow-y-auto pr-2">

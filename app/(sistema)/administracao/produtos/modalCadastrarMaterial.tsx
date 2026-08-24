@@ -1,38 +1,76 @@
 'use client';
 
 import { PatternFormat, NumericFormat } from 'react-number-format';
-import { criarMaterial, getCategorias } from './actions';
+import { criarMaterial, getCategorias, atualizarMaterial } from './actions';
 import React, { useState, useEffect } from 'react';
+
+interface Material {
+  id: string;
+  nome: string | null;
+  espessura: string | null;
+  cor: string | null;
+  descricao: string | null;
+  custo: number;
+  estoque: number;
+  categoriaId: string;
+}
 
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
   title: string;
+  materialInicial?: Material | null;
+  onSalvar?: (material: Material & {categoria: {id: string; nome: string}}) => void;
 }
 
-export default function Modal({ isOpen, onClose, title }: ModalProps) {
-  const [dados, setDados] = useState({
-    nome: '',
-    espessura: '',
-    cor: '',
-    descricao: '',
-    custo: 0,
-    estoque: 0,
-    categoria: '',
-  });
+const DADOS_VAZIOS = {
+  nome: '',
+  espessura: '',
+  cor: '',
+  descricao: '',
+  custo: 0,
+  estoque: 0,
+  categoria: '',
+};
 
+
+
+export default function ModalMaterial({ isOpen, onClose, title, materialInicial, onSalvar }: ModalProps) {
+  const [dados, setDados] = useState(DADOS_VAZIOS);
   const [categorias, setCategorias] = useState<{ id: string; nome: string }[]>([]);
+
+  const editando = !!materialInicial;
 
   useEffect(() => {
     if (isOpen) {
       getCategorias().then(setCategorias);
+
+      if(materialInicial){
+        setDados({
+          nome: materialInicial.nome ?? '',
+          espessura: materialInicial.espessura ?? '',
+          cor: materialInicial.cor ?? '',
+          descricao: materialInicial.descricao ?? '',
+          custo: materialInicial.custo,
+          estoque: materialInicial.estoque,
+          categoria: materialInicial.categoriaId,
+        });
+      } else{
+        setDados(DADOS_VAZIOS)
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, materialInicial]);
 
 
-  async function handleMaterial() {
-    await criarMaterial(dados);
-    onClose(); // Só fecha quando terminar de salvar
+async function handleMaterial() {
+    if (editando && materialInicial) {
+      const materialAtualizado = await atualizarMaterial(materialInicial.id, dados);
+      onSalvar?.(materialAtualizado);
+    } else {
+      const materialCriado = await criarMaterial(dados);
+      onSalvar?.(materialCriado);
+    }
+    onClose();
   }
 
   // Se não estiver aberto, não renderiza nada no HTML
@@ -83,10 +121,11 @@ export default function Modal({ isOpen, onClose, title }: ModalProps) {
 
             <div>
               <label>
-                Nome*
+                Nome
                 <input
                   type="text"
                   placeholder="Acrilico Crital 2mm"
+                  value={dados.nome}
                   onChange={(e) => setDados({ ...dados, nome: e.target.value })}
                   className="w-full p-2.5 border rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none"
                 />
@@ -97,22 +136,12 @@ export default function Modal({ isOpen, onClose, title }: ModalProps) {
               <div>
                 <label>
                   Espessura
-                  <select name='espessura'
+                  <input name='espessura'
                     value={dados.espessura}
+                    type='number'
                     onChange={(e) => setDados({ ...dados, espessura: e.target.value })}
                     className="w-full p-2.5 border rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                  >
-                    <option value="2">2mm</option>
-                    <option value="3">3mm</option>
-                    <option value="4">4mm</option>
-                    <option value="5">5mm</option>
-                    <option value="6">6mm</option>
-                    <option value="8">8mm</option>
-                    <option value="10">10mm</option>
-                    <option value="12">12mm</option>
-                    <option value="15">15mm</option>
-                    <option value="20">20mm</option>
-                  </select>
+                  />                    
                 </label>
               </div>
 
@@ -123,6 +152,7 @@ export default function Modal({ isOpen, onClose, title }: ModalProps) {
                   <input
                     type="text"
                     placeholder="Cristal"
+                    value={dados.cor}
                     onChange={(e) => setDados({ ...dados, cor: e.target.value })}
                     className="w-full p-2.5 border rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none"
                   />
@@ -140,8 +170,7 @@ export default function Modal({ isOpen, onClose, title }: ModalProps) {
                   prefix="R$ "
                   fixedDecimalScale
                   decimalScale={2}
-                  // O 'values' é um objeto que a biblioteca nos dá. 
-                  // Usamos o 'values.value' para pegar apenas os números.
+                  value={dados.custo}
                   onValueChange={(e) => setDados({ ...dados, custo: Number(e.value) })}
                   className="w-full border rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
                   placeholder="R$ 000,00"
@@ -152,6 +181,7 @@ export default function Modal({ isOpen, onClose, title }: ModalProps) {
                 Estoque*
                 <input type="number" name="estoque" id="estoque"
                   onChange={(e) => setDados({ ...dados, estoque: Number(e.target.value) })}
+                  value={dados.estoque}
                   className="w-full p-2.5 border rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none" />
               </label>
             </div>
@@ -169,7 +199,7 @@ export default function Modal({ isOpen, onClose, title }: ModalProps) {
                 onClick={handleMaterial}
                 className="px-4 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition"
               >
-                Salvar
+                {editando ? 'Atualizar' : 'Salvar'}
               </button>
             </div>
           </div>

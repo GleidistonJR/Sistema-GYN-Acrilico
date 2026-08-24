@@ -42,7 +42,7 @@ model User {
 
 model Material {
   id        String  @id @default(uuid())
-  nome      String
+  nome      String?
   espessura String?
   cor       String?
   descricao String?
