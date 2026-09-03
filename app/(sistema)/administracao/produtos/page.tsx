@@ -93,7 +93,7 @@ export default function Produtos() {
 
                         <div className='flex justify-between'>
 
-                            <p className='font-semibold text-green-800'>R${m.custo},00</p>
+                            <p className='font-semibold text-green-800'>R${m.custo.toFixed(2)}</p>
                             <p className='font-semibold flex gap-2 text-green-800 '>{m.estoque} <Box size={20} /></p>
                         </div>
 

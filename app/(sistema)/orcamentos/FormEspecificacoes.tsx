@@ -27,12 +27,7 @@ interface FormEspecificacoesProps {
 
   tipoTampa: string;
   setTipoTampa: (tipo: string) => void;
-  tipoPers: string;
-  setTipoPers: (tipo: string) => void;
-  larguraPers: string;
-  setLarguraPers: (val: string) => void;
-  alturaPers: string;
-  setAlturaPers: (val: string) => void;
+
   temImposto: boolean;
   setTemImposto: (val: boolean) => void;
   temMaoDeObra: boolean;
@@ -74,9 +69,7 @@ export default function FormEspecificacoes({
   setProfundidadeInp: setProfundidadeInp,
 
   tipoTampa, setTipoTampa,
-  tipoPers, setTipoPers,
-  larguraPers, setLarguraPers,
-  alturaPers, setAlturaPers,
+
   temImposto, setTemImposto,
   temMaoDeObra, setTemMaoDeObra,
   temProjeto, setTemProjeto,
@@ -85,6 +78,31 @@ export default function FormEspecificacoes({
 
   const [categorias, setCategorias] = useState<{ id: string; nome: string }[]>([]);
   const [materiais, setMateriais] = useState<Material[]>([]);
+
+  const [buscaCor, setBuscaCor] = useState('');
+  const [focoAberto, setFocoAberto] = useState(false);
+
+  // 1. Extrai e remove duplicatas das cores válidas vindas do seu array
+  const coresValidas = [...new Set(
+    materiais
+      .filter((mat) =>
+        mat.categoria?.nome === tipoMaterial
+      )
+      .map((mat) => mat.cor)
+      .filter(Boolean)
+  )].sort();
+
+  // 2. Filtra as opções exibidas no menu com base na busca (independente do valor selecionado)
+  const opcoesFiltradas = coresValidas.filter((cor) =>
+    cor.toLowerCase().includes(buscaCor.toLowerCase())
+  );
+
+  const selecionarCor = (cor: string) => {
+    setCorChapa(cor);      // Define o valor do estado principal
+    setBuscaCor('');        // Limpa o termo de busca para a próxima vez
+    setFocoAberto(false);   // Fecha a lista
+  };
+
 
   useEffect(() => {
     getCategorias().then(setCategorias)
@@ -143,32 +161,78 @@ export default function FormEspecificacoes({
         )}
 
 
-        {tipoMaterial == "Acrílico" && (
-          <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-slate-600">Cor do material</label>
-            <select value={corChapa} onChange={(e) => setCorChapa(e.target.value)} className={classeSelect}>
-              <option value="cristal">Cristal</option>
-              <option value="colorido">Colorido (1.2x)</option>
-            </select>
-          </div>
-
-        )}
-
-
-
         <div className="flex flex-col gap-1">
           <label className="text-sm font-medium text-slate-600">Espessura</label>
           <select value={espessuraChapa} onChange={(e) => setEspessuraChapa(e.target.value)} className={classeSelect}>
             {[... new Set(
               materiais
-                .filter(mat => mat.categoria.nome === tipoMaterial)
+                .filter(mat =>
+                  mat.categoria.nome === tipoMaterial
+                )
                 .map(mat => mat.espessura)
-                .filter((esp): esp is string => esp !== null)
+                .filter(Boolean)
             )].sort((a, b) => Number(a) - Number(b)).map(mat =>
-              < option key={mat} value={mat}>{mat}mm</option>
+
+              < option key={mat} value={mat}>
+                {mat}mm {' '}
+
+              </option>
+
             )}
           </select>
         </div>
+
+
+
+        {tipoMaterial === "Acrílico" && (
+          <div className="flex flex-col gap-1 relative">
+            <label className="text-sm font-medium text-slate-600">Cor</label>
+
+            {/* Campo visível que o usuário digita para filtrar */}
+            <input
+              type="text"
+              value={focoAberto ? buscaCor : corChapa}
+              onChange={(e) => setBuscaCor(e.target.value)}
+              onFocus={() => {
+                setBuscaCor(''); // Limpa o texto ao focar para exibir TODAS as opções novamente
+                setFocoAberto(true);
+              }}
+              onBlur={() => {
+                // Delay para permitir que o clique na opção seja registrado antes de fechar
+                setTimeout(() => setFocoAberto(false), 200);
+              }}
+              placeholder={corChapa ? corChapa : "Pesquisar cor..."}
+              className={classeSelect}
+            />
+
+            {/* Lista de opções filtradas */}
+            {focoAberto && (
+              <ul className="absolute top-full left-0 right-0 z-50 mt-1 max-h-60 overflow-auto bg-white border border-slate-200 rounded-md shadow-lg py-1">
+                {opcoesFiltradas.length > 0 ? (
+                  opcoesFiltradas.map((cor) => (
+                    <li
+                      key={cor}
+                      onMouseDown={() => selecionarCor(cor)} // onMouseDown executa antes do onBlur
+                      className="px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 cursor-pointer transition-colors"
+                    >
+                      {cor}
+                      <span className="ml-2 text-xs text-slate-400">
+                        ({materiais.find(
+                          mat => mat.cor === cor && mat.espessura === espessuraChapa
+                        )?.estoque ?? 0} chapas)
+                      </span>
+                    </li>
+                  ))
+                ) : (
+                  <li className="px-3 py-2 text-sm text-slate-400 italic">
+                    Nenhuma cor encontrada
+                  </li>
+                )}
+              </ul>
+            )}
+          </div>
+
+        )}
 
 
 
@@ -176,7 +240,7 @@ export default function FormEspecificacoes({
           <div className={`grid gap-4 pt-2 ${modoCalculo === 'corte' ? 'grid-cols-2' : 'grid-cols-3'}`}>
 
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-slate-600">Comprimento X (cm)</label>
+              <label className="text-xs font-medium text-slate-600">Comprimento (cm)</label>
               <input
                 type="number"
                 value={comprimentoInp}
@@ -186,7 +250,7 @@ export default function FormEspecificacoes({
             </div>
 
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-slate-600">Largura Y (cm)</label>
+              <label className="text-xs font-medium text-slate-600">Largura (cm)</label>
               <input
                 type="number"
                 value={larguraInp}
@@ -198,9 +262,7 @@ export default function FormEspecificacoes({
 
             {modoCalculo === 'caixa' && (
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-slate-600">
-                  Altura Z (cm)
-                </label>
+                <label className="text-xs font-medium text-slate-600">Profundidade (cm)</label>
                 <input
                   type="number"
                   value={profundidadeInp}

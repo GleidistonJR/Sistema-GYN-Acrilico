@@ -44,17 +44,17 @@ export default function ResumoOrcamento({
 
         <div className="bg-slate-50 border-l-2 border-amber-400 p-3 rounded-r-lg text-sm text-slate-700 space-y-1">
           {quantidade === 1 ? (
-            <p><span className="font-semibold text-[#0A2540]">Subtotal do item:</span> R$ {calculoAtual.valorTotalItem.toFixed(2)}</p>
+            <p><span className="font-semibold text-[#0A2540]">Subtotal do item:</span> R$ {calculoAtual.valorTotalItem}</p>
           ) : (
             <p>
-              <span className="font-semibold text-[#0A2540]">Subtotal do item:</span> R$ {calculoAtual.valorTotalItem.toFixed(2)}{" "}
+              <span className="font-semibold text-[#0A2540]">Subtotal do item:</span> R$ {calculoAtual.valorTotalItem}{" "}
               <span className="text-[11px] text-slate-500 font-normal">
                 (unitário: R$ {calculoAtual.valorMaterial.toFixed(2)})
               </span>
             </p>
           )}
           <p className="text-[11px] text-slate-500">
-            Área desenvolvida: {calculoAtual.areaChapa.toFixed(4)} m² · Corte: {
+            Área desenvolvida: {calculoAtual.areaChapa} m² · Corte: {
               calculoAtual.minutosCorte > 0
                 ? `${calculoAtual.minutosCorte} min e ${calculoAtual.segundosCorte} seg`
                 : `${calculoAtual.segundosCorte} seg`
@@ -87,14 +87,11 @@ export default function ResumoOrcamento({
               {itens.map((item) => (
                 <div key={item.id} className="py-3 flex justify-between items-center group">
                   <div className="space-y-0.5">
-                    <p className="font-medium text-slate-800">{item.descricaoTexto.split('\n')[0]}</p>
-                    <p className="text-xs text-slate-500">
-                      Área total: {item.areaChapa.toFixed(4)}m² {item.tipoPers !== 'nenhum' && `· Área pers: ${item.areaPers.toFixed(4)}m²`}
-                    </p>
+                    <p className="font-medium text-slate-800">{(item.descricaoTexto || '').split('\n')[0]}</p>                    
                   </div>
                   <div className="flex items-center gap-4">
                     <div className="text-right">
-                      <span className="font-bold text-lg text-emerald-600">R$ {item.valorTotalItem.toFixed(2)}</span>
+                      <span className="font-bold text-lg text-emerald-600">R$ {item.valorTotalItem}</span>
                       {item.quantidade > 1 && (
                         <p className="text-[11px] text-slate-400 font-normal">
                           {item.quantidade}x R$ {item.valorMaterial.toFixed(2)}

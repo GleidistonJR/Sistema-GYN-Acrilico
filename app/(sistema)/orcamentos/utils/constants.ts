@@ -68,20 +68,15 @@ export interface ItemOrcamento {
   profundidadeCaixa: number;
   tipoTampa: string;
 
-  tipoPers: string;
-  larguraPers: number;
-  alturaPers: number;
   quantidade: number;
 
   // Histórico de Cálculo
   areaChapa: number;
-  areaPers: number;
 
   valorBaseUnitario: number;  // <--- NOVO: Valor puro do item SEM NENHUMA TAXA
   taxasAplicadas: TaxasItem;  // <--- NOVO: Quais taxas estão ativas neste item
 
   valorMaterial: number;
-  valorPers: number;
   valorTotalItem: number;
   descricaoTexto: string;
 }

@@ -1,22 +1,21 @@
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { ItemOrcamento } from './utils/constants';
 import MenuLateral from './MenuLateral';
 import FormEspecificacoes from './FormEspecificacoes';
 import ResumoOrcamento from './ResumoOrcamento';
-import { calcularOrcamentoItem } from './utils/calculos'; // Importamos a função limpa
+import { calcularOrcamentoItem, ResultadoCalculo } from './utils/calculos';
 
 export default function CalculadorChapa() {
   // 1. Estados de Controle de Interface
   const [isOpen, setIsOpen] = useState(false);
-
   const [copiado, setCopiado] = useState(false);
 
   // 2. Estados do Formulário de Especificações
   const [modoCalculoInp, setModoCalculoInp] = useState('corte');
   const [tipoDeChapaInp, setTipoDeChapaInp] = useState('Acrílico');
-  const [corChapaAcrilicoInp, setCorChapaAcrilicoInp] = useState('cristal');
+  const [corChapaAcrilicoInp, setCorChapaAcrilicoInp] = useState('Cristal');
   const [espessuraChapaInp, setEspessuraChapaInp] = useState('2');
 
   const [comprimentoInp, setComprimentoInp] = useState('0');
@@ -24,9 +23,6 @@ export default function CalculadorChapa() {
   const [profundidadeInp, setProfundidadeInp] = useState('0');
 
   const [tipoTampaCaixaInp, setTipoTampaCaixaInp] = useState('semTampa');
-  const [tipoPersInp, setTipoPersInp] = useState('nenhum');
-  const [larguraPersInp, setLarguraPersInp] = useState('0');
-  const [alturaPersInp, setAlturaPersInp] = useState('0');
   const [qtdItemInp, setQtdItemInp] = useState(1);
 
   // 3. Estados das Taxas
@@ -35,8 +31,72 @@ export default function CalculadorChapa() {
   const [projetoInp, setProjetoInp] = useState(true);
   const [especialInp, setEspecialInp] = useState(false);
 
-  // 4. Lista Final de Itens
+  // 4. Estado para armazenar o cálculo atual (assíncrono)
+  const [calculoAtual, setCalculoAtual] = useState<ResultadoCalculo>({
+    areaChapa: 0,
+    areaPers: 0,
+    valorBaseUnitario: 0,
+    valorMaterial: 0,
+    valorTotalItem: 0,
+    minutosCorte: 0,
+    segundosCorte: 0,
+    porcentagemAcumulada: 0,
+    txtItem: '',
+  });
+
+  // 5. Lista Final de Itens
   const [itens, setItens] = useState<ItemOrcamento[]>([]);
+
+  // RECALCULA SEMPRE QUE O FORMULÁRIO MUDAR (Substitui o useMemo quebrado)
+  useEffect(() => {
+    let ativo = true;
+
+    async function executarCalculo() {
+      try {
+        const resultado = await calcularOrcamentoItem({
+          modoCalculo: modoCalculoInp,
+          tipoMaterial: tipoDeChapaInp,
+          corChapa: corChapaAcrilicoInp,
+          espessuraChapa: espessuraChapaInp,
+          comprimentoInp,
+          larguraInp,
+          profundidadeInp,
+          tipoTampaCaixaInp,
+          quantidade: qtdItemInp,
+          temImposto: impostoInp,
+          temMaoDeObra: maoDeObraInp,
+          temProjeto: projetoInp,
+          temEspecial: especialInp,
+        });
+
+        if (ativo && resultado) {
+          setCalculoAtual(resultado);
+        }
+      } catch (error) {
+        console.error("Erro ao recalcular item:", error);
+      }
+    }
+
+    executarCalculo();
+
+    return () => {
+      ativo = false;
+    };
+  }, [
+    modoCalculoInp,
+    tipoDeChapaInp,
+    corChapaAcrilicoInp,
+    espessuraChapaInp,
+    comprimentoInp,
+    larguraInp,
+    profundidadeInp,
+    tipoTampaCaixaInp,
+    qtdItemInp,
+    impostoInp,
+    maoDeObraInp,
+    projetoInp,
+    especialInp,
+  ]);
 
   const handleCopiarOrcamento = () => {
     const textoFinal = `*ORÇAMENTO GOIÂNIA ACRÍLICO*\n-------------------------------------\n${itens.map(i => i.descricaoTexto).join('\n\n')}\n-------------------------------------\n*TOTAL: R$ ${valorTotalOrcamento.toFixed(2)}*\n\n*ENTRADA: R$ ${(valorTotalOrcamento / 2).toFixed(2)}*\n\nTempo médio para ser produzido de 5 dias úteis.\nPara início da produção é solicitado 50% do valor antecipado e o restante no ato da retirada.\nForma de pagamento: Dinheiro, PIX ou cartão de crédito em 2x, e débito.\nRetirar na loja, não estamos fazendo entrega.`;
@@ -47,8 +107,6 @@ export default function CalculadorChapa() {
   };
 
   function CarregarEdicao(id: string) {
-
-    // 1. Busca na lista o item que tem esse id
     const itemModificando = itens.find(item => item.id === id);
 
     if (itemModificando) {
@@ -59,31 +117,15 @@ export default function CalculadorChapa() {
       setComprimentoInp(String(itemModificando.larguraChapa));
       setLarguraInp(String(itemModificando.alturaChapa));
       setProfundidadeInp(String(itemModificando.profundidadeCaixa));
-      setTipoTampaCaixaInp(String(itemModificando.tipoTampa));
-      setTipoPersInp(String(itemModificando.tipoPers));
-      setLarguraPersInp(String(itemModificando.larguraPers));
-      setAlturaPersInp(String(itemModificando.alturaPers));
+      setTipoTampaCaixaInp(String(itemModificando.tipoTampa));      
       setQtdItemInp(itemModificando.quantidade);
 
       setImpostoInp(itemModificando.taxasAplicadas.temImposto);
       setMaoDeObraInp(itemModificando.taxasAplicadas.temMaoDeObra);
       setProjetoInp(itemModificando.taxasAplicadas.temProjeto);
       setEspecialInp(itemModificando.taxasAplicadas.temEspecial);
-
     }
-    //setIsModalEdicaoOpen(true);
-  };
-
-
-
-  // EXECUÇÃO DA FUNÇÃO: O código de cálculo agora ocupa só 3 linhas!
-  const calculoAtual = useMemo(() => {
-    return calcularOrcamentoItem({
-      modoCalculo: modoCalculoInp, tipoMaterial: tipoDeChapaInp, corChapa: corChapaAcrilicoInp, espessuraChapa: espessuraChapaInp, comprimentoChapa: comprimentoInp,
-      larguraChapa: larguraInp, profundidadeCaixa: profundidadeInp, tipoTampa: tipoTampaCaixaInp, tipoPers: tipoPersInp, larguraPers: larguraPersInp,
-      alturaPers: alturaPersInp, quantidade: qtdItemInp, temImposto: impostoInp, temMaoDeObra: maoDeObraInp, temProjeto: projetoInp, temEspecial: especialInp
-    });
-  }, [modoCalculoInp, tipoDeChapaInp, corChapaAcrilicoInp, espessuraChapaInp, comprimentoInp, larguraInp, profundidadeInp, tipoTampaCaixaInp, tipoPersInp, larguraPersInp, alturaPersInp, qtdItemInp, impostoInp, maoDeObraInp, projetoInp, especialInp]);
+  }
 
   // Ações da Aplicação
   const handleAdicionarItem = () => {
@@ -95,7 +137,6 @@ export default function CalculadorChapa() {
       id: `item-${Date.now()}`,
       tipoDeChapa: tipoDeChapaInp,
       modoCalculo: modoCalculoInp,
-
       corChapa: corChapaAcrilicoInp,
       espessuraChapa: espessuraChapaInp,
       larguraChapa: Number(comprimentoInp),
@@ -103,22 +144,19 @@ export default function CalculadorChapa() {
       profundidadeCaixa: Number(profundidadeInp),
       tipoTampa: tipoTampaCaixaInp,
 
-      tipoPers: tipoPersInp,
-      larguraPers: Number(larguraPersInp),
-      alturaPers: Number(alturaPersInp),
-
       quantidade: qtdItemInp,
 
       areaChapa: calculoAtual.areaChapa,
-      areaPers: calculoAtual.areaPers,
 
       valorBaseUnitario: calculoAtual.valorBaseUnitario,
       taxasAplicadas: {
-        temImposto: impostoInp, temMaoDeObra: maoDeObraInp, temProjeto: projetoInp, temEspecial: especialInp,
+        temImposto: impostoInp,
+        temMaoDeObra: maoDeObraInp,
+        temProjeto: projetoInp,
+        temEspecial: especialInp,
         porcentagemTotal: calculoAtual.porcentagemAcumulada
       },
       valorMaterial: calculoAtual.valorMaterial,
-      valorPers: calculoAtual.valorPers,
       valorTotalItem: calculoAtual.valorTotalItem,
       descricaoTexto: calculoAtual.txtItem
     };
@@ -141,8 +179,7 @@ export default function CalculadorChapa() {
       <MenuLateral isOpen={isOpen} />
 
       <div className='bg-gray-200'>
-
-        <div className="lg:max-w-4/5 mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-5 gap-6 text-gray-800 min-h-screen">
+        <div className="lg:max-w-5/6 mx-auto p-1 md:p-6 grid grid-cols-1 lg:grid-cols-5 gap-6 text-gray-800 min-h-screen">
           <FormEspecificacoes
             modoCalculo={modoCalculoInp} setModoCalculo={setModoCalculoInp}
             tipoMaterial={tipoDeChapaInp} setTipoMaterial={setTipoDeChapaInp}
@@ -154,9 +191,7 @@ export default function CalculadorChapa() {
             profundidadeInp={profundidadeInp} setProfundidadeInp={setProfundidadeInp}
 
             tipoTampa={tipoTampaCaixaInp} setTipoTampa={setTipoTampaCaixaInp}
-            tipoPers={tipoPersInp} setTipoPers={setTipoPersInp}
-            larguraPers={larguraPersInp} setLarguraPers={setLarguraPersInp}
-            alturaPers={alturaPersInp} setAlturaPers={setAlturaPersInp}
+            
             temImposto={impostoInp} setTemImposto={setImpostoInp}
             temMaoDeObra={maoDeObraInp} setTemMaoDeObra={setMaoDeObraInp}
             temProjeto={projetoInp} setTemProjeto={setProjetoInp}
@@ -175,4 +210,3 @@ export default function CalculadorChapa() {
     </>
   );
 }
-
