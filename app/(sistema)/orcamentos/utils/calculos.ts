@@ -1,6 +1,7 @@
 'use server'
 
 import { prisma } from '@/lib/prisma'; // Adapte a importação de acordo com a localização do seu cliente Prisma
+import { formatarMoeda } from './formatarMoeda';
 
 // Interface para receber os dados do orçamento
 export interface DadosCalculo {
@@ -48,6 +49,7 @@ export async function calcularOrcamentoItem(dados: DadosCalculo) {
 
   const porcentagensChecklist = (porcentagemAcumulada / 100) + 1;
 
+
   // 2. Busca do Material no Banco de Dados (Prisma)
   // Montamos o filtro dinamicamente de acordo com o tipo do material
   const whereCondition: any = {};
@@ -77,7 +79,7 @@ export async function calcularOrcamentoItem(dados: DadosCalculo) {
   // Realiza a consulta no banco de dados
   const materialBanco = await prisma.material.findFirst({
     where: whereCondition,
-    include:{
+    include: {
       categoria: true,
     }
   });
@@ -86,21 +88,20 @@ export async function calcularOrcamentoItem(dados: DadosCalculo) {
   const custoBanco = materialBanco?.custo ?? 0;
 
 
+
   // ==========================================
   // MODALIDADE 1: CHAPA INTEIRA
   // ==========================================
   if (dados.modoCalculo === 'chapa') {
-    // Se a cor for colorida e o valor do banco não estiver customizado, aplica acréscimo de 20%
-    const acrescimoSeColorido = (dados.tipoMaterial === 'Acrílico' && dados.corChapa?.toLowerCase() === 'colorido') ? 1.2 : 1.0;
 
-    const valorBaseUnitario = custoBanco * acrescimoSeColorido;
-    const valorUnitarioFinal = valorBaseUnitario * porcentagensChecklist;
-    const valorTotalItem = valorUnitarioFinal * dados.quantidade;
+    const valorBaseUnitario = custoBanco;
+    const valorUnitarioFinal = Number((valorBaseUnitario * porcentagensChecklist).toFixed(2));
+    const valorTotalItem = Number((valorUnitarioFinal * dados.quantidade).toFixed(2));
 
     const labelChapa = materialBanco?.nome || `${dados.tipoMaterial} ${dados.espessuraChapa}mm`;
     const detalhePreco = dados.quantidade === 1
-      ? `Valor: R$ ${valorUnitarioFinal.toFixed(2)}`
-      : `Unitário: R$ ${valorUnitarioFinal.toFixed(2)} | Total: R$ ${valorTotalItem.toFixed(2)}`;
+      ? `Valor: R$ ${formatarMoeda(valorUnitarioFinal)}`
+      : `Unitário: R$ ${formatarMoeda(valorUnitarioFinal)} | Total: R$ ${formatarMoeda(valorTotalItem)}`;
 
     const txtItem = `- ${dados.quantidade}x Chapa Inteira ${labelChapa} ${dados.tipoMaterial === 'Acrílico' ? dados.corChapa.toUpperCase() : ''}\n  (${detalhePreco})`;
 
@@ -118,6 +119,7 @@ export async function calcularOrcamentoItem(dados: DadosCalculo) {
   }
 
 
+
   // ==========================================
   // MODALIDADE 2 & 3: CORTES E CAIXAS
   // ==========================================
@@ -127,9 +129,8 @@ export async function calcularOrcamentoItem(dados: DadosCalculo) {
 
   // Definindo velocidade do laser (pode vir de um campo do banco ou mantida via fallback seguro)
   // Assumindo a velocidade padrão de corte do acrílico/MDF
-  const velocidadeCorte = 1.5; // 15 milimetros por segundo
+  const velocidadeCorte = 2.2; // 15 milimetros por segundo
 
-  let corPorcento = (dados.tipoMaterial === 'Acrílico' && dados.corChapa?.toLowerCase() === 'colorido') ? 1.2 : 1.0;
   let areaChapa = 0;
   let perimetro = 0;
 
@@ -161,14 +162,23 @@ export async function calcularOrcamentoItem(dados: DadosCalculo) {
   const minutosCorte = Math.floor(tempCorteSegundos / 60);
   const segundosCorte = Math.round(tempCorteSegundos % 60);
 
-  // Valor por metro quadrado vem do banco de dados
-  const valorMetroBase = custoBanco;
-  const valorMaterialBasePuro = (areaChapa * valorMetroBase * corPorcento) + valorCorte;
 
-  const valorBaseUnitario = valorMaterialBasePuro;
-  const valorMaterialComTaxa = valorMaterialBasePuro * porcentagensChecklist;
-  const valorUnitarioFinal = valorBaseUnitario * porcentagensChecklist;
-  const valorTotalItem = valorUnitarioFinal * dados.quantidade;
+  
+  
+  
+  //NECESSARIO VERIFICAR SE PODEMOS SEGUIR ESSE PADRÃO DE CALCULO, 
+  // POIS O VALOR DO METRO QUADRADO PODE VARIAR DE ACORDO COM O MATERIAL
+  const valorMetroBase = (custoBanco / 2) * 1.16;
+  
+  
+  
+  
+  
+  
+  const valorBaseUnitario = Number((areaChapa * valorMetroBase + valorCorte).toFixed(2));
+
+  const valorUnitarioFinal = Number((valorBaseUnitario * porcentagensChecklist).toFixed(2));
+  const valorTotalItem = Number((valorUnitarioFinal * dados.quantidade).toFixed(2));
 
   // Montagem da legenda do item
   const labelMaterial = materialBanco?.nome || (
@@ -182,15 +192,15 @@ export async function calcularOrcamentoItem(dados: DadosCalculo) {
     : `- ${dados.quantidade}x Caixa em ${labelMaterial}, medindo ${dados.comprimentoInp}x${dados.profundidadeInp}x${dados.larguraInp}cm [${dados.tipoTampaCaixaInp}]`;
 
   const detalhePrecoDinamico = dados.quantidade === 1
-    ? `Valor: R$ ${valorUnitarioFinal.toFixed(2)}`
-    : `Unitário: R$ ${valorUnitarioFinal.toFixed(2)} | Total: R$ ${valorTotalItem.toFixed(2)}`;
+    ? `Valor: R$ ${formatarMoeda(valorUnitarioFinal)}`
+    : `Unitário: R$ ${formatarMoeda(valorUnitarioFinal)} | Total: R$ ${formatarMoeda(valorTotalItem)}`;
 
   txtItem += `\n  (${detalhePrecoDinamico})`;
 
   return {
     areaChapa,
     valorBaseUnitario,
-    valorMaterial: valorMaterialComTaxa,
+    valorMaterial: valorUnitarioFinal,
     valorTotalItem,
     minutosCorte,
     segundosCorte,

@@ -28,6 +28,7 @@ export default function Produtos() {
 
     const [materiais, setMateriais] = useState<Material[]>([]);
     const [materialEditando, setMaterialEditando] = useState<Material | null>(null);
+    const [pesquisa, setPesquisa] = useState('');
 
     useEffect(() => {
         getMateriais().then(setMateriais);
@@ -56,6 +57,29 @@ export default function Produtos() {
         });
     }
 
+    const materiaisFiltrados = materiais
+        .filter((material) => {
+            const termo = pesquisa.trim().toLocaleLowerCase();
+            const textoMaterial = [
+                material.categoria.nome,
+                material.nome,
+                material.cor,
+                material.espessura,
+                material.descricao,
+            ]
+                .filter(Boolean)
+                .join(' ')
+                .toLocaleLowerCase();
+
+            return textoMaterial.includes(termo);
+        })
+        .sort((materialA, materialB) => {
+            const nomeA = `${materialA.categoria.nome} ${materialA.cor ?? ''} ${materialA.espessura ?? ''}`;
+            const nomeB = `${materialB.categoria.nome} ${materialB.cor ?? ''} ${materialB.espessura ?? ''}`;
+
+            return nomeA.localeCompare(nomeB, 'pt-BR', { sensitivity: 'base' });
+        });
+
     return (
         <div className="grid grid-cols-5">
 
@@ -76,8 +100,16 @@ export default function Produtos() {
             </div>
 
             <div className='p-10 col-span-4 '>
+                <input
+                    type="search"
+                    value={pesquisa}
+                    onChange={(event) => setPesquisa(event.target.value)}
+                    placeholder="Pesquisar materiais..."
+                    aria-label="Pesquisar materiais"
+                    className="mb-5 w-full rounded border border-gray-300 px-4 py-2 outline-none focus:border-green-600"
+                />
 
-                {materiais.map((m) => (
+                {materiaisFiltrados.map((m) => (
 
                     <div className='grid grid-cols-5 py-5 border-b border-gray-300' key={m.id} >
 

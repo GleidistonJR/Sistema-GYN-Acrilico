@@ -86,7 +86,8 @@ export default function FormEspecificacoes({
   const coresValidas = [...new Set(
     materiais
       .filter((mat) =>
-        mat.categoria?.nome === tipoMaterial
+        mat.categoria?.nome === tipoMaterial &&
+        mat.espessura === espessuraChapa
       )
       .map((mat) => mat.cor)
       .filter(Boolean)
@@ -94,6 +95,7 @@ export default function FormEspecificacoes({
 
   // 2. Filtra as opções exibidas no menu com base na busca (independente do valor selecionado)
   const opcoesFiltradas = coresValidas.filter((cor) =>
+    
     cor.toLowerCase().includes(buscaCor.toLowerCase())
   );
 
@@ -174,7 +176,7 @@ export default function FormEspecificacoes({
             )].sort((a, b) => Number(a) - Number(b)).map(mat =>
 
               < option key={mat} value={mat}>
-                {mat}mm {' '}
+                {mat}mm
 
               </option>
 

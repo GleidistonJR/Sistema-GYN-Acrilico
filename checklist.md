@@ -1,6 +1,7 @@
-# Ajustar valores para cristal e demais cores
-# Ajustar zeros após a virgula
+
 # Ajustar valor para chapa inteira e para metro quadrado
+# Cadastrar medidas do material 
+
 # Ajustar tempo de corte de cada material
 
 # Refatorar calculo do orçamento

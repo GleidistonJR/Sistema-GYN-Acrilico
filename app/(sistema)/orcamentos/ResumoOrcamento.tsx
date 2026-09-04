@@ -2,6 +2,7 @@
 
 import { Pencil, Trash2, Plus, Copy, Check, Trash } from 'lucide-react';
 import { ItemOrcamento } from './utils/constants';
+import { formatarMoeda } from './utils/formatarMoeda';
 
 interface ResumoOrcamentoProps {
   itens: ItemOrcamento[];
@@ -44,12 +45,12 @@ export default function ResumoOrcamento({
 
         <div className="bg-slate-50 border-l-2 border-amber-400 p-3 rounded-r-lg text-sm text-slate-700 space-y-1">
           {quantidade === 1 ? (
-            <p><span className="font-semibold text-[#0A2540]">Subtotal do item:</span> R$ {calculoAtual.valorTotalItem}</p>
+            <p><span className="font-semibold text-[#0A2540]">Subtotal do item:</span> R$ {formatarMoeda(calculoAtual.valorTotalItem)}</p>
           ) : (
             <p>
-              <span className="font-semibold text-[#0A2540]">Subtotal do item:</span> R$ {calculoAtual.valorTotalItem}{" "}
+              <span className="font-semibold text-[#0A2540]">Subtotal do item:</span> R$ {formatarMoeda(calculoAtual.valorTotalItem)}{" "}
               <span className="text-[11px] text-slate-500 font-normal">
-                (unitário: R$ {calculoAtual.valorMaterial.toFixed(2)})
+                (unitário: R$ {formatarMoeda(calculoAtual.valorMaterial)})
               </span>
             </p>
           )}
@@ -91,10 +92,10 @@ export default function ResumoOrcamento({
                   </div>
                   <div className="flex items-center gap-4">
                     <div className="text-right">
-                      <span className="font-bold text-lg text-emerald-600">R$ {item.valorTotalItem}</span>
+                      <span className="font-bold text-lg text-emerald-600">R$ {formatarMoeda(item.valorTotalItem)}</span>
                       {item.quantidade > 1 && (
                         <p className="text-[11px] text-slate-400 font-normal">
-                          {item.quantidade}x R$ {item.valorMaterial.toFixed(2)}
+                          {item.quantidade}x R$ {formatarMoeda(item.valorMaterial)}
                         </p>
                       )}
                     </div>
@@ -124,7 +125,7 @@ export default function ResumoOrcamento({
         <div className="pt-5 border-t border-slate-100 space-y-4">
           <div className="flex justify-between items-baseline">
             <span className="text-base font-medium text-slate-500">Valor final somado</span>
-            <span className="text-4xl font-black text-emerald-600">R$ {valorTotalOrcamento.toFixed(2)}</span>
+            <span className="text-4xl font-black text-emerald-600">R$ {formatarMoeda(valorTotalOrcamento)}</span>
           </div>
 
           <button
