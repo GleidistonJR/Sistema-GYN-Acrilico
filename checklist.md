@@ -1,12 +1,12 @@
 
-# Ajustar valor para chapa inteira e para metro quadrado
-# Cadastrar medidas do material 
+Cadastrar medidas do material e tempo de corte*
+Ajustar valor para chapa inteira e para metro quadrado
 
-# Ajustar tempo de corte de cada material
+# Ajustar valor de custo real, mais o lucro 
 
+# Criar pagina para controlar estoque (Israel) 
 # Refatorar calculo do orçamento
 # Refatorar pagina de Produtos
-# Criar pagina para controlar estoque (Israel) 
 # Criar orçamento em PDF
 # Criar fotos dos materiais
 

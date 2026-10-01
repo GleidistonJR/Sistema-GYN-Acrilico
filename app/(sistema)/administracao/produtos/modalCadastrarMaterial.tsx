@@ -12,6 +12,9 @@ interface Material {
   descricao: string | null;
   custo: number;
   estoque: number;
+  largura: number | null;
+  altura: number | null;
+  velocidadeCorte: number | null;
   categoriaId: string;
 }
 
@@ -20,7 +23,7 @@ interface ModalProps {
   onClose: () => void;
   title: string;
   materialInicial?: Material | null;
-  onSalvar?: (material: Material & {categoria: {id: string; nome: string}}) => void;
+  onSalvar?: (material: Material & { categoria: { id: string; nome: string } }) => void;
 }
 
 const DADOS_VAZIOS = {
@@ -31,6 +34,9 @@ const DADOS_VAZIOS = {
   custo: 0,
   estoque: 0,
   categoria: '',
+  largura: 0 as number | null,
+  altura: 0 as number | null,
+  velocidadeCorte: 0 as number | null,
 };
 
 
@@ -45,7 +51,7 @@ export default function ModalMaterial({ isOpen, onClose, title, materialInicial,
     if (isOpen) {
       getCategorias().then(setCategorias);
 
-      if(materialInicial){
+      if (materialInicial) {
         setDados({
           nome: materialInicial.nome ?? '',
           espessura: materialInicial.espessura ?? '',
@@ -53,22 +59,27 @@ export default function ModalMaterial({ isOpen, onClose, title, materialInicial,
           descricao: materialInicial.descricao ?? '',
           custo: materialInicial.custo,
           estoque: materialInicial.estoque,
+          largura: materialInicial.largura,
+          altura: materialInicial.altura,
+          velocidadeCorte: materialInicial.velocidadeCorte,
           categoria: materialInicial.categoriaId,
         });
-      } else{
+      } else {
         setDados(DADOS_VAZIOS)
       }
     }
   }, [isOpen, materialInicial]);
 
 
-async function handleMaterial() {
+  async function handleMaterial() {
     if (editando && materialInicial) {
       const materialAtualizado = await atualizarMaterial(materialInicial.id, dados);
       onSalvar?.(materialAtualizado);
+      setDados(DADOS_VAZIOS)
     } else {
       const materialCriado = await criarMaterial(dados);
       onSalvar?.(materialCriado);
+      setDados(DADOS_VAZIOS)
     }
     onClose();
   }
@@ -141,7 +152,7 @@ async function handleMaterial() {
                     type='number'
                     onChange={(e) => setDados({ ...dados, espessura: e.target.value })}
                     className="w-full p-2.5 border rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                  />                    
+                  />
                 </label>
               </div>
 
@@ -160,6 +171,51 @@ async function handleMaterial() {
               </div>
             </div>
 
+            <div className="flex gap-5">
+              <label>
+                Largura
+                <NumericFormat
+                  thousandSeparator="."
+                  decimalSeparator=","
+                  suffix="  cm"
+                  decimalScale={1}
+                  allowNegative={false}
+                  value={dados.largura}
+                  onValueChange={(v) => setDados({ ...dados, largura: v.floatValue ?? null })}
+                  className="w-full p-2.5 border rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                  placeholder="1000 cm"
+                />
+              </label>
+
+              <label>
+                Altura
+                <NumericFormat
+                  thousandSeparator="."
+                  decimalSeparator=","
+                  suffix=" cm"
+                  decimalScale={1}
+                  allowNegative={false}
+                  value={dados.altura}
+                  onValueChange={(v) => setDados({ ...dados, altura: v.floatValue ?? null })}
+                  className="w-full p-2.5 border rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                  placeholder="2000 cm"
+                />
+              </label>
+            </div>
+
+            <label>
+              Velocidade de corte
+              <NumericFormat
+                decimalSeparator=","
+                suffix=" mm/s"
+                decimalScale={2}
+                allowNegative={false}
+                value={dados.velocidadeCorte}
+                onValueChange={(v) => setDados({ ...dados, velocidadeCorte: v.floatValue ?? null })}
+                className="w-full p-2.5 border rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                placeholder="0 mm/s"
+              />
+            </label>
 
             <div className='flex gap-5'>
               <label>

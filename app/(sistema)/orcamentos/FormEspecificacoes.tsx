@@ -1,6 +1,5 @@
 "use client";
 
-import { PERSONALIZACAO_CONFIG } from './utils/constants';
 import { getCategorias, getMateriais } from '../administracao/produtos/actions';
 import { Material } from '../administracao/produtos/page';
 import { useEffect, useState, } from 'react';
@@ -27,6 +26,9 @@ interface FormEspecificacoesProps {
 
   tipoTampa: string;
   setTipoTampa: (tipo: string) => void;
+
+  materialId: string;
+  setMaterialId: (id: string) => void;
 
   temImposto: boolean;
   setTemImposto: (val: boolean) => void;
@@ -59,16 +61,13 @@ export default function FormEspecificacoes({
   corChapa, setCorChapa,
   espessuraChapa, setEspessuraChapa,
 
-  comprimentoInp: comprimentoInp,
-  setComprimentoInp: setComprimentoInp,
-
-  larguraInp: larguraInp,
-  setLarguraInp: setLarguraInp,
-
-  profundidadeInp: profundidadeInp,
-  setProfundidadeInp: setProfundidadeInp,
+  comprimentoInp, setComprimentoInp,
+  larguraInp, setLarguraInp,
+  profundidadeInp, setProfundidadeInp,
 
   tipoTampa, setTipoTampa,
+
+  materialId, setMaterialId,
 
   temImposto, setTemImposto,
   temMaoDeObra, setTemMaoDeObra,
@@ -82,6 +81,20 @@ export default function FormEspecificacoes({
   const [buscaCor, setBuscaCor] = useState('');
   const [focoAberto, setFocoAberto] = useState(false);
 
+  useEffect(() => {
+    getCategorias().then(setCategorias)
+    getMateriais().then(setMateriais)
+  }, []);
+
+  // Espessuras (sem repetição, em ordem numérica) disponíveis em uma categoria
+  const espessurasDaCategoria = (nomeCategoria: string) =>
+    [...new Set(
+      materiais
+        .filter((mat) => mat.categoria.nome === nomeCategoria)
+        .map((mat) => mat.espessura)
+        .filter((esp): esp is string => !!esp)
+    )].sort((a, b) => Number(a) - Number(b));
+
   // 1. Extrai e remove duplicatas das cores válidas vindas do seu array
   const coresValidas = [...new Set(
     materiais
@@ -90,12 +103,11 @@ export default function FormEspecificacoes({
         mat.espessura === espessuraChapa
       )
       .map((mat) => mat.cor)
-      .filter(Boolean)
+      .filter((cor): cor is string => !!cor)
   )].sort();
 
   // 2. Filtra as opções exibidas no menu com base na busca (independente do valor selecionado)
   const opcoesFiltradas = coresValidas.filter((cor) =>
-    
     cor.toLowerCase().includes(buscaCor.toLowerCase())
   );
 
@@ -105,11 +117,18 @@ export default function FormEspecificacoes({
     setFocoAberto(false);   // Fecha a lista
   };
 
+  // Itens cadastrados na categoria "Personalização", ordenados pelo nome
+  const materiaisPersonalizacao = materiais
+    .filter((mat) => mat.categoria.nome === 'Personalização' && mat.nome)
+    .sort((a, b) => (a.nome ?? '').localeCompare(b.nome ?? '', 'pt-BR', { sensitivity: 'base' }));
 
-  useEffect(() => {
-    getCategorias().then(setCategorias)
-    getMateriais().then(setMateriais)
-  }, []);
+  // Ao trocar o tipo de material: limpa o item escolhido e ajusta a espessura
+  // para uma que exista na nova categoria
+  const trocarTipoMaterial = (tipo: string) => {
+    setTipoMaterial(tipo);
+    setMaterialId('');
+    setEspessuraChapa(espessurasDaCategoria(tipo)[0] ?? '');
+  };
 
   return (
     <div className="space-y-5 lg:col-span-2">
@@ -123,7 +142,7 @@ export default function FormEspecificacoes({
           <button
             key={valor}
             type="button"
-            onClick={() => { setModoCalculo(valor); setTipoMaterial('Acrílico'); }}
+            onClick={() => { setModoCalculo(valor); setTipoMaterial('Acrílico'); setMaterialId(''); }}
             className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors ${modoCalculo === valor ? 'bg-[#0A2540] text-white' : 'text-slate-500 hover:bg-slate-50'
               }`}
           >
@@ -139,12 +158,14 @@ export default function FormEspecificacoes({
         {(modoCalculo == 'corte' || modoCalculo == 'chapa') && (
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium text-slate-600">Tipo de material</label>
-            <select value={tipoMaterial} onChange={(e) => setTipoMaterial(e.target.value)} className={classeSelect}>
+            <select
+              value={tipoMaterial}
+              onChange={(e) => trocarTipoMaterial(e.target.value)}
+              className={classeSelect}
+            >
               {categorias.map(cat =>
                 <option key={cat.id} value={cat.nome}>{cat.nome}</option>
-
               )}
-
             </select>
           </div>
         )}
@@ -162,27 +183,36 @@ export default function FormEspecificacoes({
           </div>
         )}
 
+        {tipoMaterial !== 'Personalização' && (
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium text-slate-600">Espessura</label>
+            <select value={espessuraChapa} onChange={(e) => setEspessuraChapa(e.target.value)} className={classeSelect}>
+              {espessurasDaCategoria(tipoMaterial).map((esp) => (
+                <option key={esp} value={esp}>
+                  {esp}mm
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
-        <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-slate-600">Espessura</label>
-          <select value={espessuraChapa} onChange={(e) => setEspessuraChapa(e.target.value)} className={classeSelect}>
-            {[... new Set(
-              materiais
-                .filter(mat =>
-                  mat.categoria.nome === tipoMaterial
-                )
-                .map(mat => mat.espessura)
-                .filter(Boolean)
-            )].sort((a, b) => Number(a) - Number(b)).map(mat =>
-
-              < option key={mat} value={mat}>
-                {mat}mm
-
-              </option>
-
-            )}
-          </select>
-        </div>
+        {tipoMaterial === 'Personalização' && (
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium text-slate-600">Tipo de personalização</label>
+            <select
+              value={materialId}
+              onChange={(e) => setMaterialId(e.target.value)}
+              className={classeSelect}
+            >
+              <option value="">Selecione...</option>
+              {materiaisPersonalizacao.map((mat) => (
+                <option key={mat.id} value={mat.id}>
+                  {mat.nome}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
 
 

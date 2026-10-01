@@ -16,6 +16,9 @@ export interface DadosCalculo {
 
   quantidade: number;
 
+  // Id do material escolhido diretamente (ex.: itens de "Personalização")
+  materialId?: string;
+
   temImposto: boolean;
   temMaoDeObra: boolean;
   temProjeto: boolean;
@@ -25,7 +28,6 @@ export interface DadosCalculo {
 // Interface do retorno formatado
 export interface ResultadoCalculo {
   areaChapa: number;
-  areaPers: number;
   valorBaseUnitario: number;
   valorMaterial: number;
   valorTotalItem: number;
@@ -39,7 +41,7 @@ export interface ResultadoCalculo {
  * Função assíncrona que realiza a busca de valores no Banco de Dados
  * e efetua o cálculo dinâmico do item de orçamento.
  */
-export async function calcularOrcamentoItem(dados: DadosCalculo) {
+export async function calcularOrcamentoItem(dados: DadosCalculo): Promise<ResultadoCalculo> {
   // 1. Cálculo do Checklist de Taxas Adicionais
   let porcentagemAcumulada = 0;
   if (dados.temImposto) porcentagemAcumulada += 15;
@@ -57,7 +59,6 @@ export async function calcularOrcamentoItem(dados: DadosCalculo) {
   if (dados.tipoMaterial === 'Acrílico') {
     if (dados.espessuraChapa) {
       whereCondition.espessura = dados.espessuraChapa;
-
     }
 
     if (dados.corChapa) {
@@ -76,13 +77,21 @@ export async function calcularOrcamentoItem(dados: DadosCalculo) {
     };
   }
 
-  // Realiza a consulta no banco de dados
-  const materialBanco = await prisma.material.findFirst({
-    where: whereCondition,
-    include: {
-      categoria: true,
-    }
-  });
+  // Realiza a consulta no banco de dados:
+  // - com materialId: busca exata pelo item escolhido
+  // - Personalização sem item selecionado: não busca (evita pegar o primeiro da categoria)
+  // - demais casos: busca pelos filtros de sempre
+  const materialBanco = dados.materialId
+    ? await prisma.material.findUnique({
+        where: { id: dados.materialId },
+        include: { categoria: true },
+      })
+    : dados.tipoMaterial === 'Personalização'
+      ? null
+      : await prisma.material.findFirst({
+          where: whereCondition,
+          include: { categoria: true },
+        });
 
   // Custo base vindo do banco de dados (se não encontrar, assume 0)
   const custoBanco = materialBanco?.custo ?? 0;
@@ -94,7 +103,10 @@ export async function calcularOrcamentoItem(dados: DadosCalculo) {
   // ==========================================
   if (dados.modoCalculo === 'chapa') {
 
+    //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    //Aqui colocaremos o valor do material (Custo mais lucro)
     const valorBaseUnitario = custoBanco;
+
     const valorUnitarioFinal = Number((valorBaseUnitario * porcentagensChecklist).toFixed(2));
     const valorTotalItem = Number((valorUnitarioFinal * dados.quantidade).toFixed(2));
 
@@ -107,7 +119,6 @@ export async function calcularOrcamentoItem(dados: DadosCalculo) {
 
     return {
       areaChapa: 0,
-      areaPers: 0,
       valorBaseUnitario,
       valorMaterial: valorUnitarioFinal,
       valorTotalItem,
@@ -123,39 +134,41 @@ export async function calcularOrcamentoItem(dados: DadosCalculo) {
   // ==========================================
   // MODALIDADE 2 & 3: CORTES E CAIXAS
   // ==========================================
-  const nComprimento = Number(dados.comprimentoInp) / 100; // Converte cm para metros
-  const nAltura = Number(dados.larguraInp) / 100;          // Converte cm para metros
-  const nLargura = Number(dados.profundidadeInp) / 100;     // Converte cm para metros
+  const nComprimento = Number(dados.comprimentoInp) / 100;   // Converte cm para metros
+  const nLargura = Number(dados.larguraInp) / 100;           // Converte cm para metros
+  const nProfundidade = Number(dados.profundidadeInp) / 100; // Converte cm para metros
 
-  // Definindo velocidade do laser (pode vir de um campo do banco ou mantida via fallback seguro)
-  // Assumindo a velocidade padrão de corte do acrílico/MDF
-  const velocidadeCorte = 2.2; // 15 milimetros por segundo
 
-  let areaChapa = 0;
-  let perimetro = 0;
+  // Velocidade de corte do material (se não cadastrada, assume 2)
+  const velocidadeCorte = materialBanco?.velocidadeCorte
+    ? materialBanco.velocidadeCorte / 10
+    : 2;
+
+  let areaCorte = 0;
+  let perimetroCorte = 0;
 
   if (dados.modoCalculo === 'corte') {
-    areaChapa = nComprimento * nAltura;
-    perimetro = (nComprimento * 2 + nAltura * 2) * 100;
+    areaCorte = nComprimento * nLargura;
+    perimetroCorte = (nComprimento * 2 + nLargura * 2) * 100;
   } else {
     // Cálculo de área plana desdobrada e perímetro para Caixas 3D
     if (dados.tipoTampaCaixaInp === 'semTampa') {
-      areaChapa = (nComprimento * nLargura * 1) + (nComprimento * nAltura * 2) + (nLargura * nAltura * 2);
-      perimetro = (nComprimento * 6 + nLargura * 6 + nAltura * 8) * 100;
+      areaCorte = (nComprimento * nProfundidade * 1) + (nComprimento * nLargura * 2) + (nProfundidade * nLargura * 2);
+      perimetroCorte = (nComprimento * 6 + nProfundidade * 6 + nLargura * 8) * 100;
     } else if (dados.tipoTampaCaixaInp === 'tampaLacrada') {
-      areaChapa = (nComprimento * nLargura * 2) + (nComprimento * nAltura * 2) + (nLargura * nAltura * 2);
-      perimetro = (nComprimento * 8 + nLargura * 8 + nAltura * 8) * 100;
+      areaCorte = (nComprimento * nProfundidade * 2) + (nComprimento * nLargura * 2) + (nProfundidade * nLargura * 2);
+      perimetroCorte = (nComprimento * 8 + nProfundidade * 8 + nLargura * 8) * 100;
     } else if (dados.tipoTampaCaixaInp === 'tampa3cm' && nComprimento > 0) {
-      areaChapa = (nComprimento * nLargura * 2) + (nComprimento * nAltura * 2) + (nLargura * nAltura * 2) + (nComprimento * 0.03 * 2) + (nLargura * 0.03 * 2);
-      perimetro = (nComprimento * 12 + nLargura * 12 + nAltura * 8 + (0.03 * 8)) * 100;
+      areaCorte = (nComprimento * nProfundidade * 2) + (nComprimento * nLargura * 2) + (nProfundidade * nLargura * 2) + (nComprimento * 0.03 * 2) + (nProfundidade * 0.03 * 2);
+      perimetroCorte = (nComprimento * 12 + nProfundidade * 12 + nLargura * 8 + (0.03 * 8)) * 100;
     } else {
-      areaChapa = (nComprimento * nLargura * 2) + (nComprimento * nAltura * 2) + (nLargura * nAltura * 2) + (nComprimento * nAltura * 2) + (nLargura * nAltura * 2);
-      perimetro = (nComprimento * 12 + nLargura * 12 + nAltura * 16) * 100;
+      areaCorte = (nComprimento * nProfundidade * 2) + (nComprimento * nLargura * 2) + (nProfundidade * nLargura * 2) + (nComprimento * nLargura * 2) + (nProfundidade * nLargura * 2);
+      perimetroCorte = (nComprimento * 12 + nProfundidade * 12 + nLargura * 16) * 100;
     }
   }
 
   // Cálculo do Tempo e Valor de Corte Laser (R$ 3,00 por minuto de máquina)
-  const tempCorteSegundos = perimetro / velocidadeCorte;
+  const tempCorteSegundos = perimetroCorte / velocidadeCorte;
   const minutosTotaisExatos = tempCorteSegundos / 60;
   const valorCorte = minutosTotaisExatos * 3;
 
@@ -163,19 +176,16 @@ export async function calcularOrcamentoItem(dados: DadosCalculo) {
   const segundosCorte = Math.round(tempCorteSegundos % 60);
 
 
-  
-  
-  
-  //NECESSARIO VERIFICAR SE PODEMOS SEGUIR ESSE PADRÃO DE CALCULO, 
-  // POIS O VALOR DO METRO QUADRADO PODE VARIAR DE ACORDO COM O MATERIAL
-  const valorMetroBase = (custoBanco / 2) * 1.16;
-  
-  
-  
-  
-  
-  
-  const valorBaseUnitario = Number((areaChapa * valorMetroBase + valorCorte).toFixed(2));
+  // Área útil da chapa em m² (se não tiver medidas cadastradas, assume 2 m²)
+  // Largura e altura cadastradas em cm: cm² → m² (÷ 10000)
+  const areaChapa = materialBanco?.largura && materialBanco?.altura
+    ? (materialBanco.largura * materialBanco.altura) / 10000
+    : 2;
+
+  const valorMetroBase = custoBanco / areaChapa * 1.16; // 16% de lucro sobre o custo do material
+
+
+  const valorBaseUnitario = Number((areaCorte * valorMetroBase + valorCorte).toFixed(2));
 
   const valorUnitarioFinal = Number((valorBaseUnitario * porcentagensChecklist).toFixed(2));
   const valorTotalItem = Number((valorUnitarioFinal * dados.quantidade).toFixed(2));
@@ -198,7 +208,7 @@ export async function calcularOrcamentoItem(dados: DadosCalculo) {
   txtItem += `\n  (${detalhePrecoDinamico})`;
 
   return {
-    areaChapa,
+    areaChapa: areaCorte,
     valorBaseUnitario,
     valorMaterial: valorUnitarioFinal,
     valorTotalItem,

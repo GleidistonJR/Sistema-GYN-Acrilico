@@ -25,6 +25,9 @@ export default function CalculadorChapa() {
   const [tipoTampaCaixaInp, setTipoTampaCaixaInp] = useState('semTampa');
   const [qtdItemInp, setQtdItemInp] = useState(1);
 
+  // Item escolhido diretamente pelo nome (ex.: categoria "Personalização")
+  const [materialId, setMaterialId] = useState('');
+
   // 3. Estados das Taxas
   const [impostoInp, setImpostoInp] = useState(true);
   const [maoDeObraInp, setMaoDeObraInp] = useState(true);
@@ -34,7 +37,6 @@ export default function CalculadorChapa() {
   // 4. Estado para armazenar o cálculo atual (assíncrono)
   const [calculoAtual, setCalculoAtual] = useState<ResultadoCalculo>({
     areaChapa: 0,
-    areaPers: 0,
     valorBaseUnitario: 0,
     valorMaterial: 0,
     valorTotalItem: 0,
@@ -47,7 +49,7 @@ export default function CalculadorChapa() {
   // 5. Lista Final de Itens
   const [itens, setItens] = useState<ItemOrcamento[]>([]);
 
-  // RECALCULA SEMPRE QUE O FORMULÁRIO MUDAR (Substitui o useMemo quebrado)
+  // RECALCULA SEMPRE QUE O FORMULÁRIO MUDAR
   useEffect(() => {
     let ativo = true;
 
@@ -63,6 +65,7 @@ export default function CalculadorChapa() {
           profundidadeInp,
           tipoTampaCaixaInp,
           quantidade: qtdItemInp,
+          materialId,
           temImposto: impostoInp,
           temMaoDeObra: maoDeObraInp,
           temProjeto: projetoInp,
@@ -92,6 +95,7 @@ export default function CalculadorChapa() {
     profundidadeInp,
     tipoTampaCaixaInp,
     qtdItemInp,
+    materialId,
     impostoInp,
     maoDeObraInp,
     projetoInp,
@@ -117,8 +121,9 @@ export default function CalculadorChapa() {
       setComprimentoInp(String(itemModificando.larguraChapa));
       setLarguraInp(String(itemModificando.alturaChapa));
       setProfundidadeInp(String(itemModificando.profundidadeCaixa));
-      setTipoTampaCaixaInp(String(itemModificando.tipoTampa));      
+      setTipoTampaCaixaInp(String(itemModificando.tipoTampa));
       setQtdItemInp(itemModificando.quantidade);
+      setMaterialId(itemModificando.materialId ?? '');
 
       setImpostoInp(itemModificando.taxasAplicadas.temImposto);
       setMaoDeObraInp(itemModificando.taxasAplicadas.temMaoDeObra);
@@ -129,6 +134,10 @@ export default function CalculadorChapa() {
 
   // Ações da Aplicação
   const handleAdicionarItem = () => {
+    if (tipoDeChapaInp === 'Personalização' && !materialId) {
+      return alert("Selecione o tipo de personalização!");
+    }
+
     if (modoCalculoInp !== 'chapa' && (Number(comprimentoInp) <= 0 || Number(larguraInp) <= 0)) {
       return alert("Medidas inválidas!");
     }
@@ -143,6 +152,7 @@ export default function CalculadorChapa() {
       alturaChapa: Number(larguraInp),
       profundidadeCaixa: Number(profundidadeInp),
       tipoTampa: tipoTampaCaixaInp,
+      materialId,
 
       quantidade: qtdItemInp,
 
@@ -191,7 +201,9 @@ export default function CalculadorChapa() {
             profundidadeInp={profundidadeInp} setProfundidadeInp={setProfundidadeInp}
 
             tipoTampa={tipoTampaCaixaInp} setTipoTampa={setTipoTampaCaixaInp}
-            
+
+            materialId={materialId} setMaterialId={setMaterialId}
+
             temImposto={impostoInp} setTemImposto={setImpostoInp}
             temMaoDeObra={maoDeObraInp} setTemMaoDeObra={setMaoDeObraInp}
             temProjeto={projetoInp} setTemProjeto={setProjetoInp}

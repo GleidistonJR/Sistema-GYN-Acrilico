@@ -162,6 +162,7 @@ export default function PainelPerfil({
               </form>
             </div>
           </div>
+          <p className="text-2xl font-bold text-gray-800 text-center mb-5">{colaborador.nome}</p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mb-8">
             <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border md:col-span-1">
               <h2 className="text-xs font-bold mb-3 border-b pb-2 text-gray-400 uppercase tracking-wider">Dados do Contrato</h2>

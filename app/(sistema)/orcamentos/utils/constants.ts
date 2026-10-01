@@ -70,6 +70,8 @@ export interface ItemOrcamento {
 
   quantidade: number;
 
+  materialId: string | undefined;
+
   // Histórico de Cálculo
   areaChapa: number;
 

@@ -15,10 +15,14 @@ export interface Material {
     custo: number;
     estoque: number;
     categoriaId: string;
+    largura: number | null;
+    altura: number | null;
+    velocidadeCorte: number | null;
     categoria: {
         id: string;
         nome: string;
     };
+
 }
 
 export default function Produtos() {
@@ -83,7 +87,7 @@ export default function Produtos() {
     return (
         <div className="grid grid-cols-5">
 
-            <div className="flex flex-col col-span-1 p-5 gap-3 bg-gray-200 h-dvh">
+            <div className="fixed flex flex-col col-span-1 p-5 gap-3 bg-gray-200 h-dvh">
 
                 <button onClick={() => setModalCategoriaAberto(true)} className="bg-green-600 text-white px-8 py-1 rounded font-semibold hover:cursor-pointer hover:bg-green-700">
                     Cadastrar Categoria
@@ -99,7 +103,7 @@ export default function Produtos() {
 
             </div>
 
-            <div className='p-10 col-span-4 '>
+            <div className='p-10 col-start-2 col-span-4 '>
                 <input
                     type="search"
                     value={pesquisa}
@@ -119,8 +123,12 @@ export default function Produtos() {
                                 + m.nome + " "
                                 + m.cor + " "
                                 + m.espessura + (m.espessura ? "mm " : " ")
-                                } </h3>
+                            } </h3>
                             <p>{m.descricao}</p>
+                            <p className="text-sm text-gray-500">
+                                {m.largura && m.altura ? `${m.largura} x ${m.altura} cm` : ''}
+                                {m.velocidadeCorte ? ` | corte: ${m.velocidadeCorte} mm/s` : ''}
+                            </p>
                         </div>
 
                         <div className='flex justify-between'>
