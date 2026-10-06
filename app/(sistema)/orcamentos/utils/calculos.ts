@@ -93,8 +93,11 @@ export async function calcularOrcamentoItem(dados: DadosCalculo): Promise<Result
           include: { categoria: true },
         });
 
+
   // Custo base vindo do banco de dados (se não encontrar, assume 0)
-  const custoBanco = materialBanco?.custo ?? 0;
+  const valorFracionado = materialBanco?.ValorVendaFracionado ?? 0;
+
+  const valorInteiro = materialBanco?.valorVendaInteiro ?? 0;
 
 
 
@@ -103,9 +106,8 @@ export async function calcularOrcamentoItem(dados: DadosCalculo): Promise<Result
   // ==========================================
   if (dados.modoCalculo === 'chapa') {
 
-    //!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    //Aqui colocaremos o valor do material (Custo mais lucro)
-    const valorBaseUnitario = custoBanco;
+
+    const valorBaseUnitario = valorInteiro;
 
     const valorUnitarioFinal = Number((valorBaseUnitario * porcentagensChecklist).toFixed(2));
     const valorTotalItem = Number((valorUnitarioFinal * dados.quantidade).toFixed(2));
@@ -176,14 +178,7 @@ export async function calcularOrcamentoItem(dados: DadosCalculo): Promise<Result
   const segundosCorte = Math.round(tempCorteSegundos % 60);
 
 
-  // Área útil da chapa em m² (se não tiver medidas cadastradas, assume 2 m²)
-  // Largura e altura cadastradas em cm: cm² → m² (÷ 10000)
-  const areaChapa = materialBanco?.largura && materialBanco?.altura
-    ? (materialBanco.largura * materialBanco.altura) / 10000
-    : 2;
-
-  const valorMetroBase = custoBanco / areaChapa * 1.16; // 16% de lucro sobre o custo do material
-
+  const valorMetroBase = valorFracionado 
 
   const valorBaseUnitario = Number((areaCorte * valorMetroBase + valorCorte).toFixed(2));
 

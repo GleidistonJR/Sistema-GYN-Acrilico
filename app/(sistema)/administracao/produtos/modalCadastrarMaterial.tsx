@@ -3,20 +3,8 @@
 import { PatternFormat, NumericFormat } from 'react-number-format';
 import { criarMaterial, getCategorias, atualizarMaterial } from './actions';
 import React, { useState, useEffect } from 'react';
+import { Material } from './page';
 
-interface Material {
-  id: string;
-  nome: string | null;
-  espessura: string | null;
-  cor: string | null;
-  descricao: string | null;
-  custo: number;
-  estoque: number;
-  largura: number | null;
-  altura: number | null;
-  velocidadeCorte: number | null;
-  categoriaId: string;
-}
 
 interface ModalProps {
   isOpen: boolean;
@@ -32,6 +20,8 @@ const DADOS_VAZIOS = {
   cor: '',
   descricao: '',
   custo: 0,
+  valorVendaInteiro: null as number | null,
+  ValorVendaFracionado: null as number | null,
   estoque: 0,
   categoria: '',
   largura: 0 as number | null,
@@ -58,6 +48,8 @@ export default function ModalMaterial({ isOpen, onClose, title, materialInicial,
           cor: materialInicial.cor ?? '',
           descricao: materialInicial.descricao ?? '',
           custo: materialInicial.custo,
+          valorVendaInteiro: materialInicial.valorVendaInteiro ?? null,
+          ValorVendaFracionado: materialInicial.ValorVendaFracionado ?? null,
           estoque: materialInicial.estoque,
           largura: materialInicial.largura,
           altura: materialInicial.altura,
@@ -72,17 +64,28 @@ export default function ModalMaterial({ isOpen, onClose, title, materialInicial,
 
 
   async function handleMaterial() {
+    const payload = {
+      ...dados,
+      valorVendaInteiro: dados.valorVendaInteiro ?? vendaSugerida,
+      ValorVendaFracionado: dados.ValorVendaFracionado ?? m2Sugerido,
+    };
+
     if (editando && materialInicial) {
-      const materialAtualizado = await atualizarMaterial(materialInicial.id, dados);
+      const materialAtualizado = await atualizarMaterial(materialInicial.id, payload);
       onSalvar?.(materialAtualizado);
-      setDados(DADOS_VAZIOS)
     } else {
-      const materialCriado = await criarMaterial(dados);
+      const materialCriado = await criarMaterial(payload);
       onSalvar?.(materialCriado);
-      setDados(DADOS_VAZIOS)
     }
+    setDados(DADOS_VAZIOS);
     onClose();
   }
+
+  const custo = dados.custo ?? 0;
+  const area = (dados.largura ?? 0) * (dados.altura ?? 0);
+
+  const vendaSugerida = Number((custo * 1.28).toFixed(2));
+  const m2Sugerido = area > 0 ? Number(((custo / area) * 10000 * 1.95).toFixed(2)) : 0;
 
   // Se não estiver aberto, não renderiza nada no HTML
   if (!isOpen) return null;
@@ -118,7 +121,7 @@ export default function ModalMaterial({ isOpen, onClose, title, materialInicial,
             <select id="categoria" name='categoria'
               value={dados.categoria}
               onChange={(e) => setDados({ ...dados, categoria: e.target.value })}
-              className="w-full p-2.5 border rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none">
+              className="w-full p-2 border rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none">
               <option value="">Selecione...</option>
 
               {categorias.map((cat) => (
@@ -138,41 +141,40 @@ export default function ModalMaterial({ isOpen, onClose, title, materialInicial,
                   placeholder="Acrilico Crital 2mm"
                   value={dados.nome}
                   onChange={(e) => setDados({ ...dados, nome: e.target.value })}
-                  className="w-full p-2.5 border rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                  className="w-full p-2 border rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none"
                 />
               </label>
             </div>
 
             <div className='flex gap-5'>
-              <div>
-                <label>
-                  Espessura
-                  <input name='espessura'
-                    value={dados.espessura}
-                    type='number'
-                    onChange={(e) => setDados({ ...dados, espessura: e.target.value })}
-                    className="w-full p-2.5 border rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                  />
-                </label>
-              </div>
+              <label className='w-full'>
+                Espessura
+                <NumericFormat
+                  decimalSeparator=","
+                  suffix=" mm"
+                  decimalScale={2}
+                  allowNegative={false}
+                  value={dados.espessura}
+                  onValueChange={(e) => setDados({ ...dados, espessura: e.value })}
+                  className="w-full p-2 border rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                  placeholder="2 mm"
+                />
+              </label>
 
-
-              <div>
-                <label>
-                  Cor
-                  <input
-                    type="text"
-                    placeholder="Cristal"
-                    value={dados.cor}
-                    onChange={(e) => setDados({ ...dados, cor: e.target.value })}
-                    className="w-full p-2.5 border rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                  />
-                </label>
-              </div>
+              <label className='w-full'>
+                Cor
+                <input
+                  type="text"
+                  placeholder="Cristal"
+                  value={dados.cor}
+                  onChange={(e) => setDados({ ...dados, cor: e.target.value })}
+                  className="w-full p-2 border rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                />
+              </label>
             </div>
 
             <div className="flex gap-5">
-              <label>
+              <label className='w-full'>
                 Largura
                 <NumericFormat
                   thousandSeparator="."
@@ -182,12 +184,12 @@ export default function ModalMaterial({ isOpen, onClose, title, materialInicial,
                   allowNegative={false}
                   value={dados.largura}
                   onValueChange={(v) => setDados({ ...dados, largura: v.floatValue ?? null })}
-                  className="w-full p-2.5 border rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                  className="w-full p-2 border rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none"
                   placeholder="1000 cm"
                 />
               </label>
 
-              <label>
+              <label className='w-full'>
                 Altura
                 <NumericFormat
                   thousandSeparator="."
@@ -197,29 +199,48 @@ export default function ModalMaterial({ isOpen, onClose, title, materialInicial,
                   allowNegative={false}
                   value={dados.altura}
                   onValueChange={(v) => setDados({ ...dados, altura: v.floatValue ?? null })}
-                  className="w-full p-2.5 border rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                  className="w-full p-2 border rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none"
                   placeholder="2000 cm"
                 />
               </label>
             </div>
 
-            <label>
-              Velocidade de corte
-              <NumericFormat
-                decimalSeparator=","
-                suffix=" mm/s"
-                decimalScale={2}
-                allowNegative={false}
-                value={dados.velocidadeCorte}
-                onValueChange={(v) => setDados({ ...dados, velocidadeCorte: v.floatValue ?? null })}
-                className="w-full p-2.5 border rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                placeholder="0 mm/s"
-              />
-            </label>
+            <div className='flex gap-5'>
+              <label className='w-full'>
+                Velocidade de corte
+                <NumericFormat
+                  decimalSeparator=","
+                  suffix=" mm/s"
+                  decimalScale={2}
+                  allowNegative={false}
+                  value={dados.velocidadeCorte}
+                  onValueChange={(v) => setDados({ ...dados, velocidadeCorte: v.floatValue ?? null })}
+                  className="w-full p-2 border rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                  placeholder="0 mm/s"
+                />
+              </label>
+
+              <label className='w-full'>
+                Estoque*
+                <NumericFormat
+                  thousandSeparator="."
+                  decimalSeparator=","
+                  suffix=" UND"
+                  decimalScale={1}
+                  allowNegative={false}
+                  value={dados.estoque}
+                  onValueChange={(e) => setDados({ ...dados, estoque: e.floatValue ?? 0 })}
+                  className="w-full p-2 border rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                  placeholder="1 und"
+                />
+              </label>
+            </div>
+
 
             <div className='flex gap-5'>
-              <label>
-                Preço de Custo*
+
+              <label className='w-47'>
+                Preço de custo*
                 <NumericFormat
                   thousandSeparator="."
                   decimalSeparator=","
@@ -232,13 +253,43 @@ export default function ModalMaterial({ isOpen, onClose, title, materialInicial,
                   placeholder="R$ 000,00"
                 />
               </label>
+            </div>
 
-              <label>
-                Estoque*
-                <input type="number" name="estoque" id="estoque"
-                  onChange={(e) => setDados({ ...dados, estoque: Number(e.target.value) })}
-                  value={dados.estoque}
-                  className="w-full p-2.5 border rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none" />
+            <div className='flex gap-5'>
+              <label className='w-full'>
+                Preço de venda
+                <NumericFormat
+                  thousandSeparator="."
+                  decimalSeparator=","
+                  prefix="R$ "
+                  fixedDecimalScale
+                  decimalScale={2}
+                  value={dados.valorVendaInteiro ?? vendaSugerida}
+                  onValueChange={(v, info) => {
+                    if (info.source !== "event") return;
+                    setDados({ ...dados, valorVendaInteiro: v.floatValue ?? null });
+                  }}
+                  className="w-full border rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                  placeholder="R$ 00,00"
+                />
+              </label>
+
+              <label className='w-full'>
+                Preço de venda M²
+                <NumericFormat
+                  thousandSeparator="."
+                  decimalSeparator=","
+                  prefix="R$ "
+                  fixedDecimalScale
+                  decimalScale={2}
+                  value={dados.ValorVendaFracionado ?? m2Sugerido}
+                  onValueChange={(v, info) => {
+                    if (info.source !== "event") return;
+                    setDados({ ...dados, ValorVendaFracionado: v.floatValue ?? null });
+                  }}
+                  className="w-full border rounded-lg p-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                  placeholder="R$ 00,00"
+                />
               </label>
             </div>
 

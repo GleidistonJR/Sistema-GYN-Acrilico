@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import ModalMaterial from './modalCadastrarMaterial';
 import ModalCategoria from './modalCadastrarCategoria';
 import { getMateriais, deleteMaterial } from './actions';
-import { Eye, Pencil, Trash2, Box } from 'lucide-react';
+import { Eye, Pencil, Trash2, Box, CopyPlus } from 'lucide-react';
 
 export interface Material {
     id: string;
@@ -13,6 +13,8 @@ export interface Material {
     cor: string | null;
     descricao: string | null;
     custo: number;
+    valorVendaInteiro?: number | null;
+    ValorVendaFracionado?: number | null;
     estoque: number;
     categoriaId: string;
     largura: number | null;
@@ -85,25 +87,25 @@ export default function Produtos() {
         });
 
     return (
-        <div className="grid grid-cols-5">
+        <div className="grid grid-cols-7">
 
-            <div className="fixed flex flex-col col-span-1 p-5 gap-3 bg-gray-200 h-dvh">
+            <div className="fixed flex flex-col col-span-1 p-3 gap-3 bg-gray-100 h-dvh">
 
-                <button onClick={() => setModalCategoriaAberto(true)} className="bg-green-600 text-white px-8 py-1 rounded font-semibold hover:cursor-pointer hover:bg-green-700">
+                <button onClick={() => setModalCategoriaAberto(true)} className="w-full flex items-center gap-3 text-left px-4 py-2 rounded-lg border transition-all duration-150 bg-[#0A2540] border-[#0A2540] text-white hover:bg-[#0f3a6b] hover:cursor-pointer">
                     Cadastrar Categoria
                 </button>
 
-                <button onClick={() => setModalAberto(true)} className="bg-green-600 text-white px-8 py-1 rounded font-semibold hover:cursor-pointer hover:bg-green-700">
+                <button onClick={() => setModalAberto(true)} className="w-full flex items-center gap-3 text-left px-4 py-2 rounded-lg border transition-all duration-150 bg-[#0A2540] border-[#0A2540] text-white hover:bg-[#0f3a6b] hover:cursor-pointer">
                     Cadastrar Material
                 </button>
 
-                <button className="bg-green-600 text-white px-8 py-1 rounded font-semibold hover:cursor-pointer hover:bg-green-700">
+                <button className="w-full flex items-center gap-3 text-left px-4 py-2 rounded-lg border transition-all duration-150 bg-[#0A2540] border-[#0A2540] text-white hover:bg-[#0f3a6b] hover:cursor-pointer">
                     Cadastrar Produto
                 </button>
 
             </div>
 
-            <div className='p-10 col-start-2 col-span-4 '>
+            <div className='p-10 col-start-3 col-span-4 '>
                 <input
                     type="search"
                     value={pesquisa}
@@ -115,9 +117,9 @@ export default function Produtos() {
 
                 {materiaisFiltrados.map((m) => (
 
-                    <div className='grid grid-cols-5 py-5 border-b border-gray-300' key={m.id} >
+                    <div className='grid grid-cols-5 py-2 border-b border-gray-300' key={m.id} >
 
-                        <div className='px-4 col-span-3'>
+                        <div className='px-2 col-span-3'>
                             <h3 className='font-semibold'>{
                                 m.categoria.nome + " "
                                 + m.nome + " "
@@ -127,7 +129,7 @@ export default function Produtos() {
                             <p>{m.descricao}</p>
                             <p className="text-sm text-gray-500">
                                 {m.largura && m.altura ? `${m.largura} x ${m.altura} cm` : ''}
-                                {m.velocidadeCorte ? ` | corte: ${m.velocidadeCorte} mm/s` : ''}
+                                {m.velocidadeCorte ? ` | Corte: ${m.velocidadeCorte} mm/s` : ''}
                             </p>
                         </div>
 
@@ -140,6 +142,8 @@ export default function Produtos() {
 
                         <div className='m-auto space-x-5'>
 
+                            <button className=' text-green-800 rounded-full  hover:cursor-pointer' onClick={() => editarMaterial(m.id)}><CopyPlus size={20} /></button>
+                           
                             <button className=' text-amber-500 rounded-full  hover:cursor-pointer' onClick={() => editarMaterial(m.id)}><Pencil size={20} /></button>
 
                             <button className=' text-red-700 rounded-full  hover:cursor-pointer' onClick={() => deletarMaterial(m.id)}><Trash2 size={20} /></button>

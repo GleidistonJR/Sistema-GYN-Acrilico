@@ -46,7 +46,11 @@ model Material {
   espessura String?
   cor       String?
   descricao String?
+
   custo     Float
+  valorVendaInteiro Float?
+  ValorVendaFracionado Float?
+
   estoque   Float
 
   largura    Float? // mm
