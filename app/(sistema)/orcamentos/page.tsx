@@ -15,7 +15,7 @@ export default function CalculadorChapa() {
   // 2. Estados do Formulário de Especificações
   const [modoCalculoInp, setModoCalculoInp] = useState('corte');
   const [tipoDeChapaInp, setTipoDeChapaInp] = useState('Acrílico');
-  const [corChapaAcrilicoInp, setCorChapaAcrilicoInp] = useState('Cristal');
+  const [corChapaAcrilicoInp, setCorChapaAcrilicoInp] = useState('');
   const [espessuraChapaInp, setEspessuraChapaInp] = useState('2');
 
   const [comprimentoInp, setComprimentoInp] = useState('0');
@@ -138,8 +138,8 @@ export default function CalculadorChapa() {
       return alert("Selecione o tipo de personalização!");
     }
 
-    if (modoCalculoInp !== 'chapa' && (Number(comprimentoInp) <= 0 || Number(larguraInp) <= 0)) {
-      return alert("Medidas inválidas!");
+    if (modoCalculoInp !== 'chapa' && (Number(comprimentoInp) <= 0 || Number(larguraInp) <= 0) || corChapaAcrilicoInp === '') {
+      return alert("Preencha todos os campos!");
     }
 
     const novoItem: ItemOrcamento = {

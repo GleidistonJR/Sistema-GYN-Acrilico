@@ -1,17 +1,21 @@
 'use server'
 
-import { prisma } from '@/lib/prisma'; // Adapte a importação de acordo com a localização do seu cliente Prisma
+import { prisma } from '@/lib/prisma'; // Adapte conforme a localização do seu cliente Prisma
+import type { Prisma } from '@prisma/client';
 import { formatarMoeda } from './formatarMoeda';
 
-// Interface para receber os dados do orçamento
+// ===========================================================================
+// Tipos
+// ===========================================================================
+
 export interface DadosCalculo {
-  modoCalculo: 'chapa' | 'corte' | 'caixa' | string;
-  tipoMaterial: string;        // Ex: "Acrílico", "MDF", etc.
-  corChapa: string;             // Ex: "transparente", "colorido", "branco", etc.
-  espessuraChapa: string;       // Ex: "2", "3", "10" (representando mm)
-  comprimentoInp: string;       // em centímetros
-  larguraInp: string;           // em centímetros (usado como Altura nos cortes/caixas)
-  profundidadeInp: string;      // em centímetros (usado como Largura/Profundidade nas caixas)
+  modoCalculo: 'chapa' | 'corte' | 'caixa' | 'perso' | 'personalizacao' | string;
+  tipoMaterial: string;        // Ex: "Acrílico", "PVC", "ACM"...
+  corChapa: string;            // Ex: "Cristal", "Branco"...
+  espessuraChapa: string;      // Ex: "2", "3", "10" (mm)
+  comprimentoInp: string;      // cm
+  larguraInp: string;          // cm (usado como altura em cortes/caixas)
+  profundidadeInp: string;     // cm (usado só em caixas)
   tipoTampaCaixaInp: 'semTampa' | 'tampaLacrada' | 'tampa3cm' | string;
 
   quantidade: number;
@@ -25,7 +29,6 @@ export interface DadosCalculo {
   temEspecial: boolean;
 }
 
-// Interface do retorno formatado
 export interface ResultadoCalculo {
   areaChapa: number;
   valorBaseUnitario: number;
@@ -37,179 +40,275 @@ export interface ResultadoCalculo {
   txtItem: string;
 }
 
-/**
- * Função assíncrona que realiza a busca de valores no Banco de Dados
- * e efetua o cálculo dinâmico do item de orçamento.
- */
-export async function calcularOrcamentoItem(dados: DadosCalculo): Promise<ResultadoCalculo> {
-  // 1. Cálculo do Checklist de Taxas Adicionais
-  let porcentagemAcumulada = 0;
-  if (dados.temImposto) porcentagemAcumulada += 15;
-  if (dados.temMaoDeObra) porcentagemAcumulada += 30;
-  if (dados.temProjeto) porcentagemAcumulada += 35;
-  if (dados.temEspecial) porcentagemAcumulada += 35;
+type MaterialComCategoria = Prisma.MaterialGetPayload<{ include: { categoria: true } }>;
 
-  const porcentagensChecklist = (porcentagemAcumulada / 100) + 1;
+interface Taxas {
+  porcentagemAcumulada: number;
+  fator: number; // ex.: 30% → 1.3
+}
 
+interface EntradaResultado {
+  descricao: string;            // primeira linha do texto do item
+  valorBaseUnitario: number;    // antes das taxas adicionais
+  areaChapa?: number;
+  minutosCorte?: number;
+  segundosCorte?: number;
+}
 
-  // 2. Busca do Material no Banco de Dados (Prisma)
-  // Montamos o filtro dinamicamente de acordo com o tipo do material
-  const whereCondition: any = {};
+// ===========================================================================
+// Constantes de negócio
+// ===========================================================================
 
-  if (dados.tipoMaterial === 'Acrílico') {
-    if (dados.espessuraChapa) {
-      whereCondition.espessura = dados.espessuraChapa;
-    }
+const CATEGORIA_PERSONALIZACAO = 'Personalização';
+const CUSTO_LASER_POR_MINUTO = 3;        // R$ por minuto de máquina
+const VELOCIDADE_CORTE_PADRAO = 2;       // cm/s, quando o material não tem velocidade cadastrada
 
-    if (dados.corChapa) {
-      whereCondition.cor = {
-        equals: dados.corChapa,
-        mode: 'insensitive' // Garante busca sem diferenciar maiúsculas/minúsculas
-      };
-    }
-  } else {
-    // Acesse o filtro pelo campo 'nome' dentro da relação 'categoria'
-    whereCondition.categoria = {
-      nome: {
-        contains: dados.tipoMaterial,
-        mode: 'insensitive'
-      }
-    };
-  }
+const TAXAS_ADICIONAIS = [
+  { campo: 'temImposto', percentual: 15 },
+  { campo: 'temMaoDeObra', percentual: 30 },
+  { campo: 'temProjeto', percentual: 35 },
+  { campo: 'temEspecial', percentual: 35 },
+] as const;
 
-  // Realiza a consulta no banco de dados:
-  // - com materialId: busca exata pelo item escolhido
-  // - Personalização sem item selecionado: não busca (evita pegar o primeiro da categoria)
-  // - demais casos: busca pelos filtros de sempre
-  const materialBanco = dados.materialId
-    ? await prisma.material.findUnique({
-        where: { id: dados.materialId },
-        include: { categoria: true },
-      })
-    : dados.tipoMaterial === 'Personalização'
-      ? null
-      : await prisma.material.findFirst({
-          where: whereCondition,
-          include: { categoria: true },
-        });
+// ===========================================================================
+// Helpers gerais
+// ===========================================================================
 
+const arredondar = (n: number) => Number(n.toFixed(2));
 
-  // Custo base vindo do banco de dados (se não encontrar, assume 0)
-  const valorFracionado = materialBanco?.ValorVendaFracionado ?? 0;
+function calcularTaxas(dados: DadosCalculo): Taxas {
+  const porcentagemAcumulada = TAXAS_ADICIONAIS.reduce(
+    (total, { campo, percentual }) => (dados[campo] ? total + percentual : total),
+    0
+  );
+  return { porcentagemAcumulada, fator: porcentagemAcumulada / 100 + 1 };
+}
 
-  const valorInteiro = materialBanco?.valorVendaInteiro ?? 0;
+function rotuloMaterial(material: MaterialComCategoria | null, dados: DadosCalculo): string {
+  if (material?.nome) return material.nome;
+  return dados.tipoMaterial != 'personalizacao'
+    ? `${dados.tipoMaterial} ${dados.corChapa} ${dados.espessuraChapa}mm`
+    : dados.tipoMaterial;
+}
 
+/** Aplica as taxas, calcula o total e monta o texto do item. */
+function montarResultado(
+  entrada: EntradaResultado,
+  dados: DadosCalculo,
+  taxas: Taxas
+): ResultadoCalculo {
+  const valorBaseUnitario = arredondar(entrada.valorBaseUnitario);
+  const valorUnitarioFinal = arredondar(valorBaseUnitario * taxas.fator);
+  const valorTotalItem = arredondar(valorUnitarioFinal * dados.quantidade);
 
-
-  // ==========================================
-  // MODALIDADE 1: CHAPA INTEIRA
-  // ==========================================
-  if (dados.modoCalculo === 'chapa') {
-
-
-    const valorBaseUnitario = valorInteiro;
-
-    const valorUnitarioFinal = Number((valorBaseUnitario * porcentagensChecklist).toFixed(2));
-    const valorTotalItem = Number((valorUnitarioFinal * dados.quantidade).toFixed(2));
-
-    const labelChapa = materialBanco?.nome || `${dados.tipoMaterial} ${dados.espessuraChapa}mm`;
-    const detalhePreco = dados.quantidade === 1
+  const detalhePreco =
+    dados.quantidade === 1
       ? `Valor: R$ ${formatarMoeda(valorUnitarioFinal)}`
       : `Unitário: R$ ${formatarMoeda(valorUnitarioFinal)} | Total: R$ ${formatarMoeda(valorTotalItem)}`;
 
-    const txtItem = `- ${dados.quantidade}x Chapa Inteira ${labelChapa} ${dados.tipoMaterial === 'Acrílico' ? dados.corChapa.toUpperCase() : ''}\n  (${detalhePreco})`;
-
-    return {
-      areaChapa: 0,
-      valorBaseUnitario,
-      valorMaterial: valorUnitarioFinal,
-      valorTotalItem,
-      minutosCorte: 0,
-      segundosCorte: 0,
-      porcentagemAcumulada,
-      txtItem
-    };
-  }
-
-
-
-  // ==========================================
-  // MODALIDADE 2 & 3: CORTES E CAIXAS
-  // ==========================================
-  const nComprimento = Number(dados.comprimentoInp) / 100;   // Converte cm para metros
-  const nLargura = Number(dados.larguraInp) / 100;           // Converte cm para metros
-  const nProfundidade = Number(dados.profundidadeInp) / 100; // Converte cm para metros
-
-
-  // Velocidade de corte do material (se não cadastrada, assume 2)
-  const velocidadeCorte = materialBanco?.velocidadeCorte
-    ? materialBanco.velocidadeCorte / 10
-    : 2;
-
-  let areaCorte = 0;
-  let perimetroCorte = 0;
-
-  if (dados.modoCalculo === 'corte') {
-    areaCorte = nComprimento * nLargura;
-    perimetroCorte = (nComprimento * 2 + nLargura * 2) * 100;
-  } else {
-    // Cálculo de área plana desdobrada e perímetro para Caixas 3D
-    if (dados.tipoTampaCaixaInp === 'semTampa') {
-      areaCorte = (nComprimento * nProfundidade * 1) + (nComprimento * nLargura * 2) + (nProfundidade * nLargura * 2);
-      perimetroCorte = (nComprimento * 6 + nProfundidade * 6 + nLargura * 8) * 100;
-    } else if (dados.tipoTampaCaixaInp === 'tampaLacrada') {
-      areaCorte = (nComprimento * nProfundidade * 2) + (nComprimento * nLargura * 2) + (nProfundidade * nLargura * 2);
-      perimetroCorte = (nComprimento * 8 + nProfundidade * 8 + nLargura * 8) * 100;
-    } else if (dados.tipoTampaCaixaInp === 'tampa3cm' && nComprimento > 0) {
-      areaCorte = (nComprimento * nProfundidade * 2) + (nComprimento * nLargura * 2) + (nProfundidade * nLargura * 2) + (nComprimento * 0.03 * 2) + (nProfundidade * 0.03 * 2);
-      perimetroCorte = (nComprimento * 12 + nProfundidade * 12 + nLargura * 8 + (0.03 * 8)) * 100;
-    } else {
-      areaCorte = (nComprimento * nProfundidade * 2) + (nComprimento * nLargura * 2) + (nProfundidade * nLargura * 2) + (nComprimento * nLargura * 2) + (nProfundidade * nLargura * 2);
-      perimetroCorte = (nComprimento * 12 + nProfundidade * 12 + nLargura * 16) * 100;
-    }
-  }
-
-  // Cálculo do Tempo e Valor de Corte Laser (R$ 3,00 por minuto de máquina)
-  const tempCorteSegundos = perimetroCorte / velocidadeCorte;
-  const minutosTotaisExatos = tempCorteSegundos / 60;
-  const valorCorte = minutosTotaisExatos * 3;
-
-  const minutosCorte = Math.floor(tempCorteSegundos / 60);
-  const segundosCorte = Math.round(tempCorteSegundos % 60);
-
-
-  const valorMetroBase = valorFracionado 
-
-  const valorBaseUnitario = Number((areaCorte * valorMetroBase + valorCorte).toFixed(2));
-
-  const valorUnitarioFinal = Number((valorBaseUnitario * porcentagensChecklist).toFixed(2));
-  const valorTotalItem = Number((valorUnitarioFinal * dados.quantidade).toFixed(2));
-
-  // Montagem da legenda do item
-  const labelMaterial = materialBanco?.nome || (
-    dados.tipoMaterial === 'Acrílico'
-      ? `Acrílico ${dados.corChapa.toUpperCase()} ${dados.espessuraChapa}mm`
-      : dados.tipoMaterial
-  );
-
-  let txtItem = dados.modoCalculo === 'corte'
-    ? `- ${dados.quantidade}x ${labelMaterial} (${dados.comprimentoInp}x${dados.larguraInp}cm)`
-    : `- ${dados.quantidade}x Caixa em ${labelMaterial}, medindo ${dados.comprimentoInp}x${dados.profundidadeInp}x${dados.larguraInp}cm [${dados.tipoTampaCaixaInp}]`;
-
-  const detalhePrecoDinamico = dados.quantidade === 1
-    ? `Valor: R$ ${formatarMoeda(valorUnitarioFinal)}`
-    : `Unitário: R$ ${formatarMoeda(valorUnitarioFinal)} | Total: R$ ${formatarMoeda(valorTotalItem)}`;
-
-  txtItem += `\n  (${detalhePrecoDinamico})`;
-
   return {
-    areaChapa: areaCorte,
+    areaChapa: entrada.areaChapa ?? 0,
     valorBaseUnitario,
     valorMaterial: valorUnitarioFinal,
     valorTotalItem,
-    minutosCorte,
-    segundosCorte,
-    porcentagemAcumulada,
-    txtItem
+    minutosCorte: entrada.minutosCorte ?? 0,
+    segundosCorte: entrada.segundosCorte ?? 0,
+    porcentagemAcumulada: taxas.porcentagemAcumulada,
+    txtItem: `${entrada.descricao}\n  (${detalhePreco})`,
   };
+}
+
+// ===========================================================================
+// Busca do material
+// ===========================================================================
+
+async function buscarMaterial(
+  dados: DadosCalculo,
+  ehPerso: boolean
+): Promise<MaterialComCategoria | null> {
+  // Material escolhido diretamente (ex.: item de personalização)
+  if (dados.materialId) {
+    return prisma.material.findUnique({
+      where: { id: dados.materialId },
+      include: { categoria: true },
+    });
+  }
+
+  // Personalização só é calculada a partir de um item escolhido (materialId)
+  if (ehPerso || dados.tipoMaterial === CATEGORIA_PERSONALIZACAO) return null;
+
+  const where: Prisma.MaterialWhereInput = {};
+
+  if (dados.tipoMaterial) {
+    where.categoria = { nome: dados.tipoMaterial };
+  }
+  if (dados.espessuraChapa) {
+    where.espessura = dados.espessuraChapa;
+  }
+  if (dados.corChapa) {
+    where.cor = { equals: dados.corChapa, mode: 'insensitive' };
+  }
+
+  return prisma.material.findFirst({
+    where,
+    include: { categoria: true },
+  });
+}
+
+// ===========================================================================
+// Geometria (medidas em metros; perímetro devolvido em cm)
+// ===========================================================================
+
+function geometriaCorte(c: number, l: number) {
+  return {
+    area: c * l,
+    perimetroCm: (c * 2 + l * 2) * 100,
+  };
+}
+
+function geometriaCaixa(c: number, l: number, p: number, tampa: string) {
+  switch (tampa) {
+    case 'semTampa':
+      return {
+        area: c * p + c * l * 2 + p * l * 2,
+        perimetroCm: (c * 6 + p * 6 + l * 8) * 100,
+      };
+
+    case 'tampaLacrada':
+      return {
+        area: c * p * 2 + c * l * 2 + p * l * 2,
+        perimetroCm: (c * 8 + p * 8 + l * 8) * 100,
+      };
+
+    case 'tampa3cm':
+      return {
+        area: c * p * 2 + c * l * 2 + p * l * 2 + c * 0.03 * 2 + p * 0.03 * 2,
+        perimetroCm: (c * 12 + p * 12 + l * 8 + 0.03 * 8) * 100,
+      };
+
+    default: // 'tampaTotal' (encaixe com a medida total)
+      return {
+        area: c * p * 2 + c * l * 2 + p * l * 2 + c * l * 2 + p * l * 2,
+        perimetroCm: (c * 12 + p * 12 + l * 16) * 100,
+      };
+  }
+}
+
+// ===========================================================================
+// Modalidades de cálculo
+// ===========================================================================
+
+function calcularChapa(
+  dados: DadosCalculo,
+  material: MaterialComCategoria | null,
+  taxas: Taxas
+): ResultadoCalculo {
+  const label = material?.nome || `${dados.tipoMaterial} ${dados.espessuraChapa}mm`;
+  const cor = dados.tipoMaterial === 'Acrílico' ? dados.corChapa.toUpperCase() : '';
+  const descricao = `- ${dados.quantidade}x Chapa Inteira ${[label, cor].filter(Boolean).join(' ')}`;
+
+  return montarResultado(
+    { descricao, valorBaseUnitario: material?.valorVendaInteiro ?? 0 },
+    dados,
+    taxas
+  );
+}
+
+function calcularCorteOuCaixa(
+  dados: DadosCalculo,
+  material: MaterialComCategoria | null,
+  taxas: Taxas
+): ResultadoCalculo {
+  const c = Number(dados.comprimentoInp) / 100; // cm → m
+  const l = Number(dados.larguraInp) / 100;
+  const p = Number(dados.profundidadeInp) / 100;
+
+  const { area, perimetroCm } =
+    dados.modoCalculo === 'corte'
+      ? geometriaCorte(c, l)
+      : geometriaCaixa(c, l, p, dados.tipoTampaCaixaInp);
+
+  // velocidadeCorte vem em mm/s e o perímetro está em cm → divide por 10 para cm/s
+  const velocidadeCmPorSeg = material?.velocidadeCorte
+    ? material.velocidadeCorte / 10
+    : VELOCIDADE_CORTE_PADRAO;
+
+  const segundosExatos = perimetroCm / velocidadeCmPorSeg;
+  const valorCorte = (segundosExatos / 60) * CUSTO_LASER_POR_MINUTO;
+
+  // Arredonda os segundos totais antes de separar, para nunca exibir "60 s"
+  const segundosTotais = Math.round(segundosExatos);
+  const minutosCorte = Math.floor(segundosTotais / 60);
+  const segundosCorte = segundosTotais % 60;
+
+  const valorMetroQuadrado = material?.ValorVendaFracionado ?? 0;
+  const valorBaseUnitario = area * valorMetroQuadrado + valorCorte;
+
+  const label = rotuloMaterial(material, dados);
+  const descricao =
+    dados.modoCalculo === 'corte'
+      ? `- ${dados.quantidade}x ${label} (${dados.comprimentoInp}x${dados.larguraInp}cm)`
+      : `- ${dados.quantidade}x Caixa em ${label}, medindo ${dados.comprimentoInp}x${dados.profundidadeInp}x${dados.larguraInp}cm [${dados.tipoTampaCaixaInp}]`;
+
+  return montarResultado(
+    { descricao, valorBaseUnitario, areaChapa: area, minutosCorte, segundosCorte },
+    dados,
+    taxas
+  );
+}
+
+function calcularPersonalizacao(
+  dados: DadosCalculo,
+  material: MaterialComCategoria | null,
+  taxas: Taxas
+): ResultadoCalculo {
+  if (!material) {
+    throw new Error('Selecione o tipo de personalização.');
+  }
+
+  // Sem tempo de corte nem espessura: só valor do M² × m² usado
+  const area = (Number(dados.comprimentoInp) / 100) * (Number(dados.larguraInp) / 100);
+  const valorMetroQuadrado = material.ValorVendaFracionado ?? 0;
+
+  const descricao =
+    `- ${dados.quantidade}x ${material.nome ?? 'Personalização'} ` +
+    `(${dados.comprimentoInp}x${dados.larguraInp}cm)`;
+
+  return montarResultado(
+    { descricao, valorBaseUnitario: area * valorMetroQuadrado, areaChapa: area },
+    dados,
+    taxas
+  );
+}
+
+// ===========================================================================
+// Função principal
+// ===========================================================================
+
+/**
+ * Busca o material no banco e calcula o item do orçamento
+ * de acordo com a modalidade (chapa, corte, caixa ou personalização).
+ */
+export async function calcularOrcamentoItem(dados: DadosCalculo): Promise<ResultadoCalculo> {
+  const taxas = calcularTaxas(dados);
+
+  // O formulário envia 'perso'; aceita 'personalizacao' por compatibilidade
+  const modo = dados.modoCalculo === 'personalizacao' ? 'perso' : dados.modoCalculo;
+
+  const material = await buscarMaterial(dados, modo === 'perso');
+
+  switch (modo) {
+    case 'chapa':
+      return calcularChapa(dados, material, taxas);
+
+    case 'corte':
+    case 'caixa':
+      return calcularCorteOuCaixa(dados, material, taxas);
+
+    case 'perso':
+      return calcularPersonalizacao(dados, material, taxas);
+
+    default:
+      throw new Error(`Modo de cálculo inválido: ${dados.modoCalculo}`);
+  }
 }

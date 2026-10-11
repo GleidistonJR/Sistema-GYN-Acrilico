@@ -133,17 +133,18 @@ export default function FormEspecificacoes({
   return (
     <div className="space-y-5 lg:col-span-2">
       {/* Seletor de Modo de Operação */}
-      <div className="bg-white rounded-xl shadow-sm p-1.5 flex gap-1.5 border border-slate-200">
+      <div className="bg-white rounded-xl shadow-sm p-1.5 grid grid-cols-2 gap-1.5 border border-slate-200">
         {[
           { valor: 'corte', label: 'Corte' },
           { valor: 'caixa', label: 'Caixa' },
           { valor: 'chapa', label: 'Chapa' },
+          { valor: 'perso', label: 'Personalização' },
         ].map(({ valor, label }) => (
           <button
             key={valor}
             type="button"
             onClick={() => { setModoCalculo(valor); setTipoMaterial('Acrílico'); setMaterialId(''); }}
-            className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors ${modoCalculo === valor ? 'bg-[#0A2540] text-white' : 'text-slate-500 hover:bg-slate-50'
+            className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors ${modoCalculo === valor ? 'bg-[#0A2540] text-white' : 'text-slate-500 hover:bg-slate-100 hover:cursor-pointer'
               }`}
           >
             {label}
@@ -160,43 +161,23 @@ export default function FormEspecificacoes({
             <label className="text-sm font-medium text-slate-600">Tipo de material</label>
             <select
               value={tipoMaterial}
-              onChange={(e) => trocarTipoMaterial(e.target.value)}
+              onChange={(e) => {
+                trocarTipoMaterial(e.target.value);
+                setCorChapa("");
+              }}
               className={classeSelect}
             >
-              {categorias.map(cat =>
-                <option key={cat.id} value={cat.nome}>{cat.nome}</option>
-              )}
+              {categorias
+                .filter((cat) => cat.nome !== "Personalização")
+                .map((cat) => (
+                  <option key={cat.id} value={cat.nome}>{cat.nome}</option>
+                ))}
             </select>
           </div>
         )}
 
 
-        {modoCalculo === 'caixa' && (
-          <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-slate-600">Tipo de tampa da caixa</label>
-            <select value={tipoTampa} onChange={(e) => setTipoTampa(e.target.value)} className={classeSelect}>
-              <option value="semTampa">Sem tampa</option>
-              <option value="tampaLacrada">Tampa lacrada</option>
-              <option value="tampa3cm">Tampa encaixe (abas 3cm)</option>
-              <option value="tampaTotal">Tampa encaixe (medida total)</option>
-            </select>
-          </div>
-        )}
-
-        {tipoMaterial !== 'Personalização' && (
-          <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-slate-600">Espessura</label>
-            <select value={espessuraChapa} onChange={(e) => setEspessuraChapa(e.target.value)} className={classeSelect}>
-              {espessurasDaCategoria(tipoMaterial).map((esp) => (
-                <option key={esp} value={esp}>
-                  {esp}mm
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
-
-        {tipoMaterial === 'Personalização' && (
+        {modoCalculo === 'perso' && (
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium text-slate-600">Tipo de personalização</label>
             <select
@@ -215,8 +196,42 @@ export default function FormEspecificacoes({
         )}
 
 
+        {modoCalculo === 'caixa' && (
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium text-slate-600">Tipo de tampa da caixa</label>
+            <select value={tipoTampa} onChange={(e) => setTipoTampa(e.target.value)} className={classeSelect}>
+              <option value="semTampa">Sem tampa</option>
+              <option value="tampaLacrada">Tampa lacrada</option>
+              <option value="tampa3cm">Tampa encaixe (abas 3cm)</option>
+              <option value="tampaTotal">Tampa encaixe (medida total)</option>
+            </select>
+          </div>
+        )}
 
-        {tipoMaterial === "Acrílico" && (
+
+
+        {modoCalculo !== 'perso' && (
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium text-slate-600">Espessura</label>
+            <select
+              value={espessuraChapa}
+              onChange={(e) => {
+                setEspessuraChapa(e.target.value);
+                setCorChapa("");
+              }}
+              className={classeSelect}>
+              {espessurasDaCategoria(tipoMaterial).map((esp) => (
+                <option key={esp} value={esp}>
+                  {esp}mm
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+
+
+        {modoCalculo !== 'perso' && (
           <div className="flex flex-col gap-1 relative">
             <label className="text-sm font-medium text-slate-600">Cor</label>
 
@@ -250,7 +265,10 @@ export default function FormEspecificacoes({
                       {cor}
                       <span className="ml-2 text-xs text-slate-400">
                         ({materiais.find(
-                          mat => mat.cor === cor && mat.espessura === espessuraChapa
+                          (mat) =>
+                            mat.categoria?.nome === tipoMaterial &&
+                            mat.cor === cor &&
+                            mat.espessura === espessuraChapa
                         )?.estoque ?? 0} chapas)
                       </span>
                     </li>
