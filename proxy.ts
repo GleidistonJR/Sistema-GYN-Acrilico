@@ -4,6 +4,7 @@ import type { NextRequest } from 'next/server';
 const regrasDeAcesso: { rota: string; rolesPermitidas: string[] }[] = [
   { rota: '/administracao', rolesPermitidas: ['ADMIN'] },
   { rota: '/orcamentos', rolesPermitidas: ['ADMIN', 'USER',] },
+  { rota: '/materiais', rolesPermitidas: ['ADMIN', 'USER',] },
   { rota: '/baterPonto', rolesPermitidas: ['ADMIN', 'OUTRO'] },
   { rota: '/relatorioPontos', rolesPermitidas: ['ADMIN', 'USER', 'OUTRO'] },
 ];
@@ -57,6 +58,7 @@ export const config = {
   matcher: [
     '/administracao/:path*',
     '/orcamentos/:path*',
+    '/materiais/:path*',
     '/relatorioPontos/:path*',
     '/baterPonto/:path*'
   ],

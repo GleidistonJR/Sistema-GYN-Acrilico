@@ -64,3 +64,11 @@ export async function atualizarMaterial(id: string, dados: any) {
         include: { categoria: true },
     });
 }
+
+export async function atualizarEstoque(id: string, estoque: number) {
+    return await prisma.material.update({
+        where: { id },
+        data: { estoque },
+        include: { categoria: true },
+    });
+}

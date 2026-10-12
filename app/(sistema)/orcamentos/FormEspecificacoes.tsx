@@ -1,7 +1,7 @@
 "use client";
 
-import { getCategorias, getMateriais } from '../administracao/produtos/actions';
-import { Material } from '../administracao/produtos/page';
+import { getCategorias, getMateriais } from '../materiais/actions';
+import { Material } from '../materiais/page';
 import { useEffect, useState, } from 'react';
 
 

@@ -140,6 +140,9 @@ export default function Header() {
                     <Link href={"/administracao/colaboradores/" + userId} className="flex items-center px-4 py-2.5 text-sm text-slate-200 hover:bg-white/5 hover:text-amber-400 transition-colors">
                       Meu Perfil
                     </Link>
+                    <Link href="/materiais" className="flex items-center px-4 py-2.5 text-sm text-slate-200 hover:bg-white/5 hover:text-amber-400 transition-colors">
+                      Materiais
+                    </Link>
 
 
 
@@ -151,9 +154,6 @@ export default function Header() {
                         </Link>
                         <Link href="/administracao/colaboradores" className="flex items-center px-4 py-2.5 text-sm text-slate-200 hover:bg-white/5 hover:text-amber-400 transition-colors">
                           Colaboradores
-                        </Link>
-                        <Link href="/administracao/produtos" className="flex items-center px-4 py-2.5 text-sm text-slate-200 hover:bg-white/5 hover:text-amber-400 transition-colors">
-                          Produtos
                         </Link>
                       </>
                     )}
@@ -242,6 +242,9 @@ export default function Header() {
                 <Link href={"/administracao/colaboradores/" + userId} onClick={fecharMenu} className="block px-3 py-2 text-sm text-slate-300 hover:text-amber-400">
                   Meu Perfil
                 </Link>
+                <Link href="/materiais" onClick={fecharMenu} className="block px-3 py-2 text-sm text-slate-300 hover:text-amber-400">
+                  Materiais
+                </Link>
 
                 {role === 'ADMIN' && (
                   <>
@@ -250,9 +253,6 @@ export default function Header() {
                     </Link>
                     <Link href="/administracao/colaboradores" onClick={fecharMenu} className="block px-3 py-2 text-sm text-slate-300 hover:text-amber-400">
                       Colaboradores
-                    </Link>
-                    <Link href="/administracao/produtos" onClick={fecharMenu} className="block px-3 py-2 text-sm text-slate-300 hover:text-amber-400">
-                      Produtos
                     </Link>
                   </>
                 )}

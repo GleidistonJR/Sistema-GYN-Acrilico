@@ -15,7 +15,7 @@ export default function CalculadorChapa() {
   // 2. Estados do Formulário de Especificações
   const [modoCalculoInp, setModoCalculoInp] = useState('corte');
   const [tipoDeChapaInp, setTipoDeChapaInp] = useState('Acrílico');
-  const [corChapaAcrilicoInp, setCorChapaAcrilicoInp] = useState('');
+  const [corChapaAcrilicoInp, setCorChapaAcrilicoInp] = useState('Cristal');
   const [espessuraChapaInp, setEspessuraChapaInp] = useState('2');
 
   const [comprimentoInp, setComprimentoInp] = useState('0');
