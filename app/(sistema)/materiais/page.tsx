@@ -70,6 +70,8 @@ export default function Produtos() {
 
     const [materialEstoque, setMaterialEstoque] = useState<Material | null>(null);
 
+    const [materialDuplicando, setMaterialDuplicando] = useState<Material | null>(null);
+
     useEffect(() => {
         getMateriais().then(setMateriais);
 
@@ -264,11 +266,25 @@ export default function Produtos() {
                             {role === 'ADMIN' && (
                                 <div className='m-auto space-x-5'>
 
-                                    <button className=' text-green-800 rounded-full  hover:cursor-pointer' onClick={() => editarMaterial(m.id)}><CopyPlus size={20} /></button>
+                                    <button
+                                        title="Duplicar"
+                                        className='text-green-800 rounded-full hover:cursor-pointer'
+                                        onClick={() => setMaterialDuplicando(m)}
+                                    >
+                                        <CopyPlus size={20} />
+                                    </button>
 
-                                    <button className=' text-amber-500 rounded-full  hover:cursor-pointer' onClick={() => editarMaterial(m.id)}><Pencil size={20} /></button>
+                                    <button
+                                        className=' text-amber-500 rounded-full  hover:cursor-pointer'
+                                        onClick={() => editarMaterial(m.id)}>
+                                        <Pencil size={20} />
+                                    </button>
 
-                                    <button className=' text-red-700 rounded-full  hover:cursor-pointer' onClick={() => deletarMaterial(m.id)}><Trash2 size={20} /></button>
+                                    <button
+                                        className=' text-red-700 rounded-full  hover:cursor-pointer'
+                                        onClick={() => deletarMaterial(m.id)}>
+                                        <Trash2 size={20} />
+                                    </button>
 
                                 </div>
                             )}
@@ -281,17 +297,21 @@ export default function Produtos() {
 
             {/* Chamada do nosso componente Modal */}
             <ModalMaterial
-                isOpen={modalAberto || materialEditando !== null}
+                isOpen={modalAberto || materialEditando !== null || materialDuplicando !== null}
                 onClose={() => {
                     setModalAberto(false);
                     setMaterialEditando(null);
+                    setMaterialDuplicando(null);
+                }}
+                title={
+                    materialEditando ? "Editar Material"
+                        : materialDuplicando ? "Duplicar Material"
+                            : "Novo Material"
                 }
-                }
-                title={materialEditando ? "Editar Material" : "Novo Material"}
-                materialInicial={materialEditando}
+                materialInicial={materialEditando ?? materialDuplicando}
+                duplicando={materialDuplicando !== null}
                 onSalvar={handleSalvarMaterial}
-            >
-            </ModalMaterial>
+            />
 
             <ModalCategoria
                 isOpen={modalCategoriaAberto}

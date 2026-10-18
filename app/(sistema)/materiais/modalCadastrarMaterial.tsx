@@ -11,31 +11,33 @@ interface ModalProps {
   onClose: () => void;
   title: string;
   materialInicial?: Material | null;
+  duplicando?: boolean; // <- novo
   onSalvar?: (material: Material & { categoria: { id: string; nome: string } }) => void;
 }
 
 const DADOS_VAZIOS = {
   nome: '',
-  espessura: '',
-  cor: '',
+  espessura: '3',
+  cor: 'Cristal',
   descricao: '',
   custo: 0,
   valorVendaInteiro: null as number | null,
   ValorVendaFracionado: null as number | null,
-  estoque: 0,
+  estoque: 1,
   categoria: '',
-  largura: 0 as number | null,
-  altura: 0 as number | null,
+  largura: 100 as number | null,
+  altura: 200 as number | null,
   velocidadeCorte: 0 as number | null,
 };
 
 
 
-export default function ModalMaterial({ isOpen, onClose, title, materialInicial, onSalvar }: ModalProps) {
+export default function ModalMaterial({ isOpen, onClose, title, materialInicial, duplicando, onSalvar }: ModalProps) {
   const [dados, setDados] = useState(DADOS_VAZIOS);
   const [categorias, setCategorias] = useState<{ id: string; nome: string }[]>([]);
 
-  const editando = !!materialInicial;
+  // Só é edição se NÃO estiver duplicando
+  const editando = !!materialInicial && !duplicando;
 
   useEffect(() => {
     if (isOpen) {
@@ -48,9 +50,10 @@ export default function ModalMaterial({ isOpen, onClose, title, materialInicial,
           cor: materialInicial.cor ?? '',
           descricao: materialInicial.descricao ?? '',
           custo: materialInicial.custo,
-          valorVendaInteiro: materialInicial.valorVendaInteiro ?? null,
-          ValorVendaFracionado: materialInicial.ValorVendaFracionado ?? null,
-          estoque: materialInicial.estoque,
+          // Ao duplicar, os preços voltam a ser sugeridos a partir do novo custo
+          valorVendaInteiro:  (materialInicial.valorVendaInteiro ?? null) ,
+          ValorVendaFracionado: (materialInicial.ValorVendaFracionado ?? null) ,
+          estoque: duplicando ? 1 : materialInicial.estoque,
           largura: materialInicial.largura,
           altura: materialInicial.altura,
           velocidadeCorte: materialInicial.velocidadeCorte,
@@ -60,7 +63,7 @@ export default function ModalMaterial({ isOpen, onClose, title, materialInicial,
         setDados(DADOS_VAZIOS)
       }
     }
-  }, [isOpen, materialInicial]);
+  }, [isOpen, materialInicial, duplicando]);
 
 
   async function handleMaterial() {

@@ -143,6 +143,9 @@ export default function Header() {
                     <Link href="/materiais" className="flex items-center px-4 py-2.5 text-sm text-slate-200 hover:bg-white/5 hover:text-amber-400 transition-colors">
                       Materiais
                     </Link>
+                    <Link href="/produtos" className="flex items-center px-4 py-2.5 text-sm text-slate-200 hover:bg-white/5 hover:text-amber-400 transition-colors">
+                      Produtos
+                    </Link>
 
 
 
