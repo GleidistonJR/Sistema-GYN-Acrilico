@@ -35,7 +35,13 @@ const itensRapidos = [
     id: 'condicoes',
     label: 'Condições para produção',
     icone: Package,
-    texto: "Tempo médio para ser produzido de 5 dias úteis.\nPara início da produção é solicitado 50% do valor antecipado e o restante no ato da retirada.\nForma de pagamento: Dinheiro, PIX ou cartão de crédito em 2x, e débito.\nRetirar na loja, não estamos fazendo entrega.\n",
+    texto: "Tempo médio para ser produzido de *5 dias úteis após aprovação do projeto*.\nPara início da produção é solicitado 50% do valor antecipado e o restante no ato da retirada.\nForma de pagamento: Dinheiro, PIX ou cartão de crédito em 2x, e débito.\nRetirar na loja, não estamos fazendo entrega.\n",
+  },
+  {
+    id: 'aprovacao',
+    label: 'Aprovação Arte',
+    icone: Package,
+    texto: 'Antes de aprovar, confira com atenção os textos, a ortografia, as posições e as medidas informadas. Produziremos conforme a arte aprovada.\n \n Após o início da produção, alterações em informações aprovadas poderão gerar custos de refação.\n \nPara autorizar a produção, responda: “Aprovado!”',
   },
 ];
 
