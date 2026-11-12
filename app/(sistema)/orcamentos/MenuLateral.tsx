@@ -41,7 +41,7 @@ const itensRapidos = [
     id: 'aprovacao',
     label: 'Aprovação Arte',
     icone: Package,
-    texto: 'Antes de aprovar, confira com atenção os textos, a ortografia, as posições e as medidas informadas. Produziremos conforme a arte aprovada.\n \n Após o início da produção, alterações em informações aprovadas poderão gerar custos de refação.\n \nPara autorizar a produção, responda: “Aprovado!”',
+    texto: 'Antes de aprovar, confira com atenção os textos, a ortografia, as posições e as medidas informadas. Produziremos conforme a arte aprovada.\n \nApós o início da produção, alterações em informações aprovadas poderão gerar custos de refação.\n \nPara autorizar a produção, responda: “Aprovado!”',
   },
 ];
 
