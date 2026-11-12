@@ -103,7 +103,7 @@ export default function CalculadorChapa() {
   ]);
 
   const handleCopiarOrcamento = () => {
-    const textoFinal = `*ORÇAMENTO GOIÂNIA ACRÍLICO*\n-------------------------------------\n${itens.map(i => i.descricaoTexto).join('\n\n')}\n-------------------------------------\n*TOTAL: R$ ${valorTotalOrcamento.toFixed(2)}*\n\n*ENTRADA: R$ ${(valorTotalOrcamento / 2).toFixed(2)}*\n\nTempo médio para ser produzido de 5 dias úteis.\nPara início da produção é solicitado 50% do valor antecipado e o restante no ato da retirada.\nForma de pagamento: Dinheiro, PIX ou cartão de crédito em 2x, e débito.\nRetirar na loja, não estamos fazendo entrega.`;
+    const textoFinal = `*ORÇAMENTO GOIÂNIA ACRÍLICO*\n-------------------------------------\n${itens.map(i => i.descricaoTexto).join('\n\n')}\n-------------------------------------\n*TOTAL: R$ ${valorTotalOrcamento.toFixed(2)}*\n\n*ENTRADA: R$ ${(valorTotalOrcamento / 2).toFixed(2)}*\n\nTempo médio para ser produzido de *7 dias úteis após aprovação do projeto*.\nPara início da produção é solicitado 50% do valor antecipado e o restante no ato da retirada.\nForma de pagamento: Dinheiro, PIX ou cartão de crédito em 2x, e débito.\nRetirar na loja, não estamos fazendo entrega.`;
     navigator.clipboard.writeText(textoFinal).then(() => {
       setCopiado(true);
       setTimeout(() => setCopiado(false), 2000);
