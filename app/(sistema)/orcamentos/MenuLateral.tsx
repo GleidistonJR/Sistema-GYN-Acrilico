@@ -65,8 +65,9 @@ export default function MenuLateral({ isOpen }: MenuLateralProps) {
 
   return (
     <div
-      className={`fixed top-0 left-0 h-full w-80 bg-white pt-34 p-5 shadow-2xl z-40 transform transition-transform duration-300 ease-in-out overflow-y-auto ${
-        isOpen ? 'translate-x-0' : '-translate-x-full'
+      aria-hidden={!isOpen}
+      className={`fixed top-16 bottom-0 left-0 w-80 max-w-[calc(100vw-1rem)] bg-white pt-18 p-5 shadow-2xl z-40 transform transition-transform duration-300 ease-in-out overflow-y-auto ${
+        isOpen ? 'translate-x-0' : 'invisible -translate-x-full'
       }`}
     >
       <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-3">

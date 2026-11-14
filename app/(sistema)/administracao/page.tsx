@@ -9,15 +9,15 @@ export default function RegistroPonto() {
   return (
     <main className='grid grid-cols-1 md:grid-cols-4'>
 
-      <nav className="col-span-1 bg-gray-200 flex flex-row md:flex-col p-2 gap-2 md:min-h-screen  overflow-x-auto">
+      <nav className="col-span-1 bg-gray-200 flex flex-wrap md:flex-col p-2 gap-2 md:min-h-screen  overflow-x-auto">
 
-        <Link href="/administracao/colaboradores" className={buttonEstilo +" p-2 pl-5 rounded font-semibold text-sm"}>Colaboradores</Link>
-        <Link href="/administracao/relatorioPontosAdmin" className={buttonEstilo +" p-2 pl-5 rounded font-semibold text-sm"}>Pontos</Link>
-        <Link href="/administracao/produtos" className={buttonEstilo +" p-2 pl-5 rounded font-semibold text-sm"}>Produtos</Link>
+        <Link href="/administracao/colaboradores" className={buttonEstilo +" min-h-11 flex items-center p-2 sm:pl-5 rounded font-semibold text-sm"}>Colaboradores</Link>
+        <Link href="/administracao/relatorioPontosAdmin" className={buttonEstilo +" min-h-11 flex items-center p-2 sm:pl-5 rounded font-semibold text-sm"}>Pontos</Link>
+        <Link href="/administracao/produtos" className={buttonEstilo +" min-h-11 flex items-center p-2 sm:pl-5 rounded font-semibold text-sm"}>Produtos</Link>
       
       </nav>
 
-      <article className='col-span-1 md:col-span-3'>
+      <article className='min-w-0 col-span-1 md:col-span-3'>
         <h1 className='text-2xl md:text-3xl my-6 text-center text-gray-700 font-bold'>Administração</h1>
 
         <div className='p-5'>

@@ -3,14 +3,21 @@
 import React, { useState, useEffect } from 'react';
 import ModalMaterial from './modalCadastrarMaterial';
 import ModalCategoria from './modalCadastrarCategoria';
-import { getMateriais, deleteMaterial } from './actions';
-import { Eye, Pencil, Trash2, Box, CopyPlus, Menu, X } from 'lucide-react';
-import { getCookie } from 'cookies-next';
+import type { Categoria } from './modalCadastrarCategoria';
+import ModalGerenciarCategorias from './modalGerenciarCategorias';
+import { getMateriais, deleteMaterial, getPermissoesMateriais } from './actions';
+import { Pencil, Trash2, Box, CopyPlus, Menu, X, ClipboardCopy } from 'lucide-react';
+import Link from 'next/link';
 import ModalEstoque from './modalAtualizarEstoque';
+import { useDadosAtualizados } from '@/lib/useDadosAtualizados';
+import { calcularReposicao, montarListaReposicao } from '@/lib/reposicaoMateriais';
+import FotoItem from '../components/FotoItem';
+import type { FotoResumo } from '@/lib/fotoItem';
 
 
 
 export interface Material {
+    foto?: FotoResumo | null;
     id: string;
     nome: string | null;
     espessura: string | null;
@@ -20,6 +27,7 @@ export interface Material {
     valorVendaInteiro?: number | null;
     ValorVendaFracionado?: number | null;
     estoque: number;
+    estoquePadrao: number;
     categoriaId: string;
     largura: number | null;
     altura: number | null;
@@ -35,19 +43,8 @@ export interface Material {
 
 export default function Produtos() {
 
-    const [role, setRole] = useState<string>('USER');
-
-    useEffect(() => {
-        const sessaoCookie = getCookie('sessao_admin');
-
-        try {
-            const sessao = JSON.parse(sessaoCookie as string)
-            setRole(sessao.role)
-        } catch {
-            setRole('')
-        }
-
-    }, []);
+    const { dados: role, carregando: carregandoPermissoes } = useDadosAtualizados(getPermissoesMateriais, null);
+    const administrador = role === 'ADMIN';
 
     //Sanduiche Menu criar produtos
     const [menuAberto, setMenuAberto] = useState(false);
@@ -63,27 +60,47 @@ export default function Produtos() {
     // O estado que controla se o modal aparece ou some
     const [modalAberto, setModalAberto] = useState(false);
     const [modalCategoriaAberto, setModalCategoriaAberto] = useState(false);
+    const [gerenciarCategoriasAberto, setGerenciarCategoriasAberto] = useState(false);
 
-    const [materiais, setMateriais] = useState<Material[]>([]);
+    const { dados: materiais, setDados: setMateriais } = useDadosAtualizados<Material[]>(getMateriais, [], { ativo: !!role });
     const [materialEditando, setMaterialEditando] = useState<Material | null>(null);
     const [pesquisa, setPesquisa] = useState('');
 
     const [materialEstoque, setMaterialEstoque] = useState<Material | null>(null);
 
     const [materialDuplicando, setMaterialDuplicando] = useState<Material | null>(null);
+    const [copiandoLista, setCopiandoLista] = useState(false);
+    const [mensagemLista, setMensagemLista] = useState('');
 
-    useEffect(() => {
-        getMateriais().then(setMateriais);
-
-    }, []);
+    async function copiarListaCompras() {
+        if (copiandoLista) return;
+        setCopiandoLista(true);
+        setMensagemLista('');
+        try {
+            // Use every material and its latest balance, independently of the search filter.
+            const atuais = await getMateriais();
+            setMateriais(atuais);
+            const lista = montarListaReposicao(atuais);
+            if (!lista) {
+                setMensagemLista('Nenhum material precisa de reposição. Confira se você já cadastrou os estoques padrão.');
+                return;
+            }
+            await navigator.clipboard.writeText(lista);
+            setMensagemLista('Lista de compras copiada! Inclui todos os materiais abaixo do estoque padrão.');
+        } catch {
+            setMensagemLista('Não foi possível copiar a lista. Verifique a conexão e a permissão da área de transferência.');
+        } finally {
+            setCopiandoLista(false);
+        }
+    }
 
     function editarMaterial(id: string) {
         const material = materiais.find(m => m.id === id);
         if (material) setMaterialEditando(material);
     }
 
-    function deletarMaterial(id: string) {
-        deleteMaterial(id)
+    async function deletarMaterial(id: string) {
+        await deleteMaterial(id);
         setMateriais(prev => prev.filter(c => c.id !== id));
     }
 
@@ -97,6 +114,12 @@ export default function Produtos() {
             // criação: adiciona no final
             return [...prev, materialSalvo];
         });
+    }
+
+    function handleSalvarCategoria(categoria: Categoria) {
+        setMateriais(atuais => atuais.map(material => material.categoriaId === categoria.id
+            ? { ...material, categoria }
+            : material));
     }
 
     // Remove acentos e deixa em minúsculas ("Acrílico" → "acrilico")
@@ -133,6 +156,15 @@ export default function Produtos() {
         });
 
 
+    if (!role) return (
+        <div className="mx-auto max-w-lg p-6 text-gray-700">
+            {carregandoPermissoes ? <p role="status">Carregando materiais...</p> : <>
+                <p>Entre novamente para acessar os materiais com suas permissões atualizadas.</p>
+                <Link href="/login" className="mt-4 inline-block rounded-lg bg-[#0A2540] px-4 py-3 text-white">Fazer login</Link>
+            </>}
+        </div>
+    );
+
     return (
         <div>
 
@@ -148,7 +180,7 @@ export default function Produtos() {
                     {/* Gaveta lateral */}
                     <aside
                         aria-hidden={!menuAberto}
-                        className={`fixed top-0 left-0 z-50 flex h-dvh w-72 flex-col gap-3 bg-gray-100 p-5 shadow-xl transition-all duration-300 ${menuAberto ? 'translate-x-0' : 'invisible -translate-x-full'
+                        className={`fixed top-0 left-0 z-[60] flex h-dvh w-72 max-w-[calc(100vw-1rem)] overflow-y-auto flex-col gap-3 bg-gray-100 p-5 shadow-xl transition-all duration-300 ${menuAberto ? 'translate-x-0' : 'invisible -translate-x-full'
                             }`}
                     >
                         <div className="mb-2 flex items-center justify-between">
@@ -170,6 +202,13 @@ export default function Produtos() {
                         </button>
 
                         <button
+                            onClick={() => { setMenuAberto(false); setGerenciarCategoriasAberto(true); }}
+                            className="w-full flex items-center gap-3 text-left px-4 py-2 rounded-lg border transition-all duration-150 bg-[#0A2540] border-[#0A2540] text-white hover:bg-[#0f3a6b] hover:cursor-pointer"
+                        >
+                            Gerenciar Categorias
+                        </button>
+
+                        <button
                             onClick={() => { setMenuAberto(false); setModalAberto(true); }}
                             className="w-full flex items-center gap-3 text-left px-4 py-2 rounded-lg border transition-all duration-150 bg-[#0A2540] border-[#0A2540] text-white hover:bg-[#0f3a6b] hover:cursor-pointer"
                         >
@@ -179,10 +218,11 @@ export default function Produtos() {
                 </>
             )}
 
-            <div className='w-6/7 m-auto'>
+            <div className='w-full lg:w-6/7 px-3 sm:px-6 lg:px-0 m-auto pb-6'>
 
-                <div className='sticky top-16 z-10 bg-white  px-10 pt-5'>
-                    <div className="flex items-center gap-3">
+                <div className='sticky top-16 z-10 bg-white lg:px-10 pt-4 pb-3 lg:pb-0'>
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                        <div className="flex min-w-0 flex-1 items-center gap-3">
                         {role === 'ADMIN' && (
                             <button
                                 onClick={() => setMenuAberto(true)}
@@ -199,11 +239,22 @@ export default function Produtos() {
                             onChange={(event) => setPesquisa(event.target.value)}
                             placeholder="Pesquisar materiais..."
                             aria-label="Pesquisar materiais"
-                            className="w-full rounded border border-blue-800 px-4 py-2 outline-none focus:border-blue-600"
+                            className="min-w-0 w-full rounded border border-blue-800 px-3 sm:px-4 py-2 outline-none focus:border-blue-600"
                         />
+                        </div>
+                        <button
+                            type="button"
+                            onClick={copiarListaCompras}
+                            disabled={copiandoLista}
+                            className="flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-[#0A2540] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0f3a6b] disabled:opacity-50"
+                        >
+                            <ClipboardCopy size={18} />
+                            {copiandoLista ? 'Preparando lista...' : 'Copiar lista de compras'}
+                        </button>
                     </div>
+                    {mensagemLista && <p role="status" className="py-2 text-sm text-gray-600">{mensagemLista}</p>}
 
-                    <div className={`grid ${role === 'ADMIN' ? 'grid-cols-5' : 'grid-cols-4'} py-5`}>
+                    <div className={`hidden lg:grid ${role === 'ADMIN' ? 'grid-cols-5' : 'grid-cols-4'} py-5`}>
 
                         <h3 className='font-semibold col-span-2'>
                             Nome
@@ -222,13 +273,15 @@ export default function Produtos() {
                 </div>
 
 
-                <div className='px-10'>
+                <div className='space-y-3 lg:space-y-0 lg:px-10'>
 
                     {materiaisFiltrados.map((m) => (
 
-                        <div className={`grid ${role === 'ADMIN' ? 'grid-cols-5' : 'grid-cols-4'} py-2 border-b border-gray-300`} key={m.id} >
+                        <div className={`grid grid-cols-1 gap-4 lg:gap-0 ${role === 'ADMIN' ? 'lg:grid-cols-5' : 'lg:grid-cols-4'} p-4 lg:px-0 lg:py-2 border lg:border-0 lg:border-b rounded-xl lg:rounded-none border-gray-300 bg-white`} key={m.id} >
 
-                            <div className='px-2 col-span-2'>
+                            <div className='min-w-0 flex items-start gap-3 lg:px-2 lg:col-span-2'>
+                                <FotoItem foto={m.foto} nome={[m.categoria.nome, m.nome, m.cor, m.espessura ? `${m.espessura}mm` : null].filter(Boolean).join(' ')} />
+                                <div className="min-w-0 break-words">
                                 <h3 className='font-semibold'>
                                     {[
                                         m.categoria.nome,
@@ -242,46 +295,56 @@ export default function Produtos() {
                                     {m.largura && m.altura ? `${m.largura} x ${m.altura} cm` : ''}
                                     {m.velocidadeCorte ? ` | Corte: ${m.velocidadeCorte} mm/s` : ''}
                                 </p>
+                                </div>
                             </div>
 
-                            <div className='grid grid-cols-3 gap-10 font-semibold col-span-2'>
+                            <div className='grid grid-cols-2 min-[400px]:grid-cols-3 gap-3 lg:gap-10 font-semibold lg:col-span-2 text-sm lg:text-base [&>p]:break-words'>
 
                                 {m.valorVendaInteiro ? (
-                                    <p className=' text-green-800'>R${m.valorVendaInteiro.toFixed(2)}</p>
-                                ) : <p className=' text-green-800'>R$0</p>}
+                                    <p className='text-green-800'><span className="block lg:hidden text-xs text-gray-500 font-normal mb-1">Venda inteira</span>R${m.valorVendaInteiro.toFixed(2)}</p>
+                                ) : <p className='text-green-800'><span className="block lg:hidden text-xs text-gray-500 font-normal mb-1">Venda inteira</span>R$0</p>}
 
                                 {m.ValorVendaFracionado ? (
-                                    <p className=' text-green-800'>R${m.ValorVendaFracionado.toFixed(2)}</p>
-                                ) : <p className=' text-green-800'>R$0</p>}
+                                    <p className='text-green-800'><span className="block lg:hidden text-xs text-gray-500 font-normal mb-1">Venda m²</span>R${m.ValorVendaFracionado.toFixed(2)}</p>
+                                ) : <p className='text-green-800'><span className="block lg:hidden text-xs text-gray-500 font-normal mb-1">Venda m²</span>R$0</p>}
 
+                                <div className="min-w-0">
                                 <button
                                     onClick={() => setMaterialEstoque(m)}
                                     title="Atualizar estoque"
-                                    className='flex gap-2 hover:cursor-pointer hover:text-blue-700'
+                                    className='flex flex-col items-start lg:block min-h-11 lg:min-h-0 hover:cursor-pointer hover:text-blue-700'
                                 >
-                                    {m.estoque} <Box size={20} />
+                                    <span className="block lg:hidden text-xs text-gray-500 font-normal mb-1">Estoque</span>
+                                    <span className="flex items-center gap-2">{m.estoque} <Box size={20} /></span>
                                 </button>
+                                <p className="mt-1 text-xs font-normal text-gray-500">Padrão: {m.estoquePadrao ?? 0} UND</p>
+                                {calcularReposicao(m.estoque, m.estoquePadrao) > 0 && (
+                                    <p className="mt-1 text-xs font-semibold text-amber-700">Pedir: {calcularReposicao(m.estoque, m.estoquePadrao)} UND</p>
+                                )}
+                                </div>
                             </div>
 
                             {role === 'ADMIN' && (
-                                <div className='m-auto space-x-5'>
+                                <div className='flex items-center justify-end lg:justify-center gap-2 lg:gap-3 border-t lg:border-0 pt-2 lg:pt-0'>
 
                                     <button
                                         title="Duplicar"
-                                        className='text-green-800 rounded-full hover:cursor-pointer'
+                                        className='mobile-touch-target text-green-800 rounded-full hover:cursor-pointer'
                                         onClick={() => setMaterialDuplicando(m)}
                                     >
                                         <CopyPlus size={20} />
                                     </button>
 
                                     <button
-                                        className=' text-amber-500 rounded-full  hover:cursor-pointer'
+                                        aria-label="Editar material"
+                                        className='mobile-touch-target text-amber-500 rounded-full hover:cursor-pointer'
                                         onClick={() => editarMaterial(m.id)}>
                                         <Pencil size={20} />
                                     </button>
 
                                     <button
-                                        className=' text-red-700 rounded-full  hover:cursor-pointer'
+                                        aria-label="Excluir material"
+                                        className='mobile-touch-target text-red-700 rounded-full hover:cursor-pointer'
                                         onClick={() => deletarMaterial(m.id)}>
                                         <Trash2 size={20} />
                                     </button>
@@ -296,7 +359,7 @@ export default function Produtos() {
 
 
             {/* Chamada do nosso componente Modal */}
-            <ModalMaterial
+            {administrador && <ModalMaterial
                 isOpen={modalAberto || materialEditando !== null || materialDuplicando !== null}
                 onClose={() => {
                     setModalAberto(false);
@@ -311,16 +374,22 @@ export default function Produtos() {
                 materialInicial={materialEditando ?? materialDuplicando}
                 duplicando={materialDuplicando !== null}
                 onSalvar={handleSalvarMaterial}
-            />
+            />}
 
-            <ModalCategoria
-                isOpen={modalCategoriaAberto}
+            {administrador && modalCategoriaAberto && <ModalCategoria
+                isOpen
                 onClose={() => setModalCategoriaAberto(false)}
                 title="Nova Categoria"
-            >
-            </ModalCategoria>
+                onSalvar={handleSalvarCategoria}
+            />}
+
+            {administrador && gerenciarCategoriasAberto && <ModalGerenciarCategorias
+                onClose={() => setGerenciarCategoriasAberto(false)}
+                onSalvar={handleSalvarCategoria}
+            />}
 
             <ModalEstoque
+                administrador={administrador}
                 material={materialEstoque}
                 onClose={() => setMaterialEstoque(null)}
                 onSalvar={handleSalvarMaterial}

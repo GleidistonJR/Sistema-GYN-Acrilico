@@ -18,3 +18,30 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Keep long forms usable when the mobile keyboard reduces the viewport. */
+.modal-panel {
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+@media screen and (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]), select, textarea {
+    min-width: 0;
+    max-width: 100%;
+    font-size: 16px;
+  }
+
+  button, a, input, select, textarea {
+    touch-action: manipulation;
+  }
+
+  .mobile-touch-target {
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}

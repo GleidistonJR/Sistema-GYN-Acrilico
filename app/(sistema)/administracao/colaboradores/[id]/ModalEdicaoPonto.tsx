@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { atualizarPonto } from '../actions'; // Ajuste o caminho das suas actions
 
 interface PontoType {
@@ -17,6 +18,7 @@ interface ModalProps {
 }
 
 export default function ModalEdicaoPonto({ isOpen, onClose, dadosEdicao }: ModalProps) {
+  const router = useRouter();
   const [ponto, setPonto] = useState<PontoType>({
     id: 0,
     dataHora: '',
@@ -80,20 +82,20 @@ export default function ModalEdicaoPonto({ isOpen, onClose, dadosEdicao }: Modal
 
     if (resultado?.sucesso) {
       onClose();
-      window.location.reload(); // Recarrega para computar os novos saldos na tela do servidor
+      router.refresh();
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 text-black">
-      <div className="bg-white rounded-lg shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60] p-4 text-black">
+      <div className="modal-panel bg-white rounded-lg shadow-2xl w-full max-w-md  animate-in fade-in zoom-in-95 duration-150">
         <div className="bg-gray-100 p-4 border-b">
           <h2 className="text-xl font-bold text-gray-800 text-center">
             Modificar {isAtestado ? "Atestado" : "Registro de Ponto"}
           </h2>
         </div>
 
-        <div className="p-6 space-y-4">
+        <div className="p-4 sm:p-6 space-y-4">
           <h3 className='text-lg text-center font-bold text-gray-800'>{ponto.colaborador?.nome}</h3>
           
           {/* Data do Evento */}
@@ -158,7 +160,7 @@ export default function ModalEdicaoPonto({ isOpen, onClose, dadosEdicao }: Modal
           </div>
 
           {/* Ações */}
-          <div className="flex justify-end gap-3 pt-4 border-t">
+          <div className="flex flex-wrap justify-end gap-3 pt-4 border-t">
             <button
               onClick={onClose}
               className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-md transition"

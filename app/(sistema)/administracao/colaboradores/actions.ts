@@ -95,11 +95,10 @@ export async function buscarColaboradores(filtroCpf?: string) {
       },
     });
 
-    revalidatePath("/colaboradores");
     return colaboradores;
   } catch (error) {
     console.error("Erro ao buscar colaboradores:", error);
-    return [];
+    throw new Error('Não foi possível atualizar os colaboradores.');
   }
 }
 

@@ -38,6 +38,17 @@ model User {
   createdAt DateTime @default(now())
 
   colaborador Colaborador?
+  sessoes Sessao[]
+}
+
+model Sessao {
+  tokenHash String @id
+  userId String
+  expiresAt DateTime
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model Material {
@@ -52,6 +63,7 @@ model Material {
   ValorVendaFracionado Float?
 
   estoque   Float
+  estoquePadrao Int @default(0)
 
   largura    Float? // mm
   altura     Float? // mm
@@ -59,6 +71,7 @@ model Material {
 
   categoriaId String
   categoria   MaterialCatogoria @relation(fields: [categoriaId], references: [id])
+  foto FotoItem?
 }
 
 model MaterialCatogoria {
@@ -73,7 +86,20 @@ model Produto {
   nome        String
   descricao   String?
   estoque     Int      @default(0)
+  estoquePadrao Int    @default(0)
   precoCusto  Float
   precoVenda  Float
   createdAt   DateTime @default(now())
+  foto FotoItem?
+}
+
+model FotoItem {
+  id String @id @default(uuid())
+  dados Bytes
+  mimeType String @default("image/jpeg")
+  updatedAt DateTime @updatedAt
+  materialId String? @unique
+  produtoId String? @unique
+  material Material? @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  produto Produto? @relation(fields: [produtoId], references: [id], onDelete: Cascade)
 }

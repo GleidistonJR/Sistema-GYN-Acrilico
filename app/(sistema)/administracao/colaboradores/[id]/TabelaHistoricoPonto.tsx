@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Pencil, Trash2, CalendarDays, FilePlus2, PlusCircle } from 'lucide-react';
 import ModalEdicaoPonto from './ModalEdicaoPonto';
 import ModalCriarPonto from './ModalCriarPonto';
@@ -30,7 +31,8 @@ interface LinhaDiaria {
 }
 
 export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, colaboradorId, role }: TabelaProps) {
-  const [pontos, setPontos] = useState<Ponto[]>(pontosIniciais);
+  const pontos = pontosIniciais;
+  const router = useRouter();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [pontoSelecionado, setPontoSelecionado] = useState<any | null>(null);
@@ -69,8 +71,7 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
   const handleDeletar = async (id: number) => {
     if (confirm("Deseja realmente excluir este registro? Essa ação recalculará o banco de horas.")) {
       await deletarPonto(id);
-      setPontos(prev => prev.filter(p => p.id !== id));
-      window.location.reload();
+      router.refresh();
     }
   };
 
@@ -79,7 +80,7 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
     if (confirm(`Deseja marcar o dia ${dataFormatadaBR} como Feriado/Recesso?`)) {
       try {
         await criarFeriado(colaboradorId, dataStr);
-        window.location.reload();
+        router.refresh();
       } catch (err) {
         alert("Erro ao salvar feriado no banco de dados.");
       }
@@ -106,7 +107,7 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
     try {
       await adicionarAtestado(formData);
       setIsAtestadoOpen(false);
-      window.location.reload();
+      router.refresh();
     } catch (error) {
       alert("Erro ao salvar atestado");
     } finally {
@@ -245,7 +246,7 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
         {ehDiaUtil && (
           <button
             onClick={() => handleAdicionarPontoManual(dia.dataStr)}
-            className="text-[11px] bg-white hover:bg-green-50 text-gray-600 hover:text-green-800 border border-gray-200 hover:border-green-300 px-2 py-1 rounded transition-all font-medium flex items-center gap-1 shadow-sm cursor-pointer"
+            className="mobile-touch-target text-[11px] bg-white hover:bg-green-50 text-gray-600 hover:text-green-800 border border-gray-200 hover:border-green-300 px-2 py-1 rounded transition-all font-medium flex items-center gap-1 shadow-sm cursor-pointer"
           >
             <PlusCircle size={12} className="text-green-600" /> + Ponto
           </button>
@@ -254,7 +255,7 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
         {ehFaltaMeioSemana && (
           <button
             onClick={() => handleMarcarFeriado(dia.dataStr)}
-            className="text-[11px] bg-white hover:bg-amber-50 text-gray-600 hover:text-amber-800 border border-gray-200 hover:border-amber-300 px-2 py-1 rounded transition-all font-medium flex items-center gap-1 shadow-sm cursor-pointer"
+            className="mobile-touch-target text-[11px] bg-white hover:bg-amber-50 text-gray-600 hover:text-amber-800 border border-gray-200 hover:border-amber-300 px-2 py-1 rounded transition-all font-medium flex items-center gap-1 shadow-sm cursor-pointer"
           >
             <CalendarDays size={12} /> + Feriado
           </button>
@@ -263,7 +264,7 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
         {(ehFaltaMeioSemana || ehIncompletoMeioSemana) && (
           <button
             onClick={() => handleAbrirModalAtestado(dia.dataStr)}
-            className="text-[11px] bg-white hover:bg-purple-50 text-gray-600 hover:text-purple-800 border border-gray-200 hover:border-purple-300 px-2 py-1 rounded transition-all font-medium flex items-center gap-1 shadow-sm cursor-pointer"
+            className="mobile-touch-target text-[11px] bg-white hover:bg-purple-50 text-gray-600 hover:text-purple-800 border border-gray-200 hover:border-purple-300 px-2 py-1 rounded transition-all font-medium flex items-center gap-1 shadow-sm cursor-pointer"
           >
             <FilePlus2 size={12} /> + Atestado
           </button>
@@ -324,10 +325,10 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
 
                               {role === "ADMIN" &&
                                 <div className="flex items-center gap-0.5 ml-2 border-l pl-1 text-gray-400">
-                                  <button onClick={() => handleEditar(ponto)} title="Editar batida" className="hover:text-amber-600 p-0.5 transition-colors">
+                                  <button onClick={() => handleEditar(ponto)} title="Editar batida" className="mobile-touch-target hover:text-amber-600 p-0.5 transition-colors">
                                     <Pencil size={11} />
                                   </button>
-                                  <button onClick={() => handleDeletar(ponto.id)} title="Excluir batida" className="hover:text-red-600 p-0.5 transition-colors">
+                                  <button onClick={() => handleDeletar(ponto.id)} title="Excluir batida" className="mobile-touch-target hover:text-red-600 p-0.5 transition-colors">
                                     <Trash2 size={11} />
                                   </button>
                                 </div>
@@ -343,10 +344,10 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
 
                             {role === "ADMIN" &&
                               <div className="flex items-center gap-0.5 ml-2 border-l border-purple-200 pl-1 text-purple-400">
-                                <button onClick={() => handleEditar(atestado)} title="Editar abono" className="hover:text-amber-600 p-0.5 transition-colors">
+                                <button onClick={() => handleEditar(atestado)} title="Editar abono" className="mobile-touch-target hover:text-amber-600 p-0.5 transition-colors">
                                   <Pencil size={11} />
                                 </button>
-                                <button onClick={() => handleDeletar(atestado.id)} title="Remover abono" className="hover:text-red-600 p-0.5 transition-colors">
+                                <button onClick={() => handleDeletar(atestado.id)} title="Remover abono" className="mobile-touch-target hover:text-red-600 p-0.5 transition-colors">
                                   <Trash2 size={11} />
                                 </button>
                               </div>
@@ -461,10 +462,10 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
 
                         {role === "ADMIN" &&
                           <div className="flex items-center gap-1 ml-2 border-l pl-1 text-gray-400">
-                            <button onClick={() => handleEditar(ponto)} title="Editar batida" className="hover:text-amber-600 p-0.5">
+                            <button onClick={() => handleEditar(ponto)} title="Editar batida" className="mobile-touch-target hover:text-amber-600 p-0.5">
                               <Pencil size={13} />
                             </button>
-                            <button onClick={() => handleDeletar(ponto.id)} title="Excluir batida" className="hover:text-red-600 p-0.5">
+                            <button onClick={() => handleDeletar(ponto.id)} title="Excluir batida" className="mobile-touch-target hover:text-red-600 p-0.5">
                               <Trash2 size={13} />
                             </button>
                           </div>
@@ -480,10 +481,10 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
 
                       {role === "ADMIN" &&
                         <div className="flex items-center gap-1 ml-2 border-l border-purple-200 pl-1 text-purple-400">
-                          <button onClick={() => handleEditar(atestado)} title="Editar abono" className="hover:text-amber-600 p-0.5">
+                          <button onClick={() => handleEditar(atestado)} title="Editar abono" className="mobile-touch-target hover:text-amber-600 p-0.5">
                             <Pencil size={13} />
                           </button>
-                          <button onClick={() => handleDeletar(atestado.id)} title="Remover abono" className="hover:text-red-600 p-0.5">
+                          <button onClick={() => handleDeletar(atestado.id)} title="Remover abono" className="mobile-touch-target hover:text-red-600 p-0.5">
                             <Trash2 size={13} />
                           </button>
                         </div>
@@ -545,8 +546,8 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
       />
 
       {isAtestadoOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 text-black">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full border overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60] p-4 text-black">
+          <div className="modal-panel bg-white rounded-xl shadow-xl max-w-md w-full border  animate-in fade-in zoom-in-95 duration-150">
             <div className="bg-gray-50 p-4 border-b flex justify-between items-center">
               <h3 className="font-bold text-gray-700 text-lg">Lançar Atestado / Abono</h3>
               <button
@@ -557,7 +558,7 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
               </button>
             </div>
 
-            <form onSubmit={handleAtestadoSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleAtestadoSubmit} className="p-4 sm:p-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-1">Data do Afastamento</label>
                 <input
@@ -601,7 +602,7 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
                 O tempo preenchido será somado como crédito para abater as horas em falta do colaborador neste dia específico.
               </p>
 
-              <div className="flex justify-end gap-2 pt-2 border-t">
+              <div className="flex flex-wrap justify-end gap-2 pt-2 border-t">
                 <button
                   type="button"
                   onClick={() => setIsAtestadoOpen(false)}

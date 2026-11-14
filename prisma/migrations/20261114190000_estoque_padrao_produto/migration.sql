@@ -1,0 +1,1 @@
+ALTER TABLE "Produto" ADD COLUMN "estoquePadrao" INTEGER NOT NULL DEFAULT 0;

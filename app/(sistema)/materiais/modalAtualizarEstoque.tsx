@@ -9,15 +9,22 @@ interface ModalEstoqueProps {
     material: Material | null; // null = modal fechado
     onClose: () => void;
     onSalvar: (material: Material) => void;
+    administrador: boolean;
 }
 
-export default function ModalEstoque({ material, onClose, onSalvar }: ModalEstoqueProps) {
+export default function ModalEstoque({ material, onClose, onSalvar, administrador }: ModalEstoqueProps) {
     const [estoque, setEstoque] = useState<number | null>(0);
+    const [estoquePadrao, setEstoquePadrao] = useState(0);
     const [salvando, setSalvando] = useState(false);
+    const [erro, setErro] = useState('');
 
     // Preenche com o estoque atual sempre que abrir para outro material
     useEffect(() => {
-        if (material) setEstoque(material.estoque);
+        if (material) {
+            setEstoque(material.estoque);
+            setEstoquePadrao(material.estoquePadrao ?? 0);
+            setErro('');
+        }
     }, [material]);
 
     // Esc fecha o modal
@@ -44,10 +51,13 @@ export default function ModalEstoque({ material, onClose, onSalvar }: ModalEstoq
         if (!material || estoque === null || salvando) return;
 
         setSalvando(true);
+        setErro('');
         try {
-            const atualizado = await atualizarEstoque(material.id, estoque);
+            const atualizado = await atualizarEstoque(material.id, estoque, administrador ? estoquePadrao : undefined);
             onSalvar(atualizado);
             onClose();
+        } catch {
+            setErro('Não foi possível salvar o estoque. Confira os valores e tente novamente.');
         } finally {
             setSalvando(false);
         }
@@ -55,12 +65,12 @@ export default function ModalEstoque({ material, onClose, onSalvar }: ModalEstoq
 
     return (
         <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/25 p-4"
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/25 p-4"
             onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
         >
             <form
                 onSubmit={handleSubmit}
-                className="w-full max-w-sm overflow-hidden rounded-xl border border-gray-100 bg-white shadow-2xl"
+                className="modal-panel w-full max-w-sm  rounded-xl border border-gray-100 bg-white shadow-2xl"
             >
                 <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50 p-4">
                     <h3 className="text-lg font-bold text-gray-700">Atualizar estoque</h3>
@@ -97,7 +107,22 @@ export default function ModalEstoque({ material, onClose, onSalvar }: ModalEstoq
                         />
                     </label>
 
-                    <div className="flex justify-end gap-3 pt-2">
+                    {administrador && <label className="block">
+                        Estoque padrão
+                        <NumericFormat
+                            thousandSeparator="."
+                            decimalSeparator=","
+                            suffix=" UND"
+                            decimalScale={0}
+                            allowNegative={false}
+                            value={estoquePadrao}
+                            onValueChange={v => setEstoquePadrao(v.floatValue ?? 0)}
+                            className="mt-1 w-full rounded-lg border bg-gray-50 p-2 outline-none focus:border-blue-500"
+                        />
+                        <span className="block mt-1 text-xs text-gray-500">Quantidade desejada em estoque. Com 0, o material não entra na lista de compras.</span>
+                    </label>}
+                    {erro && <p role="alert" className="text-sm text-red-700">{erro}</p>}
+                    <div className="flex flex-wrap justify-end gap-3 pt-2">
                         <button
                             type="button"
                             onClick={onClose}

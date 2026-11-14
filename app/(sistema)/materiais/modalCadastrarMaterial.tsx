@@ -4,6 +4,8 @@ import { PatternFormat, NumericFormat } from 'react-number-format';
 import { criarMaterial, getCategorias, atualizarMaterial } from './actions';
 import React, { useState, useEffect } from 'react';
 import { Material } from './page';
+import { useDadosAtualizados } from '@/lib/useDadosAtualizados';
+import CampoFoto from '../components/CampoFoto';
 
 
 interface ModalProps {
@@ -24,25 +26,28 @@ const DADOS_VAZIOS = {
   valorVendaInteiro: null as number | null,
   ValorVendaFracionado: null as number | null,
   estoque: 1,
+  estoquePadrao: 0,
   categoria: '',
   largura: 100 as number | null,
   altura: 200 as number | null,
   velocidadeCorte: 0 as number | null,
+  foto: undefined as string | null | undefined,
 };
 
 
 
 export default function ModalMaterial({ isOpen, onClose, title, materialInicial, duplicando, onSalvar }: ModalProps) {
   const [dados, setDados] = useState(DADOS_VAZIOS);
-  const [categorias, setCategorias] = useState<{ id: string; nome: string }[]>([]);
+  const [fotoProcessando, setFotoProcessando] = useState(false);
+  const [salvando, setSalvando] = useState(false);
+  const [erro, setErro] = useState('');
+  const { dados: categorias } = useDadosAtualizados(getCategorias, [], { ativo: isOpen });
 
   // Só é edição se NÃO estiver duplicando
   const editando = !!materialInicial && !duplicando;
 
   useEffect(() => {
     if (isOpen) {
-      getCategorias().then(setCategorias);
-
       if (materialInicial) {
         setDados({
           nome: materialInicial.nome ?? '',
@@ -54,10 +59,12 @@ export default function ModalMaterial({ isOpen, onClose, title, materialInicial,
           valorVendaInteiro:  (materialInicial.valorVendaInteiro ?? null) ,
           ValorVendaFracionado: (materialInicial.ValorVendaFracionado ?? null) ,
           estoque: duplicando ? 1 : materialInicial.estoque,
+          estoquePadrao: duplicando ? 0 : materialInicial.estoquePadrao ?? 0,
           largura: materialInicial.largura,
           altura: materialInicial.altura,
           velocidadeCorte: materialInicial.velocidadeCorte,
           categoria: materialInicial.categoriaId,
+          foto: undefined,
         });
       } else {
         setDados(DADOS_VAZIOS)
@@ -67,21 +74,30 @@ export default function ModalMaterial({ isOpen, onClose, title, materialInicial,
 
 
   async function handleMaterial() {
-    const payload = {
-      ...dados,
-      valorVendaInteiro: dados.valorVendaInteiro ?? vendaSugerida,
-      ValorVendaFracionado: dados.ValorVendaFracionado ?? m2Sugerido,
-    };
+    if (salvando || fotoProcessando) return;
+    setSalvando(true);
+    setErro('');
+    try {
+      const payload = {
+        ...dados,
+        valorVendaInteiro: dados.valorVendaInteiro ?? vendaSugerida,
+        ValorVendaFracionado: dados.ValorVendaFracionado ?? m2Sugerido,
+      };
 
-    if (editando && materialInicial) {
-      const materialAtualizado = await atualizarMaterial(materialInicial.id, payload);
-      onSalvar?.(materialAtualizado);
-    } else {
-      const materialCriado = await criarMaterial(payload);
-      onSalvar?.(materialCriado);
+      if (editando && materialInicial) {
+        const materialAtualizado = await atualizarMaterial(materialInicial.id, payload);
+        onSalvar?.(materialAtualizado);
+      } else {
+        const materialCriado = await criarMaterial(payload);
+        onSalvar?.(materialCriado);
+      }
+      setDados(DADOS_VAZIOS);
+      onClose();
+    } catch (error) {
+      setErro(error instanceof Error ? error.message : 'Não foi possível salvar o material. Tente novamente.');
+    } finally {
+      setSalvando(false);
     }
-    setDados(DADOS_VAZIOS);
-    onClose();
   }
 
   const custo = dados.custo ?? 0;
@@ -95,10 +111,10 @@ export default function ModalMaterial({ isOpen, onClose, title, materialInicial,
 
   return (
     // 1. Fundo escurecido (Overlay) - Cobre a tela toda
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/25  animate-fade-in">
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/25  animate-fade-in">
 
       {/* 2. Caixa do Modal */}
-      <div className="bg-white rounded-xl shadow-2xl border border-gray-100 max-w-md w-full overflow-hidden animate-scale-up">
+      <div className="modal-panel bg-white rounded-xl shadow-2xl border border-gray-100 max-w-md w-full  animate-scale-up">
 
         {/* Cabeçalho do Modal */}
         <div className="flex justify-between items-center p-4 border-b border-gray-100 bg-gray-50">
@@ -114,9 +130,10 @@ export default function ModalMaterial({ isOpen, onClose, title, materialInicial,
         </div>
 
         {/* Corpo do Modal (Onde entra o conteúdo dinâmico) */}
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           {/* Tudo o que você colocar aqui dentro vira o 'children' do modal */}
           <div className="space-y-4">
+            <CampoFoto fotoAtual={duplicando ? null : materialInicial?.foto} valor={dados.foto} onChange={foto => setDados(atuais => ({ ...atuais, foto }))} onProcessando={setFotoProcessando} desabilitado={salvando} />
 
             <label htmlFor="categoria">
               Categoria*
@@ -149,7 +166,7 @@ export default function ModalMaterial({ isOpen, onClose, title, materialInicial,
               </label>
             </div>
 
-            <div className='flex gap-5'>
+            <div className='grid grid-cols-1 min-[400px]:grid-cols-2 gap-4'>
               <label className='w-full'>
                 Espessura
                 <NumericFormat
@@ -176,7 +193,7 @@ export default function ModalMaterial({ isOpen, onClose, title, materialInicial,
               </label>
             </div>
 
-            <div className="flex gap-5">
+            <div className="grid grid-cols-1 min-[400px]:grid-cols-2 gap-4">
               <label className='w-full'>
                 Largura
                 <NumericFormat
@@ -208,7 +225,7 @@ export default function ModalMaterial({ isOpen, onClose, title, materialInicial,
               </label>
             </div>
 
-            <div className='flex gap-5'>
+            <div className='grid grid-cols-1 min-[400px]:grid-cols-2 gap-4'>
               <label className='w-full'>
                 Velocidade de corte
                 <NumericFormat
@@ -240,9 +257,24 @@ export default function ModalMaterial({ isOpen, onClose, title, materialInicial,
             </div>
 
 
-            <div className='flex gap-5'>
+            <label className="block">
+              Estoque padrão
+              <NumericFormat
+                thousandSeparator="."
+                decimalSeparator=","
+                suffix=" UND"
+                decimalScale={0}
+                allowNegative={false}
+                value={dados.estoquePadrao}
+                onValueChange={v => setDados({ ...dados, estoquePadrao: v.floatValue ?? 0 })}
+                className="mt-1 w-full p-2 border rounded-lg bg-gray-50 outline-none focus:border-blue-500"
+              />
+              <span className="block mt-1 text-xs text-gray-500">Quantidade desejada em estoque. Deixe 0 para não incluir na lista de compras.</span>
+            </label>
 
-              <label className='w-47'>
+            <div className='grid grid-cols-1 min-[400px]:grid-cols-2 gap-4'>
+
+              <label className='w-full'>
                 Preço de custo*
                 <NumericFormat
                   thousandSeparator="."
@@ -258,7 +290,7 @@ export default function ModalMaterial({ isOpen, onClose, title, materialInicial,
               </label>
             </div>
 
-            <div className='flex gap-5'>
+            <div className='grid grid-cols-1 min-[400px]:grid-cols-2 gap-4'>
               <label className='w-full'>
                 Preço de venda
                 <NumericFormat
@@ -298,7 +330,8 @@ export default function ModalMaterial({ isOpen, onClose, title, materialInicial,
 
 
 
-            <div className="flex gap-3 justify-end pt-4">
+            {erro && <p role="alert" className="text-sm text-red-700">{erro}</p>}
+            <div className="flex flex-wrap gap-3 justify-end pt-4">
               <button
                 onClick={onClose}
                 className="px-4 py-2 bg-gray-200 text-gray-700 font-semibold rounded-lg hover:bg-gray-300 transition"
@@ -307,9 +340,10 @@ export default function ModalMaterial({ isOpen, onClose, title, materialInicial,
               </button>
               <button
                 onClick={handleMaterial}
+                disabled={salvando || fotoProcessando}
                 className="px-4 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition"
               >
-                {editando ? 'Atualizar' : 'Salvar'}
+                {salvando ? 'Salvando...' : editando ? 'Atualizar' : 'Salvar'}
               </button>
             </div>
           </div>

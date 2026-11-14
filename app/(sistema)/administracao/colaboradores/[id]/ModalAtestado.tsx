@@ -48,8 +48,8 @@ export default function ModalAtestado({ colaboradorId }: ModalAtestadoProps) {
       </button>
 
       {isOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full border overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+          <div className="modal-panel bg-white rounded-xl shadow-xl max-w-md w-full border  animate-in fade-in zoom-in-95 duration-150">
             <div className="bg-gray-50 p-4 border-b flex justify-between items-center">
               <h3 className="font-bold text-gray-700 text-lg">Lançar Atestado / Abono</h3>
               <button 
@@ -60,7 +60,7 @@ export default function ModalAtestado({ colaboradorId }: ModalAtestadoProps) {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-1">Data do Afastamento</label>
                 <input 
@@ -102,7 +102,7 @@ export default function ModalAtestado({ colaboradorId }: ModalAtestadoProps) {
                 O tempo preenchido será somado como crédito para abater as horas em falta do colaborador.
               </p>
 
-              <div className="flex justify-end gap-2 pt-2 border-t">
+              <div className="flex flex-wrap justify-end gap-2 pt-2 border-t">
                 <button
                   type="button"
                   onClick={() => setIsOpen(false)}

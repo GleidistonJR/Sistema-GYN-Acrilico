@@ -2,7 +2,8 @@
 import Link from 'next/link';
 import ModalRegistro from './ModalRegistro';
 import { buscarColaboradores, buscarColaboradorPorId, deletarColaborador } from './actions';
-import { useState, useEffect } from 'react';
+import { useState, useCallback } from 'react';
+import { useDadosAtualizados } from '@/lib/useDadosAtualizados';
 import { PatternFormat, NumericFormat } from 'react-number-format';
 import { Eye, Pencil, Trash2 } from 'lucide-react';
 
@@ -19,17 +20,9 @@ export default function Relatorios() {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [filtro, setFiltro] = useState('');
-  const [colaboradores, setColaboradores] = useState<Colaboradortype[]>([]);
+  const buscar = useCallback(() => buscarColaboradores(filtro), [filtro]);
+  const { dados: colaboradores, setDados: setColaboradores, atualizar } = useDadosAtualizados<Colaboradortype[]>(buscar, []);
   const [colaborador, setColaborador] = useState<Colaboradortype | null>(null);
-
-  useEffect(() => {
-    // Busca os pontos toda vez que o filtro mudar
-    const carregar = async () => {
-      const dados = await buscarColaboradores(filtro);
-      setColaboradores(dados);
-    };
-    carregar();
-  }, [filtro]);
 
   async function deletar(id: number) {
     if (confirm("Tem certeza?")) {
@@ -59,21 +52,21 @@ export default function Relatorios() {
 
 
   return (
-    <main className="text-gray-700">
-      <h1 className="text-3xl my-6 text-center text-gray-700 font-bold">Gestão de Colaboradores</h1>
+    <main className="text-gray-700 px-4 sm:px-6 pb-8 max-w-7xl mx-auto">
+      <h1 className="text-2xl sm:text-3xl my-6 text-center text-gray-700 font-bold">Gestão de Colaboradores</h1>
 
 
 
-      <article className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10'>
+      <article className='grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6'>
 
         {colaboradores.length > 0 ? (
           colaboradores.map((Colaborador) => (
 
 
 
-            <aside key={Colaborador.id} className='border border-gray-300 shadow-lg shadow-gray-500 rounded-xl font-semibold
+            <aside key={Colaborador.id} className='border border-gray-300 shadow-lg shadow-gray-500 rounded-xl min-w-0 font-semibold
             flex flex-col justify-between'>
-              <h2 className='px-8 py-5 border-b text-xl font-semibold text-center'>{Colaborador.nome}</h2>
+              <h2 className='px-4 py-5 break-words border-b text-xl font-semibold text-center'>{Colaborador.nome}</h2>
               <div className='text-center text-xl font-normal py-5'>
                 <p className='font-semibold pb-5'>{Colaborador.cargo}</p>
 
@@ -123,6 +116,7 @@ export default function Relatorios() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         dadosEdicao={colaborador}
+        onSalvar={atualizar}
       />
     </main>
   );

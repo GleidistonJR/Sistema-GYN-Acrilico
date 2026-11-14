@@ -18,9 +18,10 @@ interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
   dadosEdicao?: Colaboradortype | null; // Opcional
+  onSalvar?: () => Promise<void>;
 }
 
-export default function ModalRegistro({ isOpen, onClose, dadosEdicao }: ModalProps) {
+export default function ModalRegistro({ isOpen, onClose, dadosEdicao, onSalvar }: ModalProps) {
   const [colaborador, setColaborador] = useState<Colaboradortype>({
     nome: '',
     cargo: '',
@@ -46,8 +47,8 @@ export default function ModalRegistro({ isOpen, onClose, dadosEdicao }: ModalPro
   const isEditing = !!dadosEdicao; // Variável auxiliar para saber o modo
 
   return (
-    <div className="fixed inset-0 bg-black/25 flex items-center justify-center z-50 p-10 text-black">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-2xl">
+    <div className="fixed inset-0 bg-black/25 flex items-center justify-center z-[60] p-4 text-black">
+      <div className="modal-panel bg-white rounded-lg p-4 sm:p-6 w-full max-w-md shadow-2xl">
         <h2 className="text-2xl font-bold mb-4 text-center text-gray-800">{isEditing ? 'Editar Colaborador' : 'Novo Colaborador'}</h2>
 
         <div className="space-y-5">
@@ -156,7 +157,7 @@ export default function ModalRegistro({ isOpen, onClose, dadosEdicao }: ModalPro
           )}
 
 
-          <div className="mt-6 flex justify-end gap-3">
+          <div className="mt-6 flex flex-wrap justify-end gap-3">
             <button
               onClick={onClose}
               className="px-4 py-2 text-gray-700 hover:bg-gray-200 rounded"
@@ -171,7 +172,7 @@ export default function ModalRegistro({ isOpen, onClose, dadosEdicao }: ModalPro
 
                 if (resultado.sucesso) {
                   onClose();
-                  window.location.reload()
+                  await onSalvar?.();
                 } else {
                   alert(resultado.erro);
                 }

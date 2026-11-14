@@ -4,6 +4,7 @@ import { deleteCookie, getCookie } from 'cookies-next';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState, useRef } from 'react';
 import { ChevronDown, Menu, X } from 'lucide-react';
+import { encerrarSessao } from '../login/actions';
 
 export default function Header() {
   const router = useRouter();
@@ -50,8 +51,9 @@ export default function Header() {
     setMenuAberto(false);
   }, [pathname]);
 
-  const logout = () => {
+  const logout = async () => {
     if (estaLogado) {
+      await encerrarSessao();
       deleteCookie('sessao_admin');
       setEstaLogado(false);
       router.push('/');
@@ -73,12 +75,12 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-50 print:hidden bg-linear-to-b from-[#0A2540] to-[#051B36] border-b border-/[0.06] shadow-[0_1px_0_0_rgba(240,162,2,0.15)]">
 
-      <div className="mx-auto px-6">
+      <div className="mx-auto px-3 sm:px-6">
 
         <div className="flex justify-between items-center h-16">
 
           {/* Logo */}
-          <Link href="/" className="shrink-0 flex items-baseline gap-1.5 font-semibold text-[15px] tracking-tight text-white">
+          <Link href="/" className="min-w-0 flex flex-wrap items-baseline gap-x-1.5 font-semibold text-[13px] sm:text-[15px] tracking-tight text-white">
             <span className="text-amber-400 font-bold">Sistema</span>
             <span className="text-slate-300 font-normal">Goiânia Acrílico</span>
           </Link>
@@ -89,8 +91,9 @@ export default function Header() {
           {/* Botão Mobile */}
           <button
             onClick={() => setMenuAberto(!menuAberto)}
-            className="md:hidden p-2 rounded-md text-slate-200 hover:text-amber-400 hover:bg-white/5 transition-colors"
-            aria-label="Abrir menu"
+            className="md:hidden shrink-0 min-w-11 min-h-11 p-2 rounded-md text-slate-200 hover:text-amber-400 hover:bg-white/5 transition-colors"
+            aria-label={menuAberto ? "Fechar menu" : "Abrir menu"}
+            aria-expanded={menuAberto}
           >
             {menuAberto ? <X size={22} /> : <Menu size={22} />}
           </button>
@@ -210,7 +213,7 @@ export default function Header() {
 
 
       {/* Menu Mobile */}
-      <div className={`${menuAberto ? 'max-h-\[480px\]' : 'max-h-0'} md:hidden overflow-hidden transition-all duration-300 bg-[#061c38] border-t border-white/[0.06]`}>
+      <div className={`${menuAberto ? 'max-h-[calc(100dvh-4rem)] overflow-y-auto' : 'max-h-0'} md:hidden overflow-hidden transition-all duration-300 bg-[#061c38] border-t border-white/[0.06]`}>
         <div className="px-4 pt-3 pb-4 flex flex-col gap-1 text-[15px]">
 
           {(role === 'ADMIN' || role === 'USER') && (
@@ -241,20 +244,21 @@ export default function Header() {
                 <ChevronDown size={16} className={`transition-transform duration-200 ${dropdownMobileAberto ? 'rotate-180 text-amber-400' : ''}`} />
               </button>
 
-              <div className={`${dropdownMobileAberto ? 'max-h-60' : 'max-h-0'} overflow-hidden transition-all duration-200 pl-3 border-l border-amber-400/30 ml-3`}>
-                <Link href={"/administracao/colaboradores/" + userId} onClick={fecharMenu} className="block px-3 py-2 text-sm text-slate-300 hover:text-amber-400">
+              <div className={`${dropdownMobileAberto ? 'max-h-96' : 'max-h-0'} overflow-hidden transition-all duration-200 pl-3 border-l border-amber-400/30 ml-3`}>
+                <Link href={"/administracao/colaboradores/" + userId} onClick={fecharMenu} className="block px-3 py-3 text-sm text-slate-300 hover:text-amber-400">
                   Meu Perfil
                 </Link>
-                <Link href="/materiais" onClick={fecharMenu} className="block px-3 py-2 text-sm text-slate-300 hover:text-amber-400">
+                <Link href="/materiais" onClick={fecharMenu} className="block px-3 py-3 text-sm text-slate-300 hover:text-amber-400">
                   Materiais
                 </Link>
+                <Link href="/produtos" onClick={fecharMenu} className="block px-3 py-3 text-sm text-slate-300 hover:text-amber-400">Produtos</Link>
 
                 {role === 'ADMIN' && (
                   <>
-                    <Link href="/administracao" onClick={fecharMenu} className="block px-3 py-2 text-sm text-slate-300 hover:text-amber-400">
+                    <Link href="/administracao" onClick={fecharMenu} className="block px-3 py-3 text-sm text-slate-300 hover:text-amber-400">
                       Painel geral
                     </Link>
-                    <Link href="/administracao/colaboradores" onClick={fecharMenu} className="block px-3 py-2 text-sm text-slate-300 hover:text-amber-400">
+                    <Link href="/administracao/colaboradores" onClick={fecharMenu} className="block px-3 py-3 text-sm text-slate-300 hover:text-amber-400">
                       Colaboradores
                     </Link>
                   </>

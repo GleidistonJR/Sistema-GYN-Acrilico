@@ -154,17 +154,17 @@ export default function PainelPerfil({
                   id="mes"
                   name="mes"
                   defaultValue={mesInicialValue}
-                  className="border rounded px-2 py-1 text-sm bg-gray-50 focus:outline-blue-500"
+                  className="min-w-0 max-w-full border rounded px-2 py-2 sm:py-1 text-sm bg-gray-50 focus:outline-blue-500"
                 />
-                <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-3 py-1 rounded transition-colors">
+                <button type="submit" className="min-h-11 sm:min-h-0 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-3 py-2 sm:py-1 rounded transition-colors">
                   Buscar
                 </button>
               </form>
             </div>
           </div>
-          <p className="text-2xl font-bold text-gray-800 text-center mb-5">{colaborador.nome}</p>
+          <p className="text-xl sm:text-2xl break-words font-bold text-gray-800 text-center mb-5">{colaborador.nome}</p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mb-8">
-            <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border md:col-span-1">
+            <div className="min-w-0 break-words bg-white p-4 sm:p-6 rounded-xl shadow-sm border md:col-span-1">
               <h2 className="text-xs font-bold mb-3 border-b pb-2 text-gray-400 uppercase tracking-wider">Dados do Contrato</h2>
               <p className="mb-1.5 text-sm"><strong>Nome:</strong> {colaborador.nome}</p>
               <p className="mb-1.5 text-sm"><strong>Cargo:</strong> {colaborador.cargo}</p>

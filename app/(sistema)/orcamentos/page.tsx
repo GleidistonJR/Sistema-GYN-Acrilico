@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
+import { useDadosAtualizados } from '@/lib/useDadosAtualizados';
 import { ItemOrcamento } from './utils/constants';
 import MenuLateral from './MenuLateral';
 import FormEspecificacoes from './FormEspecificacoes';
@@ -34,8 +35,31 @@ export default function CalculadorChapa() {
   const [projetoInp, setProjetoInp] = useState(true);
   const [especialInp, setEspecialInp] = useState(false);
 
-  // 4. Estado para armazenar o cálculo atual (assíncrono)
-  const [calculoAtual, setCalculoAtual] = useState<ResultadoCalculo>({
+  // Os itens já adicionados são preservados como o orçamento montado pelo usuário.
+  const [itens, setItens] = useState<ItemOrcamento[]>([]);
+  const [itemEditandoId, setItemEditandoId] = useState<string | null>(null);
+
+  // Somente a prévia do próximo item consulta os preços atuais.
+  const buscarCalculo = useCallback(() => calcularOrcamentoItem({
+    modoCalculo: modoCalculoInp,
+    tipoMaterial: tipoDeChapaInp,
+    corChapa: corChapaAcrilicoInp,
+    espessuraChapa: espessuraChapaInp,
+    comprimentoInp,
+    larguraInp,
+    profundidadeInp,
+    tipoTampaCaixaInp,
+    quantidade: qtdItemInp,
+    materialId,
+    temImposto: impostoInp,
+    temMaoDeObra: maoDeObraInp,
+    temProjeto: projetoInp,
+    temEspecial: especialInp,
+  }), [modoCalculoInp, tipoDeChapaInp, corChapaAcrilicoInp, espessuraChapaInp,
+    comprimentoInp, larguraInp, profundidadeInp, tipoTampaCaixaInp, qtdItemInp,
+    materialId, impostoInp, maoDeObraInp, projetoInp, especialInp]);
+
+  const { dados: calculoAtual } = useDadosAtualizados<ResultadoCalculo>(buscarCalculo, {
     areaChapa: 0,
     valorBaseUnitario: 0,
     valorMaterial: 0,
@@ -45,62 +69,6 @@ export default function CalculadorChapa() {
     porcentagemAcumulada: 0,
     txtItem: '',
   });
-
-  // 5. Lista Final de Itens
-  const [itens, setItens] = useState<ItemOrcamento[]>([]);
-
-  // RECALCULA SEMPRE QUE O FORMULÁRIO MUDAR
-  useEffect(() => {
-    let ativo = true;
-
-    async function executarCalculo() {
-      try {
-        const resultado = await calcularOrcamentoItem({
-          modoCalculo: modoCalculoInp,
-          tipoMaterial: tipoDeChapaInp,
-          corChapa: corChapaAcrilicoInp,
-          espessuraChapa: espessuraChapaInp,
-          comprimentoInp,
-          larguraInp,
-          profundidadeInp,
-          tipoTampaCaixaInp,
-          quantidade: qtdItemInp,
-          materialId,
-          temImposto: impostoInp,
-          temMaoDeObra: maoDeObraInp,
-          temProjeto: projetoInp,
-          temEspecial: especialInp,
-        });
-
-        if (ativo && resultado) {
-          setCalculoAtual(resultado);
-        }
-      } catch (error) {
-        console.error("Erro ao recalcular item:", error);
-      }
-    }
-
-    executarCalculo();
-
-    return () => {
-      ativo = false;
-    };
-  }, [
-    modoCalculoInp,
-    tipoDeChapaInp,
-    corChapaAcrilicoInp,
-    espessuraChapaInp,
-    comprimentoInp,
-    larguraInp,
-    profundidadeInp,
-    tipoTampaCaixaInp,
-    qtdItemInp,
-    materialId,
-    impostoInp,
-    maoDeObraInp,
-    projetoInp,
-    especialInp,
-  ]);
 
   const handleCopiarOrcamento = () => {
     const textoFinal = `*ORÇAMENTO GOIÂNIA ACRÍLICO*\n-------------------------------------\n${itens.map(i => i.descricaoTexto).join('\n\n')}\n-------------------------------------\n*TOTAL: R$ ${valorTotalOrcamento.toFixed(2)}*\n\n*ENTRADA: R$ ${(valorTotalOrcamento / 2).toFixed(2)}*\n\nTempo médio para ser produzido de *7 dias úteis após aprovação do projeto*.\nPara início da produção é solicitado 50% do valor antecipado e o restante no ato da retirada.\nForma de pagamento: Dinheiro, PIX ou cartão de crédito em 2x, e débito.\nRetirar na loja, não estamos fazendo entrega.`;
@@ -114,6 +82,7 @@ export default function CalculadorChapa() {
     const itemModificando = itens.find(item => item.id === id);
 
     if (itemModificando) {
+      setItemEditandoId(id);
       setModoCalculoInp(String(itemModificando.modoCalculo));
       setTipoDeChapaInp(String(itemModificando.tipoDeChapa));
       setCorChapaAcrilicoInp(String(itemModificando.corChapa));
@@ -143,7 +112,7 @@ export default function CalculadorChapa() {
     }
 
     const novoItem: ItemOrcamento = {
-      id: `item-${Date.now()}`,
+      id: itemEditandoId ?? `item-${Date.now()}`,
       tipoDeChapa: tipoDeChapaInp,
       modoCalculo: modoCalculoInp,
       corChapa: corChapaAcrilicoInp,
@@ -171,7 +140,10 @@ export default function CalculadorChapa() {
       descricaoTexto: calculoAtual.txtItem
     };
 
-    setItens([...itens, novoItem]);
+    setItens(atuais => itemEditandoId
+      ? atuais.map(item => item.id === itemEditandoId ? novoItem : item)
+      : [...atuais, novoItem]);
+    setItemEditandoId(null);
     setQtdItemInp(1);
   };
 
@@ -180,16 +152,17 @@ export default function CalculadorChapa() {
   return (
     <>
       {/* Botão do Menu Lateral */}
-      <button onClick={() => setIsOpen(!isOpen)} className="fixed top-20 left-3 z-50 p-2 text-white bg-[#0a2540] hover:bg-[#0f3a6b] hover:cursor-pointer rounded-md shadow-md">
+      <button onClick={() => setIsOpen(!isOpen)} aria-label={isOpen ? "Fechar textos rápidos" : "Abrir textos rápidos"} aria-expanded={isOpen} className="fixed top-20 left-3 z-[45] min-w-11 min-h-11 p-2 text-white bg-[#0a2540] hover:bg-[#0f3a6b] hover:cursor-pointer rounded-md shadow-md">
         <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={isOpen ? "M6 18L18 6M6 6l12 12" : "M4 6h16M4 12h16M4 18h16"} />
         </svg>
       </button>
 
+      {isOpen && <button type="button" aria-label="Fechar textos rápidos" onClick={() => setIsOpen(false)} className="fixed inset-0 top-16 z-30 bg-black/30" />}
       <MenuLateral isOpen={isOpen} />
 
       <div className='bg-gray-200'>
-        <div className="lg:max-w-5/6 mx-auto p-1 md:p-6 grid grid-cols-1 lg:grid-cols-5 gap-6 text-gray-800 min-h-screen">
+        <div className="w-full lg:max-w-5/6 mx-auto px-3 pt-18 pb-6 sm:px-6 md:p-6 grid grid-cols-1 lg:grid-cols-5 gap-4 sm:gap-6 text-gray-800 min-h-screen">
           <FormEspecificacoes
             modoCalculo={modoCalculoInp} setModoCalculo={setModoCalculoInp}
             tipoMaterial={tipoDeChapaInp} setTipoMaterial={setTipoDeChapaInp}
@@ -213,7 +186,12 @@ export default function CalculadorChapa() {
           <ResumoOrcamento
             itens={itens} quantidade={qtdItemInp} setQuantidade={setQtdItemInp}
             calculoAtual={calculoAtual} handleAdicionarItem={handleAdicionarItem}
-            handleRemoverItem={(id) => setItens(itens.filter(i => i.id !== id))}
+            itemEditandoId={itemEditandoId}
+            cancelarEdicao={() => setItemEditandoId(null)}
+            handleRemoverItem={(id) => {
+              setItens(atuais => atuais.filter(i => i.id !== id));
+              if (itemEditandoId === id) setItemEditandoId(null);
+            }}
             valorTotalOrcamento={valorTotalOrcamento} handleCopiarOrcamento={handleCopiarOrcamento}
             copiado={copiado} abrirModal={(id) => CarregarEdicao(id)}
           />

@@ -2,7 +2,8 @@
 
 import { getCategorias, getMateriais } from '../materiais/actions';
 import { Material } from '../materiais/page';
-import { useEffect, useState, } from 'react';
+import { useCallback, useState } from 'react';
+import { useDadosAtualizados } from '@/lib/useDadosAtualizados';
 
 
 interface FormEspecificacoesProps {
@@ -52,7 +53,7 @@ function TituloSecao({ numero, texto }: { numero: number; texto: string }) {
 }
 
 
-const classeInput = "w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg outline-none transition-colors focus:border-amber-400 focus:ring-1 focus:ring-amber-400";
+const classeInput = "min-w-0 w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg outline-none transition-colors focus:border-amber-400 focus:ring-1 focus:ring-amber-400";
 const classeSelect = classeInput + " font-medium";
 
 export default function FormEspecificacoes({
@@ -75,16 +76,17 @@ export default function FormEspecificacoes({
   temEspecial, setTemEspecial
 }: FormEspecificacoesProps) {
 
-  const [categorias, setCategorias] = useState<{ id: string; nome: string }[]>([]);
-  const [materiais, setMateriais] = useState<Material[]>([]);
+  const buscarCatalogo = useCallback(async () => {
+    const [categorias, materiais] = await Promise.all([getCategorias(), getMateriais()]);
+    return { categorias, materiais };
+  }, []);
+  const { dados: { categorias, materiais } } = useDadosAtualizados<{
+    categorias: { id: string; nome: string }[];
+    materiais: Material[];
+  }>(buscarCatalogo, { categorias: [], materiais: [] });
 
   const [buscaCor, setBuscaCor] = useState('');
   const [focoAberto, setFocoAberto] = useState(false);
-
-  useEffect(() => {
-    getCategorias().then(setCategorias)
-    getMateriais().then(setMateriais)
-  }, []);
 
   // Espessuras (sem repetição, em ordem numérica) disponíveis em uma categoria
   const espessurasDaCategoria = (nomeCategoria: string) =>
@@ -131,7 +133,7 @@ export default function FormEspecificacoes({
   };
 
   return (
-    <div className="space-y-5 lg:col-span-2">
+    <div className="min-w-0 space-y-5 lg:col-span-2">
       {/* Seletor de Modo de Operação */}
       <div className="bg-white rounded-xl shadow-sm p-1.5 grid grid-cols-2 gap-1.5 border border-slate-200">
         {[
@@ -287,7 +289,7 @@ export default function FormEspecificacoes({
 
 
         {modoCalculo !== 'chapa' ? (
-          <div className={`grid gap-4 pt-2 ${modoCalculo === 'corte' ? 'grid-cols-2' : 'grid-cols-3'}`}>
+          <div className={`grid gap-4 pt-2 ${modoCalculo === 'corte' ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3'}`}>
 
             <div className="flex flex-col gap-1">
               <label className="text-xs font-medium text-slate-600">Comprimento (cm)</label>
@@ -335,7 +337,7 @@ export default function FormEspecificacoes({
       {/* Bloco Custos Adicionais */}
       <section className="bg-white rounded-xl shadow-sm p-5 space-y-3 border border-slate-200">
         <TituloSecao numero={2} texto="Custos e serviços adicionais" />
-        <div className="grid grid-cols-2 gap-3 pt-1">
+        <div className="grid grid-cols-1 min-[360px]:grid-cols-2 gap-2 sm:gap-3 pt-1">
           {[
             { label: 'Imposto', checked: temImposto, set: setTemImposto },
             { label: 'Mão de obra', checked: temMaoDeObra, set: setTemMaoDeObra },

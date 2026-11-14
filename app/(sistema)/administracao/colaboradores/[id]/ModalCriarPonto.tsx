@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { adicionarPontoManual } from '../actions'; // Ajuste o caminho da sua action
 
 interface ModalCriarPontoProps {
@@ -11,6 +12,7 @@ interface ModalCriarPontoProps {
 }
 
 export default function ModalCriarPonto({ colaboradorId, isOpen, onClose, dataInicial }: ModalCriarPontoProps) {
+  const router = useRouter();
   const [dataHora, setDataHora] = useState('');
   const [tipo, setTipo] = useState('Entrada');
   const [loading, setLoading] = useState(false);
@@ -45,7 +47,7 @@ export default function ModalCriarPonto({ colaboradorId, isOpen, onClose, dataIn
       await adicionarPontoManual(formData);
       
       onClose();
-      window.location.reload(); // Recarrega a página para atualizar as somas no servidor
+      router.refresh();
     } catch (error) {
       console.error(error);
       alert("Erro ao salvar o ponto.");
@@ -57,13 +59,13 @@ export default function ModalCriarPonto({ colaboradorId, isOpen, onClose, dataIn
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 text-black">
-      <div className="bg-white rounded-lg shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60] p-4 text-black">
+      <div className="modal-panel bg-white rounded-lg shadow-2xl w-full max-w-md  animate-in fade-in zoom-in-95 duration-150">
         <div className="bg-gray-100 p-4 border-b">
           <h2 className="text-xl font-bold text-gray-800 text-center">Lançar Ponto Manual</h2>
         </div>
 
-        <form onSubmit={handleSalvar} className="p-6 space-y-4">
+        <form onSubmit={handleSalvar} className="p-4 sm:p-6 space-y-4">
           <div>
             <label className="block text-sm font-semibold text-gray-700">Data e Hora:</label>
             <input
@@ -87,7 +89,7 @@ export default function ModalCriarPonto({ colaboradorId, isOpen, onClose, dataIn
             </select>
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t">
+          <div className="flex flex-wrap justify-end gap-3 pt-4 border-t">
             <button
               type="button"
               onClick={onClose}

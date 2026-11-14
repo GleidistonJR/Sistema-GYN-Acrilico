@@ -35,11 +35,11 @@ export default function LoginPage() {
   const classeInput = "w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg outline-none transition-colors focus:border-amber-400 focus:ring-1 focus:ring-amber-400 mt-2";
 
   return (
-    <main className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8">
+    <main className="min-h-[calc(100dvh-4rem)] bg-gray-100 flex items-center justify-center p-4">
+      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-5 sm:p-8">
 
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-800">Goiânia Acrílico</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Goiânia Acrílico</h1>
           <p className="text-gray-500 mt-2">Acesse o sistema de gestão</p>
         </div>
 

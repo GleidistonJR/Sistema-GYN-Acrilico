@@ -1,14 +1,7 @@
 "use client";
-import { useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { buscarPontos } from './actions';
-
-interface Pontos {
-  id: number;
-  cpf: string;
-  dataHora: string;
-  tipo: string;
-  colaborador: { nome: string };
-}
+import { useDadosAtualizados } from '@/lib/useDadosAtualizados';
 
 // Função auxiliar para pegar a data de hoje no fuso do Brasil formato YYYY-MM-DD
 const obterDataHojeString = () => {
@@ -18,27 +11,16 @@ const obterDataHojeString = () => {
 };
 
 export default function Relatorios() {
-  const [pontos, setPontos] = useState<Pontos[]>([]);
   const [dataFiltro, setDataFiltro] = useState(obterDataHojeString());
-
-  useEffect(() => {
-    const carregar = async () => {
-      if (!dataFiltro) return;
-
-      // Agora passamos apenas a data para a Server Action
-      const dados = await buscarPontos(dataFiltro);
-      setPontos(dados);
-    };
-
-    carregar();
-  }, [dataFiltro]); // Atualiza sempre que mudar a data
+  const buscar = useCallback(() => buscarPontos(dataFiltro), [dataFiltro]);
+  const { dados: pontos } = useDadosAtualizados(buscar, [], { ativo: !!dataFiltro });
 
   return (
     <div className="bg-gray-200">
-      <section className="bg-white text-gray-700 pb-10 xl:max-w-3/4 mx-auto">
-        <div className='grid grid-cols-3 py-5'>
-          <h1 className="col-start-2 text-4xl py-6 text-center text-gray-700 font-bold">Relatório Ponto</h1>
-          <div className='text-center w-full flex flex-col items-center mb-5'>
+      <section className="bg-white text-gray-700 px-4 sm:px-6 pb-10 xl:max-w-3/4 mx-auto">
+        <div className='flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 py-6'>
+          <h1 className="text-2xl sm:text-4xl text-center text-gray-700 font-bold">Relatório Ponto</h1>
+          <div className='text-center flex flex-col items-center'>
             <label htmlFor="buscarData" className="text-sm font-semibold text-gray-500 mb-1">
               Filtrar pontos por dia:
             </label>
@@ -52,6 +34,25 @@ export default function Relatorios() {
             />
           </div>
         </div>
+        <div className="space-y-3 sm:hidden">
+          {pontos.length > 0 ? pontos.map(ponto => (
+            <article key={ponto.id} className="rounded-xl border border-gray-200 p-4 space-y-3">
+              <h2 className="font-semibold break-words">{ponto.colaborador.nome}</h2>
+              <div className="flex flex-wrap justify-between items-center gap-3 text-sm">
+                <p className="text-gray-500">
+                  {new Date(ponto.dataHora).toLocaleDateString('pt-BR')}
+                  <span className="block font-semibold text-gray-800 text-lg">
+                    {new Date(ponto.dataHora).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </p>
+                <span className={`px-3 py-1 rounded-full font-semibold ${ponto.tipo === 'Entrada' ? 'bg-green-100 text-green-800' : ponto.tipo.startsWith('Atestado') ? 'bg-purple-100 text-purple-800' : 'bg-orange-100 text-orange-800'}`}>
+                  {ponto.tipo.startsWith('Atestado') ? 'Atestado' : ponto.tipo}
+                </span>
+              </div>
+            </article>
+          )) : <p className="text-center py-6 text-gray-500 italic">Nenhum ponto registrado nesta data.</p>}
+        </div>
+        <div className="hidden sm:block overflow-x-auto">
         <table className="w-full lg:w-5/6 m-auto border-collapse border">
           <thead>
             <tr className="bg-gray-200">
@@ -89,6 +90,7 @@ export default function Relatorios() {
             )}
           </tbody>
         </table>
+        </div>
       </section >
     </div>
   );

@@ -1,82 +1,73 @@
 'use client';
 
-import { PatternFormat, NumericFormat } from 'react-number-format';
-import { criarCategoria } from './actions';
-import React, { useState } from 'react';
+import { useState } from 'react';
+import { criarCategoria, atualizarCategoria } from './actions';
+
+export interface Categoria {
+  id: string;
+  nome: string;
+}
 
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
   title: string;
+  categoria?: Categoria;
+  onSalvar?: (categoria: Categoria) => void;
 }
 
-export default function ModalCategoria({ isOpen, onClose, title }: ModalProps) {
-  const [nomeCategoria, setnomeCategoria] = useState(String);
+export default function ModalCategoria({ isOpen, onClose, title, categoria, onSalvar }: ModalProps) {
+  const [nome, setNome] = useState(categoria?.nome ?? '');
+  const [salvando, setSalvando] = useState(false);
+  const [erro, setErro] = useState('');
 
-  async function handleCategoria() {
-    await criarCategoria(nomeCategoria);
-    onClose(); // Só fecha quando terminar de salvar
+  async function handleSalvar(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (salvando || !nome.trim()) return;
+    setSalvando(true);
+    setErro('');
+    try {
+      const resultado = categoria
+        ? await atualizarCategoria(categoria.id, nome)
+        : await criarCategoria(nome);
+      if (!resultado.sucesso) {
+        setErro(resultado.erro);
+        return;
+      }
+      onSalvar?.(resultado.categoria);
+      onClose();
+    } catch {
+      setErro('Não foi possível salvar a categoria. Tente novamente.');
+    } finally {
+      setSalvando(false);
+    }
   }
 
-  // Se não estiver aberto, não renderiza nada no HTML
   if (!isOpen) return null;
 
   return (
-    // 1. Fundo escurecido (Overlay) - Cobre a tela toda
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/25  animate-fade-in">
-
-      {/* 2. Caixa do Modal */}
-      <div className="bg-white rounded-xl shadow-2xl border border-gray-100 max-w-md w-full overflow-hidden animate-scale-up">
-
-        {/* Cabeçalho do Modal */}
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/25">
+      <div role="dialog" aria-modal="true" aria-labelledby="titulo-categoria" className="modal-panel bg-white rounded-xl shadow-2xl border border-gray-100 max-w-md w-full">
         <div className="flex justify-between items-center p-4 border-b border-gray-100 bg-gray-50">
-          <h3 className="text-lg font-bold text-gray-700">{title}</h3>
-
-          {/* Botão de Fechar (X) */}
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 font-bold p-1 rounded-lg hover:bg-gray-200 transition"
-          >
-            ✕
-          </button>
+          <h3 id="titulo-categoria" className="text-lg font-bold text-gray-700">{title}</h3>
+          <button type="button" onClick={onClose} disabled={salvando} aria-label="Fechar categoria" className="mobile-touch-target p-2 rounded-lg text-gray-500 hover:bg-gray-200 disabled:opacity-50">✕</button>
         </div>
-
-        {/* Corpo do Modal (Onde entra o conteúdo dinâmico) */}
-        <div className="p-6">
-          {/* Tudo o que você colocar aqui dentro vira o 'children' do modal */}
-          <div className="space-y-4">
-
-            <div>
-              <label>
-                Nome*
-                <input
-                  type="text"
-                  placeholder="Acrilico Crital 2mm"
-                  onChange={(e) => setnomeCategoria(e.target.value)}
-                  className="w-full p-2.5 border rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                />
-              </label>
-            </div>
-
-
-            <div className="flex gap-3 justify-end pt-4">
-              <button
-                onClick={onClose}
-                className="px-4 py-2 bg-gray-200 text-gray-700 font-semibold rounded-lg hover:bg-gray-300 transition"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleCategoria}
-                className="px-4 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition"
-              >
-                Salvar
-              </button>
-            </div>
+        <form onSubmit={handleSalvar} className="p-4 sm:p-6 space-y-4">
+          <label className="block text-sm font-medium text-gray-700">
+            Nome da categoria
+            <input autoFocus required maxLength={120} value={nome} onChange={event => setNome(event.target.value)} disabled={salvando} placeholder="Ex.: MDF" className="mt-2 w-full p-2.5 border rounded-lg bg-gray-50 outline-none focus:border-blue-500" />
+          </label>
+          {categoria && <p className="text-sm text-gray-500">O novo nome será exibido em todos os materiais desta categoria.</p>}
+          {categoria && ['Acrílico', 'Personalização'].includes(categoria.nome) && nome.trim() !== categoria.nome && (
+            <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-3">Esta categoria é identificada pelo nome nas regras de orçamento. Renomeá-la pode exigir ajustes nesses cálculos.</p>
+          )}
+          {erro && <p role="alert" className="text-sm text-red-700 bg-red-50 rounded-lg p-3">{erro}</p>}
+          <div className="flex flex-wrap gap-3 justify-end pt-2">
+            <button type="button" onClick={onClose} disabled={salvando} className="min-h-11 px-4 py-2 bg-gray-200 text-gray-700 font-semibold rounded-lg disabled:opacity-50">Cancelar</button>
+            <button type="submit" disabled={salvando || !nome.trim()} className="min-h-11 px-4 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 disabled:opacity-50">{salvando ? 'Salvando...' : categoria ? 'Salvar alterações' : 'Salvar categoria'}</button>
           </div>
-        </div>
-
-      </div >
-    </div >
+        </form>
+      </div>
+    </div>
   );
 }

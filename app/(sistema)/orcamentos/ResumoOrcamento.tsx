@@ -21,17 +21,20 @@ interface ResumoOrcamentoProps {
   handleCopiarOrcamento: () => void;
   copiado: boolean;
   abrirModal: (id: string) => void;
+  itemEditandoId: string | null;
+  cancelarEdicao: () => void;
 }
 
 export default function ResumoOrcamento({
   itens, quantidade, setQuantidade, calculoAtual,
   handleAdicionarItem, handleRemoverItem,
-  valorTotalOrcamento, handleCopiarOrcamento, copiado, abrirModal
+  valorTotalOrcamento, handleCopiarOrcamento, copiado, abrirModal,
+  itemEditandoId, cancelarEdicao
 }: ResumoOrcamentoProps) {
   return (
-    <div className="lg:col-span-3 space-y-5">
+    <div className="min-w-0 lg:col-span-3 space-y-5">
       {/* Quantidade e Botão Adicionar */}
-      <section className="bg-white rounded-xl shadow-sm p-5 space-y-4 border border-slate-200">
+      <section className="bg-white rounded-xl shadow-sm p-4 sm:p-5 space-y-4 border border-slate-200">
         <div className="flex items-center justify-between">
           <label className="font-medium text-slate-700">Quantidade deste item</label>
           <input
@@ -68,13 +71,18 @@ export default function ResumoOrcamento({
           onClick={handleAdicionarItem}
           className="w-full py-3 flex items-center justify-center gap-2 bg-[#0A2540] hover:bg-[#0f3a6b] text-white font-semibold rounded-lg transition-colors"
         >
-          <Plus size={18} />
-          Adicionar ao orçamento
+          {itemEditandoId ? <Check size={18} /> : <Plus size={18} />}
+          {itemEditandoId ? 'Salvar alterações do item' : 'Adicionar ao orçamento'}
         </button>
+        {itemEditandoId && (
+          <button type="button" onClick={cancelarEdicao} className="w-full text-sm text-slate-600 hover:underline">
+            Cancelar edição
+          </button>
+        )}
       </section>
 
       {/* Listagem Consolidada */}
-      <section className="bg-white rounded-xl shadow-sm p-6 border border-slate-200 space-y-4 min-h-112.5 flex flex-col justify-between">
+      <section className="bg-white rounded-xl shadow-sm p-4 sm:p-6 border border-slate-200 space-y-4 min-h-112.5 flex flex-col justify-between">
         <div>
           <h2 className="text-xl font-bold text-[#0A2540] pb-3 border-b border-slate-100 mb-4">Resumo do orçamento</h2>
 
@@ -86,11 +94,11 @@ export default function ResumoOrcamento({
           ) : (
             <div className="divide-y divide-slate-100 max-h-100 overflow-y-auto pr-2">
               {itens.map((item) => (
-                <div key={item.id} className="py-3 flex justify-between items-center group">
-                  <div className="space-y-0.5">
+                <div key={item.id} className="py-3 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 group">
+                  <div className="min-w-0 space-y-0.5 break-words">
                     <p className="font-medium text-slate-800">{(item.descricaoTexto || '').split('\n')[0]}</p>                    
                   </div>
-                  <div className="flex items-center gap-4">
+                  <div className="flex w-full sm:w-auto flex-wrap items-center justify-between sm:justify-end gap-3">
                     <div className="text-right">
                       <span className="font-bold text-lg text-emerald-600">R$ {formatarMoeda(item.valorTotalItem)}</span>
                       {item.quantidade > 1 && (
@@ -103,14 +111,14 @@ export default function ResumoOrcamento({
                       <button
                         onClick={() => abrirModal(item.id)}
                         aria-label="Editar item"
-                        className="bg-amber-50 text-amber-700 p-2.5 rounded-full hover:bg-amber-100 transition-colors"
+                        className="mobile-touch-target bg-amber-50 text-amber-700 p-2.5 rounded-full hover:bg-amber-100 transition-colors"
                       >
                         <Pencil size={16} />
                       </button>
                       <button
                         onClick={() => handleRemoverItem(item.id)}
                         aria-label="Remover item"
-                        className="bg-red-50 text-red-600 p-2.5 rounded-full hover:bg-red-100 transition-colors"
+                        className="mobile-touch-target bg-red-50 text-red-600 p-2.5 rounded-full hover:bg-red-100 transition-colors"
                       >
                         <Trash2 size={16} />
                       </button>
@@ -123,9 +131,9 @@ export default function ResumoOrcamento({
         </div>
 
         <div className="pt-5 border-t border-slate-100 space-y-4">
-          <div className="flex justify-between items-baseline">
+          <div className="flex flex-wrap justify-between items-baseline gap-2">
             <span className="text-base font-medium text-slate-500">Valor final somado</span>
-            <span className="text-4xl font-black text-emerald-600">R$ {formatarMoeda(valorTotalOrcamento)}</span>
+            <span className="text-3xl sm:text-4xl break-all font-black text-emerald-600">R$ {formatarMoeda(valorTotalOrcamento)}</span>
           </div>
 
           <button

@@ -5,6 +5,7 @@ import ModalCriarPonto from "./ModalCriarPonto";
 import BotaoImprimir from "./BotaoImprimir";
 import TabelaHistoricoPonto from "./TabelaHistoricoPonto";
 import PainelPerfil from "./PainelPerfil";
+import AtualizacaoPagina from '@/app/(sistema)/components/AtualizacaoPagina';
 
 interface DetalhesProps {
   params: Promise<{ id: string }>;
@@ -123,6 +124,7 @@ export default async function DetalhesColaborador({ params, searchParams }: Deta
 
   return (
     <>
+      <AtualizacaoPagina />
       <PainelPerfil
         colaborador={colaborador}
         linhasParaImpressao={linhasParaImpressao}
