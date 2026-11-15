@@ -44,3 +44,6 @@ next-env.d.ts
 *dev.db
 *.db
 /app/generated/prisma
+
+# Generated PDF.js worker
+/public/pdf.worker.min.mjs

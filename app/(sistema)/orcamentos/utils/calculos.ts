@@ -3,6 +3,7 @@
 import { prisma } from '@/lib/prisma'; // Adapte conforme a localização do seu cliente Prisma
 import type { Prisma } from '@prisma/client';
 import { formatarMoeda } from './formatarMoeda';
+import { geometriaCaixa, NOMES_TAMPAS, type TipoTampa } from './geometriaCaixa';
 
 // ===========================================================================
 // Tipos
@@ -14,8 +15,8 @@ export interface DadosCalculo {
   corChapa: string;            // Ex: "Cristal", "Branco"...
   espessuraChapa: string;      // Ex: "2", "3", "10" (mm)
   comprimentoInp: string;      // cm
-  larguraInp: string;          // cm (usado como altura em cortes/caixas)
-  profundidadeInp: string;     // cm (usado só em caixas)
+  larguraInp: string;          // cm: largura do fundo nas caixas
+  profundidadeInp: string;     // cm: altura vertical nas caixas (nome legado do campo)
   tipoTampaCaixaInp: 'semTampa' | 'tampaLacrada' | 'tampa3cm' | string;
 
   quantidade: number;
@@ -166,34 +167,6 @@ function geometriaCorte(c: number, l: number) {
   };
 }
 
-function geometriaCaixa(c: number, l: number, p: number, tampa: string) {
-  switch (tampa) {
-    case 'semTampa':
-      return {
-        area: c * p + c * l * 2 + p * l * 2,
-        perimetroCm: (c * 6 + p * 6 + l * 8) * 100,
-      };
-
-    case 'tampaLacrada':
-      return {
-        area: c * p * 2 + c * l * 2 + p * l * 2,
-        perimetroCm: (c * 8 + p * 8 + l * 8) * 100,
-      };
-
-    case 'tampa3cm':
-      return {
-        area: c * p * 2 + c * l * 2 + p * l * 2 + c * 0.03 * 2 + p * 0.03 * 2,
-        perimetroCm: (c * 12 + p * 12 + l * 8 + 0.03 * 8) * 100,
-      };
-
-    default: // 'tampaTotal' (encaixe com a medida total)
-      return {
-        area: c * p * 2 + c * l * 2 + p * l * 2 + c * l * 2 + p * l * 2,
-        perimetroCm: (c * 12 + p * 12 + l * 16) * 100,
-      };
-  }
-}
-
 // ===========================================================================
 // Modalidades de cálculo
 // ===========================================================================
@@ -221,12 +194,16 @@ function calcularCorteOuCaixa(
 ): ResultadoCalculo {
   const c = Number(dados.comprimentoInp) / 100; // cm → m
   const l = Number(dados.larguraInp) / 100;
-  const p = Number(dados.profundidadeInp) / 100;
+  const alturaCm = Number(dados.profundidadeInp);
+  const medidas = [Number(dados.comprimentoInp), Number(dados.larguraInp), ...(dados.modoCalculo === 'caixa' ? [alturaCm] : [])];
+  if (!medidas.every(n => Number.isFinite(n) && n > 0)) {
+    return montarResultado({ descricao: '', valorBaseUnitario: 0 }, dados, taxas);
+  }
 
   const { area, perimetroCm } =
     dados.modoCalculo === 'corte'
       ? geometriaCorte(c, l)
-      : geometriaCaixa(c, l, p, dados.tipoTampaCaixaInp);
+      : geometriaCaixa({ comprimentoCm: Number(dados.comprimentoInp), larguraCm: Number(dados.larguraInp), alturaCm, tampa: dados.tipoTampaCaixaInp });
 
   // velocidadeCorte vem em mm/s e o perímetro está em cm → divide por 10 para cm/s
   const velocidadeCmPorSeg = material?.velocidadeCorte
@@ -248,7 +225,7 @@ function calcularCorteOuCaixa(
   const descricao =
     dados.modoCalculo === 'corte'
       ? `- ${dados.quantidade}x ${label} (${dados.comprimentoInp}x${dados.larguraInp}cm)`
-      : `- ${dados.quantidade}x Caixa em ${label}, medindo ${dados.comprimentoInp}x${dados.profundidadeInp}x${dados.larguraInp}cm [${dados.tipoTampaCaixaInp}]`;
+      : `- ${dados.quantidade}x Caixa em ${label}, medindo ${dados.comprimentoInp}x${dados.larguraInp}x${dados.profundidadeInp}cm (comprimento x largura x altura) [${NOMES_TAMPAS[dados.tipoTampaCaixaInp as TipoTampa]}]`;
 
   return montarResultado(
     { descricao, valorBaseUnitario, areaChapa: area, minutosCorte, segundosCorte },

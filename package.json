@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "postinstall": "prisma generate",
-    "vercel-build": "prisma generate && next build"
+    "vercel-build": "node scripts/preparar-pdf-worker.mjs && prisma generate && next build",
+    "predev": "node scripts/preparar-pdf-worker.mjs",
+    "prebuild": "node scripts/preparar-pdf-worker.mjs"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
@@ -16,6 +18,8 @@
     "cookies-next": "^6.1.1",
     "lucide-react": "^1.14.0",
     "next": "16.2.3",
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^5.4.624",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-number-format": "^5.4.5",

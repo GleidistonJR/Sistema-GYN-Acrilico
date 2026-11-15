@@ -58,14 +58,15 @@ export interface TaxasItem {
 }
 
 export interface ItemOrcamento {
+  tituloPersonalizado?: string;
   id: string;
   modoCalculo: string;
   tipoDeChapa: string;
   corChapa: string;
   espessuraChapa: string;
-  larguraChapa: number;
-  alturaChapa: number;
-  profundidadeCaixa: number;
+  larguraChapa: number; // Campo legado: comprimento informado (cm).
+  alturaChapa: number; // Campo legado: largura do fundo nas caixas (cm).
+  profundidadeCaixa: number; // Campo legado: altura vertical da caixa (cm).
   tipoTampa: string;
 
   quantidade: number;

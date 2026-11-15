@@ -7,6 +7,10 @@ import MenuLateral from './MenuLateral';
 import FormEspecificacoes from './FormEspecificacoes';
 import ResumoOrcamento from './ResumoOrcamento';
 import { calcularOrcamentoItem, ResultadoCalculo } from './utils/calculos';
+import ModalItemPersonalizado from './ModalItemPersonalizado';
+import { criarItemPersonalizado } from './utils/itemPersonalizado';
+import ModalOrcamentoPdf from './ModalOrcamentoPdf';
+import { renomearItem } from './utils/nomeItem';
 
 export default function CalculadorChapa() {
   // 1. Estados de Controle de Interface
@@ -38,9 +42,23 @@ export default function CalculadorChapa() {
   // Os itens já adicionados são preservados como o orçamento montado pelo usuário.
   const [itens, setItens] = useState<ItemOrcamento[]>([]);
   const [itemEditandoId, setItemEditandoId] = useState<string | null>(null);
+  const [personalizadoAberto, setPersonalizadoAberto] = useState(false);
+  const [personalizadoEditando, setPersonalizadoEditando] = useState<ItemOrcamento | null>(null);
+  const [pdfAberto, setPdfAberto] = useState(false);
+
+  function salvarPersonalizado(titulo: string, valor: number, quantidade: number) {
+    const id = personalizadoEditando?.id ?? globalThis.crypto?.randomUUID?.()
+      ?? `personalizado-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const item = criarItemPersonalizado(titulo, valor, id, quantidade);
+    setItens(atuais => personalizadoEditando
+      ? atuais.map(atual => atual.id === item.id ? item : atual)
+      : [...atuais, item]);
+    setPersonalizadoAberto(false);
+    setPersonalizadoEditando(null);
+  }
 
   // Somente a prévia do próximo item consulta os preços atuais.
-  const buscarCalculo = useCallback(() => calcularOrcamentoItem({
+  const parametrosCalculo = useMemo(() => ({
     modoCalculo: modoCalculoInp,
     tipoMaterial: tipoDeChapaInp,
     corChapa: corChapaAcrilicoInp,
@@ -59,7 +77,12 @@ export default function CalculadorChapa() {
     comprimentoInp, larguraInp, profundidadeInp, tipoTampaCaixaInp, qtdItemInp,
     materialId, impostoInp, maoDeObraInp, projetoInp, especialInp]);
 
-  const { dados: calculoAtual } = useDadosAtualizados<ResultadoCalculo>(buscarCalculo, {
+  const chaveCalculo = JSON.stringify(parametrosCalculo);
+  const buscarCalculo = useCallback(async () => ({
+    ...await calcularOrcamentoItem(parametrosCalculo),
+    chave: JSON.stringify(parametrosCalculo),
+  }), [parametrosCalculo]);
+  const { dados: calculoAtual, erro: erroCalculo } = useDadosAtualizados<ResultadoCalculo & { chave: string }>(buscarCalculo, {
     areaChapa: 0,
     valorBaseUnitario: 0,
     valorMaterial: 0,
@@ -68,7 +91,9 @@ export default function CalculadorChapa() {
     segundosCorte: 0,
     porcentagemAcumulada: 0,
     txtItem: '',
+    chave: '',
   });
+  const calculoPendente = calculoAtual.chave !== chaveCalculo;
 
   const handleCopiarOrcamento = () => {
     const textoFinal = `*ORÇAMENTO GOIÂNIA ACRÍLICO*\n-------------------------------------\n${itens.map(i => i.descricaoTexto).join('\n\n')}\n-------------------------------------\n*TOTAL: R$ ${valorTotalOrcamento.toFixed(2)}*\n\n*ENTRADA: R$ ${(valorTotalOrcamento / 2).toFixed(2)}*\n\nTempo médio para ser produzido de *7 dias úteis após aprovação do projeto*.\nPara início da produção é solicitado 50% do valor antecipado e o restante no ato da retirada.\nForma de pagamento: Dinheiro, PIX ou cartão de crédito em 2x, e débito.\nRetirar na loja, não estamos fazendo entrega.`;
@@ -80,6 +105,11 @@ export default function CalculadorChapa() {
 
   function CarregarEdicao(id: string) {
     const itemModificando = itens.find(item => item.id === id);
+    if (itemModificando?.modoCalculo === 'custom') {
+      setPersonalizadoEditando(itemModificando);
+      setPersonalizadoAberto(true);
+      return;
+    }
 
     if (itemModificando) {
       setItemEditandoId(id);
@@ -107,9 +137,11 @@ export default function CalculadorChapa() {
       return alert("Selecione o tipo de personalização!");
     }
 
-    if (modoCalculoInp !== 'chapa' && (Number(comprimentoInp) <= 0 || Number(larguraInp) <= 0) || corChapaAcrilicoInp === '') {
-      return alert("Preencha todos os campos!");
+    const medidas = [Number(comprimentoInp), Number(larguraInp), ...(modoCalculoInp === 'caixa' ? [Number(profundidadeInp)] : [])];
+    if ((modoCalculoInp !== 'chapa' && !medidas.every(n => Number.isFinite(n) && n > 0)) || corChapaAcrilicoInp === '') {
+      return alert(modoCalculoInp === 'caixa' ? 'Informe comprimento, largura e altura maiores que zero e selecione a cor.' : 'Preencha todos os campos!');
     }
+    if (calculoPendente || erroCalculo) return alert('Aguarde o cálculo atualizado antes de salvar o item.');
 
     const novoItem: ItemOrcamento = {
       id: itemEditandoId ?? `item-${Date.now()}`,
@@ -147,7 +179,7 @@ export default function CalculadorChapa() {
     setQtdItemInp(1);
   };
 
-  const valorTotalOrcamento = useMemo(() => itens.reduce((acc, curr) => acc + curr.valorTotalItem, 0), [itens]);
+  const valorTotalOrcamento = itens.reduce((acc, curr) => acc + curr.valorTotalItem, 0);
 
   return (
     <>
@@ -186,6 +218,8 @@ export default function CalculadorChapa() {
           <ResumoOrcamento
             itens={itens} quantidade={qtdItemInp} setQuantidade={setQtdItemInp}
             calculoAtual={calculoAtual} handleAdicionarItem={handleAdicionarItem}
+            calculoPendente={calculoPendente}
+            erroCalculo={Boolean(erroCalculo)}
             itemEditandoId={itemEditandoId}
             cancelarEdicao={() => setItemEditandoId(null)}
             handleRemoverItem={(id) => {
@@ -194,9 +228,21 @@ export default function CalculadorChapa() {
             }}
             valorTotalOrcamento={valorTotalOrcamento} handleCopiarOrcamento={handleCopiarOrcamento}
             copiado={copiado} abrirModal={(id) => CarregarEdicao(id)}
+            abrirPersonalizado={() => { setPersonalizadoEditando(null); setPersonalizadoAberto(true); }}
+            abrirPdf={() => setPdfAberto(true)}
+            renomear={(id, nome) => {
+              setItens(atuais => atuais.map(item => item.id === id ? renomearItem(item, nome) : item));
+              setCopiado(false);
+            }}
           />
         </div>
       </div>
+      {personalizadoAberto && <ModalItemPersonalizado
+        item={personalizadoEditando}
+        onClose={() => { setPersonalizadoAberto(false); setPersonalizadoEditando(null); }}
+        onSalvar={salvarPersonalizado}
+      />}
+      <ModalOrcamentoPdf isOpen={pdfAberto} itens={itens} onClose={() => setPdfAberto(false)} />
     </>
   );
 }

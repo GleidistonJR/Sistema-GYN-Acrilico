@@ -1,5 +1,19 @@
 # Sistema de Ponto - Next.js
 
+## Orçamentos em PDF
+
+Em Orçamentos, “Salvar orçamento em PDF” abre a revisão dos dados do cliente e vendedor, emissão, validade, condições comerciais, desconto, frete e entrada. O arquivo A4 é baixado no navegador e inclui os materiais e itens personalizados com quantidade, valor unitário e total. O vendedor é preenchido a partir da sessão e pode ser ajustado no formulário.
+
+O cliente inicia como “Consumidor Final” e a validade como 10 dias, ambos ajustáveis. CNPJ, endereço e telefone/WhatsApp da empresa são fixos no servidor. “Copiar imagem” renderiza o mesmo PDF em PNG com todas as páginas; se a área de transferência estiver indisponível ou bloqueada, “Baixar imagem” permite salvar o arquivo. Documentos extensos demais para uma imagem legível devem ser enviados em PDF. A cópia exige um navegador compatível e HTTPS (ou localhost).
+
+Os comandos `npm run dev`, `npm run build` e `npm run vercel-build` preparam automaticamente o worker local do PDF.js. O arquivo gerado `public/pdf.worker.min.mjs` não é versionado.
+
+## Medidas das caixas
+
+O formulário, a edição e as descrições seguem comprimento × largura × altura, em centímetros. Comprimento e largura formam o fundo; altura é a medida vertical até a abertura. O guia ilustrado fica visível junto aos campos. `utils/geometriaCaixa.ts` soma a área e o perímetro de corte de cada peça: fundo e quatro paredes, mais a tampa e suas abas quando aplicável. Uma caixa sem tampa de 20 × 20 × 2 cm consome 0,056 m²; uma de 20 × 2 × 20 cm consome 0,092 m². O item só pode ser salvo quando o cálculo corresponde aos campos atuais.
+
+A logo original está em `public/logo-gyn-acrilico.svg`; `public/logo-gyn-acrilico.png` é a versão incorporada ao PDF. A rota autenticada `/api/orcamentos/pdf` recalcula os totais a partir dos itens recebidos, valida os campos e gera as páginas com `pdf-lib`. A configuração de rastreamento inclui a logo no pacote da rota para publicação.
+
 ## Fotos de materiais e produtos
 
 Cada item aceita uma foto opcional pelo seletor de arquivos ou pela câmera do celular, quando suportada pelo navegador. A imagem é reduzida no dispositivo antes do envio e novamente validada no servidor: JPEG, até 640 px e 160 KB, sem metadados EXIF.

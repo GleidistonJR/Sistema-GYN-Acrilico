@@ -4,6 +4,7 @@ import { getCategorias, getMateriais } from '../materiais/actions';
 import { Material } from '../materiais/page';
 import { useCallback, useState } from 'react';
 import { useDadosAtualizados } from '@/lib/useDadosAtualizados';
+import GuiaMedidasCaixa from './GuiaMedidasCaixa';
 
 
 interface FormEspecificacoesProps {
@@ -292,9 +293,12 @@ export default function FormEspecificacoes({
           <div className={`grid gap-4 pt-2 ${modoCalculo === 'corte' ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3'}`}>
 
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-slate-600">Comprimento (cm)</label>
+              <label htmlFor="medida-comprimento" className={`text-xs font-medium ${modoCalculo === 'caixa' ? 'text-sky-700' : 'text-slate-600'}`}>{modoCalculo === 'caixa' ? 'C — Comprimento (cm)' : 'Comprimento (cm)'}</label>
               <input
+                id="medida-comprimento"
                 type="number"
+                min="0.01" step="any"
+                aria-describedby={modoCalculo === 'caixa' ? 'guia-medidas-caixa' : undefined}
                 value={comprimentoInp}
                 onChange={(e) => setComprimentoInp(e.target.value)}
                 className={classeInput + " text-center font-semibold"}
@@ -302,9 +306,12 @@ export default function FormEspecificacoes({
             </div>
 
             <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-slate-600">Largura (cm)</label>
+              <label htmlFor="medida-largura" className={`text-xs font-medium ${modoCalculo === 'caixa' ? 'text-emerald-700' : 'text-slate-600'}`}>{modoCalculo === 'caixa' ? 'L — Largura do fundo (cm)' : 'Largura (cm)'}</label>
               <input
+                id="medida-largura"
                 type="number"
+                min="0.01" step="any"
+                aria-describedby={modoCalculo === 'caixa' ? 'guia-medidas-caixa' : undefined}
                 value={larguraInp}
                 onChange={(e) => setLarguraInp(e.target.value)}
                 className={classeInput + " text-center font-semibold"}
@@ -314,9 +321,12 @@ export default function FormEspecificacoes({
 
             {modoCalculo === 'caixa' && (
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium text-slate-600">Profundidade (cm)</label>
+                <label htmlFor="medida-altura" className="text-xs font-medium text-purple-600">A — Altura (cm)</label>
                 <input
+                  id="medida-altura"
                   type="number"
+                  min="0.01" step="any"
+                  aria-describedby="guia-medidas-caixa"
                   value={profundidadeInp}
                   onChange={(e) => setProfundidadeInp(e.target.value)}
                   className={classeInput + " text-center font-semibold"}
@@ -330,6 +340,7 @@ export default function FormEspecificacoes({
             Cálculo baseado na medida padrão da chapa inteira.
           </div>
         )}
+        {modoCalculo === 'caixa' && <GuiaMedidasCaixa comprimento={comprimentoInp} largura={larguraInp} altura={profundidadeInp} />}
       </section>
 
 
