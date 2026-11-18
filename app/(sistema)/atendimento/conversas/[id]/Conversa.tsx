@@ -152,7 +152,7 @@ export default function Conversa({ cliente, onVoltar, onDetalhes, onLida }: {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={`/api/atendimento/midia/${m.id}`} alt={m.midia.nome} className="mb-2 max-h-80 max-w-full rounded-lg object-contain" loading="lazy" />
           </a>}
-          {m.midia?.mimeType.startsWith('audio/') && <audio controls preload="none" className="mb-2 max-w-full" src={`/api/atendimento/midia/${m.id}`} />}
+          {m.midia?.mimeType.startsWith('audio/') && <audio controls preload="none" className="mb-2 max-w-full" src={`/api/atendimento/midia/${m.id}?arquivo=${encodeURIComponent(m.midia.nome)}`} />}
           {m.midia && <a href={`/api/atendimento/midia/${m.id}`} download={m.midia.nome} className="mb-2 block break-all text-xs font-semibold underline">{m.midia.nome}</a>}
           {m.texto && <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-[#e9edef] [overflow-wrap:anywhere]">{m.texto}</p>}
           {!m.texto && !m.midia && <p className="text-sm italic text-[#8696a0]">Mensagem do tipo {m.tipo}</p>}

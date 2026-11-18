@@ -1,6 +1,6 @@
 import pg from 'pg';
 
-export function criarEventosAtendimento() {
+export function criarEventosAtendimento({ onEnvio = () => {} } = {}) {
   const listeners = new Set();
   let database;
   let retry;
@@ -22,12 +22,21 @@ export function criarEventosAtendimento() {
     if (url.hostname.endsWith('.neon.tech')) url.hostname = url.hostname.replace('-pooler.', '.');
     const connection = new pg.Client({ connectionString: url.toString(), connectionTimeoutMillis: 5000, keepAlive: true });
     database = connection;
-    connection.on('notification', publish);
+    connection.on('notification', event => {
+      if (event.channel === 'whatsapp_envio') onEnvio(event.payload);
+      else publish();
+    });
     connection.on('error', () => { void connection.end().catch(() => {}); });
     connection.once('end', () => {
       if (!stopped) { for (const response of listeners) response.end(); listeners.clear(); retry = setTimeout(() => void connect(), 2000); }
     });
-    try { await connection.connect(); await connection.query('LISTEN atendimento_alterado'); publish(); }
+    try {
+      await connection.connect();
+      await connection.query('LISTEN atendimento_alterado');
+      await connection.query('LISTEN whatsapp_envio');
+      onEnvio(); // Catch up after reconnecting, without waiting for the fallback timer.
+      publish();
+    }
     catch { await connection.end().catch(() => {}); }
   }
   void connect();

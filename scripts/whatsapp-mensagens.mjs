@@ -6,6 +6,8 @@ export function criarServicoMensagens({ prisma, client, conta, ativo }) {
   let chain = Promise.resolve();
   let timer;
   let stopped = false;
+  let waking = false;
+  let wakePending = false;
   let lastSync = 0;
   let lastClient = '';
   const synchronizing = new Map();
@@ -150,23 +152,26 @@ export function criarServicoMensagens({ prisma, client, conta, ativo }) {
       if (!claimed) continue;
       let payload;
       try {
-        payload = message.midia ? message.tipo === 'ptt'
-          ? new whatsapp.MessageMedia('audio/ogg; codecs=opus', (await converterVoz(Buffer.from(message.midia.dados))).toString('base64'), 'audio.ogg')
-          : new whatsapp.MessageMedia(message.midia.mimeType, Buffer.from(message.midia.dados).toString('base64'), message.midia.nome)
-          : message.texto;
+        if (message.midia && message.tipo === 'ptt') {
+          const dados = await converterVoz(Buffer.from(message.midia.dados));
+          // Keep exactly the transmitted file, not the original browser recording.
+          await prisma.midiaWhatsApp.update({ where: { mensagemId: message.id }, data: { dados, mimeType: 'audio/mpeg', nome: 'gravacao.mp3' } });
+          payload = new whatsapp.MessageMedia('audio/mpeg', dados.toString('base64'), 'gravacao.mp3');
+        } else payload = message.midia ? new whatsapp.MessageMedia(message.midia.mimeType, Buffer.from(message.midia.dados).toString('base64'), message.midia.nome) : message.texto;
       } catch {
         await prisma.mensagemWhatsApp.update({ where: { id: message.id }, data: { status: 'FALHOU', erro: 'O áudio não pôde ser preparado. Nenhuma mensagem foi enviada. Grave novamente.' } });
         continue;
       }
       // Do not retry an ambiguous send automatically: WhatsApp may have accepted it.
       try {
-        const sent = await client.sendMessage(jid, payload, { sendSeen: false, ...(message.midia ? { caption: message.texto, sendMediaAsDocument: message.midia.mimeType === 'application/pdf', sendAudioAsVoice: message.tipo === 'ptt' } : {}) });
+        const sent = await client.sendMessage(jid, payload, { sendSeen: false, ...(message.midia ? { caption: message.texto, sendMediaAsDocument: message.midia.mimeType === 'application/pdf', sendAudioAsVoice: false } : {}) });
         if (!sent?.id?._serialized) throw new Error('Confirmação ausente');
-        await prisma.mensagemWhatsApp.update({ where: { id: message.id }, data: { externaId: sent.id._serialized, status: statusAck(sent.ack), ack: Math.max(0, sent.ack || 0), erro: null } });
+        await prisma.mensagemWhatsApp.update({ where: { id: message.id }, data: { externaId: sent.id._serialized, ...(message.tipo === 'ptt' ? { tipo: 'audio' } : {}), status: statusAck(sent.ack), ack: Math.max(0, sent.ack || 0), erro: null } });
       } catch {
         await prisma.mensagemWhatsApp.update({ where: { id: message.id }, data: { status: 'INCERTO', erro: 'Envio sem confirmação. Confira o histórico antes de enviar novamente para evitar duplicidade.' } });
       }
     }
+    return pending.length === 5;
   }
 
   const onMessage = message => { void enqueue(async () => {
@@ -182,21 +187,31 @@ export function criarServicoMensagens({ prisma, client, conta, ativo }) {
   client.on('message_create', onMessage);
   client.on('message_ack', onAck);
 
+  function acordarEnvios(account) {
+    if (stopped || (account && account !== conta)) return;
+    if (waking) { wakePending = true; return; }
+    waking = true;
+    void enqueue(enviarPendentes).then(more => { if (more) wakePending = true; }).catch(log).finally(() => {
+      waking = false;
+      if (wakePending) { wakePending = false; acordarEnvios(); }
+    });
+  }
+
   async function tick() {
     try {
-      await enqueue(enviarPendentes);
-      if (!synchronizing.size && Date.now() - lastSync > 20000) {
+      acordarEnvios();
+      if (!synchronizing.size && Date.now() - lastSync > 120000) {
         lastSync = Date.now();
         const next = await prisma.cliente.findFirst({ where: { id: { gt: lastClient } }, orderBy: { id: 'asc' } });
         if (next) { lastClient = next.id; void sincronizar(next.id).catch(log); }
         else lastClient = '';
       }
     } catch (error) { log(error); }
-    if (!stopped) timer = setTimeout(tick, 2000);
+    if (!stopped) timer = setTimeout(tick, 30000);
   }
 
   return {
-    receber, confirmar, identificar, enviarPendentes: () => enqueue(enviarPendentes),
+    receber, confirmar, identificar, acordarEnvios, enviarPendentes: () => enqueue(enviarPendentes),
     drain: () => chain,
     sincronizar,
     async start() {

@@ -19,7 +19,7 @@ Migrações de clientes e mensagens aplicadas em produção em 18/11/2026 com au
 - Mensagens, identidades e anexos persistidos no PostgreSQL. Áudio reproduzível,
   imagens visualizáveis e PDFs para download.
 - Gravação pelo microfone por até 2 minutos, prévia para ouvir, descarte e envio como
-  mensagem de voz. Exige permissão do navegador e localhost/HTTPS. Anexar áudio
+  áudio MP3 comum. Exige permissão do navegador e localhost/HTTPS. Anexar áudio
   continua disponível. Respostas inteligentes ainda não implementadas.
 
 ## Operação local
@@ -48,7 +48,7 @@ do evento ready. Revisar esses ajustes antes de atualizar a biblioteca.
 Publicar apenas o Next.js não publica o serviço persistente do WhatsApp.
 Na Vercel, o envio consulta o estado do serviço no banco compartilhado e grava
 na fila; o computador conectado ao WhatsApp realiza a transmissão. O serviço
-publica disponibilidade a cada 10 segundos, expirada após 45 segundos sem atualização.
+publica disponibilidade a cada 30 segundos, expirada após 90 segundos sem atualização.
 Não é necessário expor a porta local para enviar pela Vercel. Configuração de QR,
 conexão/desconexão e sincronização manual continuam exigindo acesso ao serviço local.
 
@@ -65,7 +65,10 @@ reconciliar o histórico periodicamente. O botão Sincronizar histórico prioriz
 O WhatsApp pode não disponibilizar todo o histórico antigo ou anexos expirados.
 Eventos com falhas transitórias de persistência são repetidos até três vezes.
 
-Envios entram em fila persistente, processada a cada 2 segundos quando conectado.
+Envios entram em fila persistente, acionada por PostgreSQL NOTIFY após o commit,
+com recuperação de pendências na reconexão e uma consulta de segurança a cada 30 segundos.
+O histórico de clientes é reconciliado em segundo plano a cada 2 minutos por cliente
+da rodada, além da importação inicial; novas mensagens continuam chegando por eventos.
 O worker verifica novamente o responsável antes de transmitir. O ID do pedido previne
 duplicação em requisições repetidas; o ID externo deduplica mensagens e ecos.
 ACK de entrega/leitura não regride. Estados: PENDENTE, ENVIANDO, ENVIADA, ENTREGUE,
@@ -75,9 +78,27 @@ o histórico antes de reenviar. Após reinício, ENVIANDO vira INCERTO.
 Texto de saída limitado a 6.000 caracteres. Arquivos até 10 MB com assinatura e MIME
 validados. Downloads exigem acesso à conversa, sem cache compartilhado, com suporte
 Range para áudio. Tipos não suportados e arquivos indisponíveis são indicados na tela.
-Gravações de voz são convertidas localmente de WebM/MP4 para Ogg Opus pelo FFmpeg
-antes da transmissão, usando ffmpeg-static (FFMPEG_PATH opcional). Falha de conversão
+Gravações são convertidas localmente de WebM/MP4 para MP3 mono a 48 kbps pelo FFmpeg
+e enviadas como áudio comum, sem forçar PTT: o Ogg anterior era entregue, mas foi
+relatado como não reproduzível no Android e em outra sessão WhatsApp Web. O banco
+passa a guardar exatamente o MP3 transmitido, substituindo a gravação original.
+Usa ffmpeg-static (FFMPEG_PATH opcional). Falha de conversão
 é FALHOU, sem transmissão; falha após chamar o WhatsApp permanece INCERTO.
+
+## Custo e armazenamento
+
+Medição SQL em 18/11/2026: banco completo ~27,7 MB, tabela de anexos ~17,3 MB
+(inclui índices e espaço alocado), 738 mensagens e 120 anexos (~11,2 MB de conteúdo).
+É uma fotografia do banco consultado, não a medição de cobrança de todas as branches.
+Todos os anexos ainda ficam em PostgreSQL, sem retenção automática. Para escalar,
+migrar binários para armazenamento de objetos privado, mantendo metadados e permissões
+no banco. Não apagar históricos ou trocar de plano automaticamente.
+
+Neon Free consultado em 18/11/2026: 1 GB de banco, 100 CU-h/mês e 5 GB de tráfego.
+Fonte: https://neon.com/pricing . Consultas de fila e heartbeat mantêm o banco ativo
+enquanto o serviço estiver ligado. Reduzir consultas não elimina cobrança por tempo
+ativo: 0,25 CU durante 24h por 30 dias equivale a 180 CU-h, acima da franquia gratuita.
+O uso real depende do compute configurado, horas ligadas, carga e demais branches.
 
 ## Permissões
 

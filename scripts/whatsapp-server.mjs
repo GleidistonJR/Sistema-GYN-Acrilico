@@ -12,7 +12,7 @@ import { publicarEstadoServico } from '../lib/whatsapp/estado-servico.mjs';
 
 const prisma = new PrismaClient();
 let mensagens = null;
-const eventos = criarEventosAtendimento();
+const eventos = criarEventosAtendimento({ onEnvio: conta => mensagens?.acordarEnvios(conta) });
 
 const { LocalAuth } = whatsapp;
 const token = process.env.WHATSAPP_BRIDGE_TOKEN;
@@ -36,7 +36,7 @@ function heartbeat() {
   void heartbeatChain.catch(() => console.error('Falha ao atualizar disponibilidade WhatsApp.'));
   return heartbeatChain;
 }
-const heartbeatTimer = setInterval(() => void heartbeat(), 10000);
+const heartbeatTimer = setInterval(() => void heartbeat(), 30000);
 function update(values) { state = { ...state, ...values, atualizadoEm: new Date().toISOString() }; void heartbeat(); }
 function snapshot() {
   if (state.status === 'qr' && Date.now() - Date.parse(state.atualizadoEm) > 65000) {

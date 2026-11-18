@@ -3,10 +3,9 @@ import assert from 'node:assert/strict';
 import { converterVoz } from '../scripts/whatsapp-audio.mjs';
 import { audioWebm } from './fixtures/audio.mjs';
 
-test('converte gravação WebM em Ogg Opus para mensagem de voz', async () => {
+test('converte gravação WebM em MP3 mono para reprodução multiplataforma', async () => {
   const converted = await converterVoz(audioWebm());
-  assert.equal(converted.subarray(0, 4).toString(), 'OggS');
-  assert.ok(converted.subarray(0, 100).includes(Buffer.from('OpusHead')));
+  assert.equal(converted.subarray(0, 3).toString(), 'ID3');
 });
 test('rejeita gravação inválida antes de transmitir', async () => {
   await assert.rejects(converterVoz(Buffer.from('áudio inválido')), /preparar o áudio/);

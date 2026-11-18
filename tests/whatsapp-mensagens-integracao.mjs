@@ -6,6 +6,7 @@ import puppeteer from 'puppeteer';
 import { criarServicoMensagens } from '../scripts/whatsapp-mensagens.mjs';
 import { variantesTelefone, telefoneDoJid, validarMidia } from '../lib/whatsapp/conteudo.mjs';
 import { audioWebm } from './fixtures/audio.mjs';
+import { criarEventosAtendimento } from '../scripts/whatsapp-eventos.mjs';
 
 if (process.env.RUN_DATABASE_INTEGRATION !== '1') throw new Error('Requer RUN_DATABASE_INTEGRATION=1.');
 const prisma = new PrismaClient();
@@ -35,6 +36,7 @@ client.sendMessage = async (_jid, payload, options) => {
 };
 let browser;
 let service;
+let eventos;
 try {
   const tokens = users.map(() => randomBytes(32).toString('hex'));
   for (let i = 0; i < users.length; i++) await prisma.user.create({ data: {
@@ -93,11 +95,14 @@ try {
     midia: { create: { dados: audioWebm(), mimeType: 'audio/webm', nome: 'audio.webm' } },
   } });
   await service.enviarPendentes(); await service.drain();
-  assert.equal(lastOptions.sendAudioAsVoice, true);
-  assert.equal(lastPayload.mimetype, 'audio/ogg; codecs=opus');
-  assert.equal(Buffer.from(lastPayload.data, 'base64').subarray(0, 4).toString(), 'OggS');
+  assert.equal(lastOptions.sendAudioAsVoice, false);
+  assert.equal(lastPayload.mimetype, 'audio/mpeg');
+  assert.equal(Buffer.from(lastPayload.data, 'base64').subarray(0, 3).toString(), 'ID3');
+  const storedVoice = await prisma.midiaWhatsApp.findUnique({ where: { mensagemId: voice.id } });
+  assert.equal(storedVoice.mimeType, 'audio/mpeg');
+  assert.equal(Buffer.from(storedVoice.dados).toString('base64'), lastPayload.data);
   assert.equal((await prisma.mensagemWhatsApp.findUnique({ where: { id: voice.id } })).status, 'ENVIADA');
-  console.log('OK: gravação enviada como mensagem de voz ao provedor simulado.');
+  console.log('OK: gravação enviada como MP3 comum e arquivo transmitido preservado no banco.');
   await prisma.cliente.update({ where: { id: clienteId }, data: { responsavelId: null } });
   const queueReply = await prisma.mensagemWhatsApp.create({ data: { clienteId, conta, autorId: users[1], direcao: 'SAIDA', texto: 'Resposta sem assumir', status: 'PENDENTE' } });
   await service.enviarPendentes(); await service.drain();
@@ -105,6 +110,21 @@ try {
   assert.equal((await prisma.cliente.findUnique({ where: { id: clienteId } })).responsavelId, null);
   await prisma.cliente.update({ where: { id: clienteId }, data: { responsavelId: users[0] } });
   console.log('OK: vendedor responde à fila sem assumir e sem alterar responsável.');
+  await new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error('Listener não conectou')), 15000);
+    eventos = criarEventosAtendimento({ onEnvio: account => {
+      if (!account) { clearTimeout(timeout); resolve(); }
+      service.acordarEnvios(account);
+    } });
+  });
+  const eventStart = Date.now();
+  const eventMessage = await prisma.mensagemWhatsApp.create({ data: { clienteId, conta, autorId: users[0], direcao: 'SAIDA', texto: 'Envio por evento', status: 'PENDENTE' } });
+  while ((await prisma.mensagemWhatsApp.findUnique({ where: { id: eventMessage.id } })).status !== 'ENVIADA') {
+    assert.ok(Date.now() - eventStart < 15000, 'Envio por evento demorou demais');
+    await new Promise(resolve => setTimeout(resolve, 250));
+  }
+  await eventos.stop(); eventos = null;
+  console.log(`OK: fila acionada por NOTIFY em ${Date.now() - eventStart} ms, sem esperar consulta periódica.`);
 
   browser = await puppeteer.launch({ headless: true, executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe' });
   const pages = [];
@@ -143,7 +163,7 @@ try {
   assert.deepEqual(variantesTelefone('+5562991234567'), ['+5562991234567', '+556291234567']);
   assert.throws(() => validarMidia(Buffer.from('<script>'), 'image/png'));
 } finally {
-  await service?.stop(); await browser?.close();
+  await eventos?.stop(); await service?.stop(); await browser?.close();
   await prisma.mensagemWhatsApp.deleteMany({ where: { conta } });
   await prisma.identidadeWhatsApp.deleteMany({ where: { conta } });
   await prisma.cliente.deleteMany({ where: { id: clienteId } });
