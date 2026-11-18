@@ -37,7 +37,8 @@ try {
     const full = await fetch(link.url, { headers: { Origin: base } }); assert.equal(hash(Buffer.from(await full.arrayBuffer())), hash(data));
     const invalidRange = await fetch(link.url, { headers: { Range: `bytes=${size}-` } }); assert.equal(invalidRange.status, 416);
     await db.cliente.update({ where: { id: clienteId }, data: { responsavelId: otherId } });
-    assert.equal((await fetch(link.url)).status, 200);
+    const sharedRange = await fetch(link.url, { headers: { Range: 'bytes=0-0' } });
+    assert.equal(sharedRange.status, 206); await sharedRange.arrayBuffer();
     await db.cliente.update({ where: { id: clienteId }, data: { responsavelId: userId } });
     console.log(`OK: PDF ${size} bytes, upload direto, legenda, retry, download completo/Range, acesso por papel e atribuição sem bloquear acesso; zero bytes de conteúdo no Neon.`);
   }
