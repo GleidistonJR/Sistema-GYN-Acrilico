@@ -1,5 +1,6 @@
 import whatsapp from 'whatsapp-web.js';
 import { converterVoz } from './whatsapp-audio.mjs';
+import { obterCitacao } from '../lib/whatsapp/citacao.mjs';
 import { telefoneDoJid, variantesTelefone, nomeArquivo, validarMidia, LIMITE_MIDIA, statusAck } from '../lib/whatsapp/conteudo.mjs';
 
 export function criarServicoMensagens({ prisma, client, conta, ativo }) {
@@ -60,8 +61,13 @@ export function criarServicoMensagens({ prisma, client, conta, ativo }) {
     const jid = message.fromMe ? message.to : message.from;
     if (!/^\d+@(c\.us|lid)$/.test(jid)) return;
     const external = { conta, externaId: message.id._serialized };
-    const exists = await prisma.mensagemWhatsApp.findUnique({ where: { conta_externaId: external }, select: { id: true } });
-    if (exists) return confirmar(message, message.ack);
+    const exists = await prisma.mensagemWhatsApp.findUnique({ where: { conta_externaId: external }, select: { id: true, citacao: true } });
+    if (exists) {
+      if (message.hasQuotedMsg && !exists.citacao) {
+        await prisma.mensagemWhatsApp.update({ where: { id: exists.id }, data: { citacao: await obterCitacao(message) } });
+      }
+      return confirmar(message, message.ack);
+    }
     const clienteId = await identificar(jid);
     if (!clienteId) return;
     const timestamp = Number(message.timestamp);
@@ -69,6 +75,7 @@ export function criarServicoMensagens({ prisma, client, conta, ativo }) {
     const data = { ...external, clienteId, direcao: message.fromMe ? 'SAIDA' : 'ENTRADA', tipo: message.type || 'chat',
       texto: String(message.body || '').slice(0, 65536), enviadoEm, ack: Math.max(0, Number(message.ack) || 0),
       status: message.fromMe ? statusAck(message.ack) : 'RECEBIDA',
+      ...(message.hasQuotedMsg ? { citacao: await obterCitacao(message) } : {}),
     };
     let media;
     if (message.hasMedia) {
@@ -114,12 +121,12 @@ export function criarServicoMensagens({ prisma, client, conta, ativo }) {
     const jid = await destino(cliente);
     const chat = await client.getChatById(jid);
     const messages = await chat.fetchMessages({ limit: 50 });
-    const existing = await prisma.mensagemWhatsApp.findMany({ where: { conta, externaId: { in: messages.map(m => m.id._serialized) } }, select: { externaId: true, ack: true } });
-    const known = new Map(existing.map(m => [m.externaId, m.ack]));
+    const existing = await prisma.mensagemWhatsApp.findMany({ where: { conta, externaId: { in: messages.map(m => m.id._serialized) } }, select: { externaId: true, ack: true, citacao: true } });
+    const known = new Map(existing.map(m => [m.externaId, m]));
     for (const message of messages) {
       if (stopped) return;
-      const ack = known.get(message.id._serialized);
-      if (ack !== undefined && (!message.fromMe || (message.ack >= 0 && message.ack <= ack))) continue;
+      const previous = known.get(message.id._serialized);
+      if (previous && !(message.hasQuotedMsg && !previous.citacao) && (!message.fromMe || (message.ack >= 0 && message.ack <= previous.ack))) continue;
       // Yield between history items so newly arriving messages are never stuck behind the whole import.
       await enqueue(() => receber(message));
     }
@@ -164,11 +171,17 @@ export function criarServicoMensagens({ prisma, client, conta, ativo }) {
       }
       // Do not retry an ambiguous send automatically: WhatsApp may have accepted it.
       try {
-        const sent = await client.sendMessage(jid, payload, { sendSeen: false, ...(message.midia ? { caption: message.texto, sendMediaAsDocument: message.midia.mimeType === 'application/pdf', sendAudioAsVoice: false } : {}) });
+        const sent = await client.sendMessage(jid, payload, { sendSeen: false,
+          ...(message.citacao?.externaId ? { quotedMessageId: message.citacao.externaId, ignoreQuoteErrors: false } : {}),
+          ...(message.midia ? { caption: message.texto, sendMediaAsDocument: message.midia.mimeType === 'application/pdf', sendAudioAsVoice: false } : {}) });
         if (!sent?.id?._serialized) throw new Error('Confirmação ausente');
         await prisma.mensagemWhatsApp.update({ where: { id: message.id }, data: { externaId: sent.id._serialized, ...(message.tipo === 'ptt' ? { tipo: 'audio' } : {}), status: statusAck(sent.ack), ack: Math.max(0, sent.ack || 0), erro: null } });
-      } catch {
-        await prisma.mensagemWhatsApp.update({ where: { id: message.id }, data: { status: 'INCERTO', erro: 'Envio sem confirmação. Confira o histórico antes de enviar novamente para evitar duplicidade.' } });
+      } catch (error) {
+        const quoteUnavailable = error?.code === 'QUOTE_UNAVAILABLE' || String(error?.message).includes('Could not get the quoted message.');
+        await prisma.mensagemWhatsApp.update({ where: { id: message.id }, data: {
+          status: quoteUnavailable ? 'FALHOU' : 'INCERTO',
+          erro: quoteUnavailable ? 'A mensagem citada não está mais disponível no WhatsApp. Nenhuma resposta foi enviada. Selecione outra mensagem.' : 'Envio sem confirmação. Confira o histórico antes de enviar novamente para evitar duplicidade.',
+        } });
       }
     }
     return pending.length === 5;

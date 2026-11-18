@@ -48,6 +48,13 @@ try {
   const incoming = { id: { _serialized: randomUUID() }, fromMe: false, from: lid, to: 'empresa', type: 'chat', body: 'Olá! Gostaria de um orçamento.', timestamp: Date.now() / 1000, ack: 0 };
   await service.receber(incoming);
   await service.receber(incoming);
+  const beforeQuote = await prisma.cliente.findUnique({ where: { id: clienteId } });
+  await service.receber({ ...incoming, hasQuotedMsg: true, getQuotedMessage: async () => ({ id: { _serialized: 'original-' + conta }, body: 'Qual tamanho você precisa?', type: 'chat', fromMe: true }) });
+  const savedQuote = await prisma.mensagemWhatsApp.findUnique({ where: { conta_externaId: { conta, externaId: incoming.id._serialized } } });
+  assert.equal(savedQuote.citacao.texto, 'Qual tamanho você precisa?');
+  const afterQuote = await prisma.cliente.findUnique({ where: { id: clienteId } });
+  assert.equal(afterQuote.versaoEntrada, beforeQuote.versaoEntrada);
+  assert.ok(afterQuote.versaoMensagens > beforeQuote.versaoMensagens);
   assert.equal(await prisma.mensagemWhatsApp.count({ where: { conta, externaId: incoming.id._serialized } }), 1);
   assert.equal((await prisma.cliente.findUnique({ where: { id: clienteId } })).responsavelId, users[0]);
   console.log('OK: recebimento por LID vinculado ao cadastro e vendedor existentes, sem duplicação.');
@@ -92,10 +99,13 @@ try {
   console.log('OK: anexo enviado pelo provedor simulado e autorização conferida novamente antes do envio.');
   const voice = await prisma.mensagemWhatsApp.create({ data: {
     clienteId, conta, autorId: users[0], direcao: 'SAIDA', texto: '', status: 'PENDENTE', tipo: 'ptt',
+    citacao: { externaId: incoming.id._serialized, texto: incoming.body, tipo: 'chat', direcao: 'ENTRADA' },
     midia: { create: { dados: audioWebm(), mimeType: 'audio/webm', nome: 'audio.webm' } },
   } });
   await service.enviarPendentes(); await service.drain();
   assert.equal(lastOptions.sendAudioAsVoice, false);
+  assert.equal(lastOptions.quotedMessageId, incoming.id._serialized);
+  assert.equal(lastOptions.ignoreQuoteErrors, false);
   assert.equal(lastPayload.mimetype, 'audio/mpeg');
   assert.equal(Buffer.from(lastPayload.data, 'base64').subarray(0, 3).toString(), 'ID3');
   const storedVoice = await prisma.midiaWhatsApp.findUnique({ where: { mensagemId: voice.id } });

@@ -1,13 +1,16 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowLeft, Paperclip, Send, RefreshCw, MoreVertical } from 'lucide-react';
+import { ArrowLeft, Paperclip, Send, RefreshCw, MoreVertical, Reply, X } from 'lucide-react';
 import GravarAudio from './GravarAudio';
 
 type Mensagem = { id: string; texto: string; tipo: string; direcao: string; status: string; erro: string | null; enviadoEm: string;
+  externaId: string | null; citacao: { externaId: string | null; texto: string; tipo: string; direcao: string | null } | null;
   autor: { colaborador: { nome: string } | null } | null; midia: { nome: string; mimeType: string } | null;
 };
 const status: Record<string, string> = { PENDENTE: 'Na fila', ENVIANDO: 'Enviando…', ENVIADA: 'Enviada', ENTREGUE: 'Entregue ✓✓', LIDA: 'Lida ✓✓', FALHOU: 'Falha', INCERTO: 'Sem confirmação', RECEBIDA: 'Recebida' };
+const tipos: Record<string, string> = { image: 'Imagem', audio: 'Áudio', ptt: 'Áudio', document: 'Documento', video: 'Vídeo', sticker: 'Figurinha', chat: 'Mensagem', indisponivel: 'Mensagem original indisponível' };
+const resumo = (m: { texto: string; tipo: string }) => m.texto || tipos[m.tipo] || 'Mensagem';
 
 export default function Conversa({ cliente, onVoltar, onDetalhes, onLida }: {
   cliente: { id: string; nome: string; telefone: string | null };
@@ -15,6 +18,8 @@ export default function Conversa({ cliente, onVoltar, onDetalhes, onLida }: {
 }) {
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
   const [texto, setTexto] = useState('');
+  const [responder, setResponder] = useState<Mensagem | null>(null);
+  const entradaTexto = useRef<HTMLTextAreaElement>(null);
   const [arquivo, setArquivo] = useState<File | null>(null);
   const [voz, setVoz] = useState(false);
   const [gravando, setGravando] = useState(false);
@@ -122,11 +127,12 @@ export default function Conversa({ cliente, onVoltar, onDetalhes, onLida }: {
     form.set('pedidoId', pedido.current); form.set('texto', texto);
     if (arquivo) form.set('arquivo', arquivo);
     if (voz && arquivo) form.set('voz', 'true');
+    if (responder) form.set('responderId', responder.id);
     try {
       const resposta = await fetch(`${base}/mensagens`, { method: 'POST', body: form });
       const dados = await resposta.json();
       if (!resposta.ok) throw new Error(dados.erro || 'Falha ao enviar.');
-      setTexto(''); setArquivo(null); setVoz(false); pedido.current = null;
+      setTexto(''); setArquivo(null); setVoz(false); setResponder(null); pedido.current = null;
       if (upload.current) upload.current.value = '';
       seguirFim.current = true;
       await atualizar();
@@ -145,8 +151,12 @@ export default function Conversa({ cliente, onVoltar, onDetalhes, onLida }: {
       {anteriores && <button onClick={async () => { seguirFim.current = false; try { await atualizar(mensagens[0]?.id); } catch { setErro('Não foi possível carregar mensagens anteriores.'); } }} className="mx-auto mb-5 block rounded-full bg-[#202c33] px-4 py-2 text-xs text-[#aebac1] shadow-sm">Carregar anteriores</button>}
       {carregando && <p className="p-8 text-center text-sm text-[#8696a0]">Carregando conversa…</p>}
       {!carregando && !mensagens.length && <div className="mx-auto mt-10 max-w-md rounded-2xl border border-white/10 bg-[#202c33] p-6 text-center"><h2 className="font-semibold">Comece a conversa</h2><p className="mt-2 text-sm text-[#8696a0]">Envie uma mensagem abaixo ou use “Sincronizar histórico” para buscar mensagens recentes do WhatsApp.</p></div>}
-      <div className="space-y-3">{mensagens.map(m => <article key={m.id} className={`flex ${m.direcao === 'SAIDA' ? 'justify-end' : 'justify-start'}`}>
+      <div className="space-y-3">{mensagens.map(m => <article key={m.id} data-mensagem-id={m.id} className={`flex items-start gap-2 ${m.direcao === 'SAIDA' ? 'justify-end' : 'justify-start'}`}>
         <div className={`max-w-[90%] rounded-2xl px-4 py-3 shadow-sm sm:max-w-[75%] ${m.direcao === 'SAIDA' ? 'rounded-tr-sm bg-[#005c4b]' : 'rounded-tl-sm bg-[#202c33]'}`}>
+          {m.citacao && <blockquote className="mb-2 max-w-full rounded border-l-4 border-emerald-400 bg-black/20 px-3 py-2 text-xs" aria-label="Mensagem citada">
+            <p className="mb-1 font-semibold text-emerald-300">{m.citacao.direcao === 'SAIDA' ? 'Empresa' : m.citacao.direcao === 'ENTRADA' ? cliente.nome : 'Mensagem original'}</p>
+            <p className="line-clamp-3 whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{resumo(m.citacao)}</p>
+          </blockquote>}
           {m.midia?.mimeType.startsWith('image/') && <a href={`/api/atendimento/midia/${m.id}`} target="_blank" rel="noreferrer">
             {/* Authenticated media must not be sent through a shared image cache. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -160,17 +170,22 @@ export default function Conversa({ cliente, onVoltar, onDetalhes, onLida }: {
           <div className="mt-2 flex flex-wrap justify-end gap-2 text-[11px] text-[#8696a0]"><time>{new Date(m.enviadoEm).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</time>
             {m.direcao === 'SAIDA' && <span className={m.status === 'LIDA' ? 'text-sky-300' : m.status === 'FALHOU' || m.status === 'INCERTO' ? 'text-amber-300' : ''}>{m.autor?.colaborador?.nome ? m.autor.colaborador.nome + ' · ' : ''}{status[m.status] || m.status}</span>}</div>
         </div>
+        {m.externaId && podeEnviar && <button type="button" disabled={enviando} aria-label="Responder esta mensagem" title="Responder" onClick={() => { setResponder(m); pedido.current = null; entradaTexto.current?.focus(); }} className="shrink-0 rounded-full p-2 text-[#aebac1] hover:bg-white/10 disabled:opacity-40"><Reply size={17} /></button>}
       </article>)}</div>
     </div>
     <footer className="shrink-0 border-t border-white/5 bg-[#202c33] p-3 sm:px-5">
       {erro && <p role="alert" className="mb-2 text-sm text-red-300">{erro}</p>}
       {aviso && <p role="status" className="mb-2 text-xs text-[#8696a0]">{aviso}</p>}
+      {responder && <div aria-label="Respondendo à mensagem" className="mb-3 flex items-center gap-3 rounded-lg border-l-4 border-emerald-400 bg-[#182229] px-3 py-2">
+        <div className="min-w-0 flex-1"><p className="text-xs font-semibold text-emerald-300">Respondendo a {responder.direcao === 'SAIDA' ? 'Empresa' : cliente.nome}</p><p className="mt-1 line-clamp-2 break-words text-xs [overflow-wrap:anywhere]">{resumo(responder)}</p></div>
+        <button type="button" disabled={enviando} aria-label="Cancelar resposta" onClick={() => { setResponder(null); pedido.current = null; }} className="shrink-0 rounded p-2 hover:bg-white/10"><X size={18} /></button>
+      </div>}
       {!podeEnviar && !carregando ? <p className="p-3 text-center text-sm text-[#aebac1]">Não foi possível habilitar o envio. {erro ? 'Confira o aviso acima.' : 'Atualize a conversa e verifique seu acesso.'}</p> : <form onSubmit={enviar}>
         {arquivo && <div className="mb-2 flex items-center gap-3 text-xs"><span className="truncate">{arquivo.name}</span><button type="button" disabled={enviando} onClick={() => { setArquivo(null); setVoz(false); pedido.current = null; if (upload.current) upload.current.value = ''; }} className="text-red-300">Remover</button></div>}
         {previewAudio && <audio aria-label="Ouvir áudio antes de enviar" controls src={previewAudio} className="mb-3 h-10 w-full max-w-sm" />}
         <div className="flex flex-wrap items-end gap-2"><label className="cursor-pointer rounded-lg p-3 text-[#aebac1] hover:bg-white/5" title="Anexar imagem, áudio ou PDF"><Paperclip size={22} /><span className="sr-only">Anexar arquivo</span>
           <input ref={upload} type="file" disabled={enviando || gravando || !podeEnviar} className="sr-only" accept="image/jpeg,image/png,image/webp,image/gif,audio/ogg,audio/mpeg,audio/mp4,audio/wav,audio/webm,application/pdf" onChange={e => { const file = e.target.files?.[0]; if (file && file.size > 10 * 1024 * 1024) { setErro('O arquivo deve ter até 10 MB.'); e.target.value = ''; return; } setArquivo(file ?? null); setVoz(false); pedido.current = null; }} /></label>
-          <textarea hidden={gravando} value={texto} onChange={e => { setTexto(e.target.value); pedido.current = null; }} disabled={enviando || gravando || !podeEnviar} maxLength={6000} rows={1} aria-label="Mensagem" placeholder="Digite sua mensagem…" className="max-h-40 min-w-0 flex-1 resize-y rounded-lg border border-transparent bg-[#2a3942] p-3 text-sm text-[#e9edef] outline-none placeholder:text-[#8696a0] focus:border-emerald-600" />
+          <textarea ref={entradaTexto} hidden={gravando} value={texto} onChange={e => { setTexto(e.target.value); pedido.current = null; }} disabled={enviando || gravando || !podeEnviar} maxLength={6000} rows={1} aria-label="Mensagem" placeholder="Digite sua mensagem…" className="max-h-40 min-w-0 flex-1 resize-y rounded-lg border border-transparent bg-[#2a3942] p-3 text-sm text-[#e9edef] outline-none placeholder:text-[#8696a0] focus:border-emerald-600" />
           <GravarAudio disabled={enviando || !podeEnviar || !!arquivo} onArquivo={file => { setArquivo(file); setVoz(true); pedido.current = null; }} onGravando={setGravando} onErro={setErro} />
           <button type="submit" disabled={enviando || gravando || !podeEnviar || (!texto.trim() && !arquivo)} className="flex items-center gap-2 rounded-full bg-[#00a884] px-4 py-3 text-sm font-semibold text-white disabled:opacity-40"><Send size={18} /><span className="hidden sm:inline">{enviando ? 'Salvando…' : 'Enviar'}</span><span className="sr-only sm:hidden">Enviar</span></button>
         </div><p className="mt-1 text-[10px] text-[#8696a0]">Imagens, áudio e PDF até 10 MB. O estado de envio aparece em cada mensagem.</p>

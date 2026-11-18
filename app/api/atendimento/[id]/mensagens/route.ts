@@ -8,7 +8,7 @@ import { LIMITE_MIDIA, nomeArquivo, validarMidia } from '@/lib/whatsapp/conteudo
 export const runtime = 'nodejs';
 type Contexto = { params: Promise<{ id: string }> };
 const json = (body: unknown, status = 200) => Response.json(body, { status, headers: privado });
-const selecao = { id: true, texto: true, tipo: true, direcao: true, status: true, erro: true, enviadoEm: true,
+const selecao = { id: true, externaId: true, citacao: true, texto: true, tipo: true, direcao: true, status: true, erro: true, enviadoEm: true,
   autor: { select: { colaborador: { select: { nome: true } } } },
   midia: { select: { nome: true, mimeType: true } },
 } satisfies Prisma.MensagemWhatsAppSelect;
@@ -57,6 +57,8 @@ export async function POST(request: Request, { params }: Contexto) {
     if (!/^[a-f0-9-]{36}$/i.test(pedidoId) || texto.length > 6000) return json({ erro: 'Mensagem inválida ou acima de 6.000 caracteres.' }, 400);
     const arquivo = form.get('arquivo');
     const voz = form.get('voz') === 'true';
+    const responderId = String(form.get('responderId') || '');
+    if (responderId.length > 100) return json({ erro: 'Mensagem citada inválida.' }, 400);
     let midia: { dados: Buffer; nome: string; mimeType: string } | undefined;
     if (arquivo instanceof File && arquivo.size) {
       const dados = Buffer.from(await arquivo.arrayBuffer());
@@ -64,7 +66,7 @@ export async function POST(request: Request, { params }: Contexto) {
     }
     if (!texto && !midia) return json({ erro: 'Digite uma mensagem ou selecione um arquivo.' }, 400);
     if (voz && !midia?.mimeType.startsWith('audio/')) return json({ erro: 'A mensagem de voz precisa de um arquivo de áudio.' }, 400);
-    const conteudoHash = createHash('sha256').update(JSON.stringify([texto, midia?.nome, midia?.mimeType])).update(midia?.dados ?? '').update(voz ? ':voz' : '').digest('hex');
+    const conteudoHash = createHash('sha256').update(JSON.stringify([texto, midia?.nome, midia?.mimeType])).update(midia?.dados ?? '').update(voz ? ':voz' : '').update(responderId ? ':resposta:' + responderId : '').digest('hex');
     const existing = await prisma.mensagemWhatsApp.findUnique({ where: { pedidoId } });
     if (existing) {
       if (existing.clienteId !== id || existing.autorId !== acesso.usuario.id || existing.conteudoHash !== conteudoHash) return json({ erro: 'Identificador já utilizado para outra mensagem.' }, 409);
@@ -72,11 +74,14 @@ export async function POST(request: Request, { params }: Contexto) {
     }
     const estado = await chamarWhatsApp('status').catch(() => null);
     if (estado?.status !== 'conectado' || !estado.numero) return json({ erro: 'O WhatsApp está desconectado. Conecte o aparelho antes de enviar.' }, 409);
+    const original = responderId ? await prisma.mensagemWhatsApp.findFirst({ where: { id: responderId, clienteId: id, conta: estado.numero, externaId: { not: null } }, select: { externaId: true, texto: true, tipo: true, direcao: true } }) : null;
+    if (responderId && !original) return json({ erro: 'A mensagem citada não está disponível nesta conversa ou ainda não foi enviada.' }, 400);
     const mensagem = await prisma.$transaction(async tx => {
       const allowed = await tx.cliente.updateMany({ where: { id, ...(acesso.usuario.role === 'ADMIN' ? {} : { OR: [{ responsavelId: acesso.usuario.id }, { responsavelId: null }] }) }, data: { ultimaMensagemEm: new Date() } });
       if (!allowed.count) throw new Error('O responsável mudou. Atualize a conversa.');
       return tx.mensagemWhatsApp.create({ data: {
         clienteId: id, conta: estado.numero!, pedidoId, conteudoHash, autorId: acesso.usuario.id,
+        ...(original ? { citacao: { externaId: original.externaId, texto: original.texto.slice(0, 1000), tipo: original.tipo, direcao: original.direcao } } : {}),
         direcao: 'SAIDA', texto, status: 'PENDENTE', tipo: voz ? 'ptt' : midia ? midia.mimeType.startsWith('image/') ? 'image' : midia.mimeType.startsWith('audio/') ? 'audio' : 'document' : 'chat',
         ...(midia ? { midia: { create: midia } } : {}),
       } });

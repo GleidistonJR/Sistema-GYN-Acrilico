@@ -18,6 +18,13 @@ Migrações de clientes e mensagens aplicadas em produção em 18/11/2026 com au
   Atribuição usa UPDATE condicional. ADMIN transfere/devolve à fila, com auditoria.
 - Mensagens, identidades e anexos persistidos no PostgreSQL. Áudio reproduzível,
   imagens visualizáveis e PDFs para download.
+- Respostas citadas aparecem no histórico com autor, tipo e resumo de até 1.000
+  caracteres. O botão Responder seleciona a mensagem para texto, áudio ou anexo;
+  é possível cancelar antes de enviar. A API valida conversa e conta e inclui a
+  referência na idempotência. O worker usa quotedMessageId e impede envio sem a
+  referência quando o WhatsApp não permite citar. Não duplica mídias da citação.
+- Histórico recente já importado recebe citações durante a sincronização quando
+  disponíveis; referências antigas indisponíveis aparecem identificadas como tal.
 - Gravação pelo microfone por até 2 minutos, prévia para ouvir, descarte e envio como
   áudio MP3 comum. Exige permissão do navegador e localhost/HTTPS. Anexar áudio
   continua disponível. Respostas inteligentes ainda não implementadas.
@@ -113,6 +120,7 @@ sessão no servidor. A compilação voltou a verificar TypeScript.
 
     node --test tests/atendimento.test.mjs tests/whatsapp-navegacao.test.mjs
     node --test tests/whatsapp-audio.test.mjs
+    node --test tests/whatsapp-citacao.test.mjs
     node --test tests/autorizacao-http.test.mjs
     npx tsc --noEmit
     npx next build

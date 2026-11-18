@@ -8,6 +8,24 @@ export function erroDeNavegacao(error) {
 // Navigation can invalidate an evaluate() while logout/QR renewal is in progress.
 // Keep the workaround outside node_modules and covered by regression tests.
 export class WhatsAppClient extends whatsapp.Client {
+  async sendMessage(chatId, content, options = {}) {
+    if (options.quotedMessageId) {
+      const canQuote = await this.pupPage.evaluate(async id => {
+        const { Msg } = window.require('WAWebCollections');
+        const message = Msg.get(id) || (await Msg.getMessagesById([id]))?.messages?.[0];
+        if (!message) return false;
+        const reply = window.require('WAWebMsgReply');
+        return reply ? reply.canReplyMsg(message.unsafe()) : message.canReply();
+      }, options.quotedMessageId);
+      if (!canQuote) {
+        const error = new Error('A mensagem original não está mais disponível para responder no WhatsApp.');
+        error.code = 'QUOTE_UNAVAILABLE';
+        throw error;
+      }
+    }
+    return super.sendMessage(chatId, content, options);
+  }
+
   constructor(options) {
     super(options);
     this.logoutReported = false;

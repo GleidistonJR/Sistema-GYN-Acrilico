@@ -163,6 +163,7 @@ model MensagemWhatsApp {
   externaId String?
   pedidoId String? @unique
   conteudoHash String?
+  citacao Json?
   autorId String?
   autor User? @relation(fields: [autorId], references: [id], onDelete: SetNull)
   direcao String

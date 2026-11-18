@@ -12,7 +12,9 @@ let browser;
 try {
   await db.user.create({ data: { id: userId, email: conta + '@example.invalid', password: '!temporario', role: 'USER', sessoes: { create: { tokenHash: createHash('sha256').update(token).digest('hex'), expiresAt: new Date(Date.now() + 600000) } } } });
   await db.cliente.create({ data: { id, nome: 'Cliente de validação', responsavelId: userId } });
-  const incoming = texto => db.mensagemWhatsApp.create({ data: { clienteId: id, conta, direcao: 'ENTRADA', status: 'RECEBIDA', texto } });
+  const incoming = texto => db.mensagemWhatsApp.create({ data: { clienteId: id, conta, externaId: randomUUID(), direcao: 'ENTRADA', status: 'RECEBIDA', texto,
+    citacao: { externaId: 'original', texto: 'Pedido anterior', tipo: 'chat', direcao: 'SAIDA' },
+  } });
   await incoming('Mensagem privada sem prévia');
   browser = await puppeteer.launch({ headless: true, executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'] });
   const context = await browser.createBrowserContext();
@@ -40,6 +42,12 @@ try {
   await page.waitForFunction(() => document.querySelector('article')?.textContent.includes('Mensagem privada'));
   await page.waitForFunction(selector => !document.querySelector(selector + ' [aria-label="Mensagens não lidas"]'), {}, row);
   await page.waitForSelector('[aria-label="Tempo real ativo"]');
+  await page.waitForSelector('[aria-label="Mensagem citada"]');
+  await page.click('article [aria-label="Responder esta mensagem"]');
+  await page.waitForSelector('[aria-label="Respondendo à mensagem"]');
+  await page.click('[aria-label="Cancelar resposta"]');
+  assert.equal(await page.$('[aria-label="Respondendo à mensagem"]'), null);
+  await page.click('article [aria-label="Responder esta mensagem"]');
   const start = Date.now();
   await incoming('Atualização automática confirmada');
   await page.waitForFunction(() => document.querySelector('section')?.textContent.includes('Atualização automática confirmada'));
@@ -56,7 +64,7 @@ try {
     window.fetch = async (url, options) => {
       if (String(url).endsWith('/mensagens') && options?.method === 'POST') {
         const file = options.body.get('arquivo');
-        window.__audioRequest = { voz: options.body.get('voz'), type: file.type, bytes: [...new Uint8Array(await file.arrayBuffer())] };
+        window.__audioRequest = { responderId: options.body.get('responderId'), voz: options.body.get('voz'), type: file.type, bytes: [...new Uint8Array(await file.arrayBuffer())] };
         return new Response(JSON.stringify({ id: 'simulado', status: 'PENDENTE' }), { status: 202 });
       }
       return original(url, options);
@@ -65,6 +73,8 @@ try {
   await page.click('button[type="submit"]');
   await page.waitForFunction(() => !!window.__audioRequest);
   const audio = await page.evaluate(() => window.__audioRequest);
+  assert.ok(audio.responderId);
+  await page.waitForSelector('[aria-label="Respondendo à mensagem"]', { hidden: true });
   assert.equal(audio.voz, 'true'); assert.equal(validarMidia(Buffer.from(audio.bytes), audio.type), 'audio/webm');
   await page.waitForSelector('[aria-label="Ouvir áudio antes de enviar"]', { hidden: true });
   await page.waitForSelector('[aria-label="Gravar áudio"]:not(:disabled)');
