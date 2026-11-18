@@ -21,6 +21,14 @@ export async function alterarAtendimento(_anterior: Resultado, form: FormData): 
     } else if (acao === 'criarEtiqueta') {
       if (usuario.role !== 'ADMIN') throw new Error('Somente administradores podem criar etiquetas.');
       await prisma.etiqueta.create({ data: { nome: validarTexto(form.get('nome'), 40).toLocaleLowerCase('pt-BR') } });
+    } else if (acao === 'renomear') {
+      const id = validarTexto(form.get('clienteId'), 100);
+      const nome = validarTexto(form.get('nome'), 120);
+      const resultado = await prisma.cliente.updateMany({
+        where: { id, ...(usuario.role === 'ADMIN' ? {} : { OR: [{ responsavelId: usuario.id }, { responsavelId: null }] }) },
+        data: { nome },
+      });
+      if (resultado.count !== 1) throw new Error('Cliente não disponível para alteração. Atualize a conversa.');
     } else {
       const id = validarTexto(form.get('clienteId'), 100);
       await prisma.$transaction(async tx => {

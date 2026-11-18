@@ -117,7 +117,9 @@ export default function PainelAtendimento({ usuario, etiquetas, filaInicial, cli
       try {
         const r = await fetch(`/api/atendimento/${selectedId}/detalhes`, { signal: controller.signal, cache: 'no-store' });
         if (!r.ok) throw new Error('Não foi possível carregar este cliente.');
-        setDetalhes(await r.json()); setErroDetalhes('');
+        const data = await r.json();
+        setDetalhes(data); setErroDetalhes('');
+        setSelecionado(atual => atual?.id === data.cliente.id ? { ...atual, ...data.cliente } : atual);
       } catch { if (!controller.signal.aborted) setErroDetalhes('Não foi possível carregar este cliente.'); }
     };
     void load();
@@ -169,6 +171,10 @@ export default function PainelAtendimento({ usuario, etiquetas, filaInicial, cli
       {modal === 'etiqueta' && <Formulario acao="criarEtiqueta" botao="Criar etiqueta"><label className="block text-sm">Nome<input name="nome" required maxLength={40} className={campo} autoFocus /></label></Formulario>}
       {modal === 'detalhes' && <div className="space-y-6">{erroDetalhes ? <p role="alert" className="text-sm text-red-700">{erroDetalhes}</p> : !detalhes ? <p className="text-sm text-slate-500">Carregando…</p> : <>
         <div><h3 className="font-semibold">{detalhes.cliente.nome}</h3><p className="text-sm text-slate-500">{detalhes.cliente.telefone}</p></div>
+        <Formulario acao="renomear" clienteId={detalhes.cliente.id} botao="Salvar nome">
+          <label className="block text-sm">Nome do contato<input name="nome" required maxLength={120} defaultValue={detalhes.cliente.nome} className={campo} autoComplete="off" /></label>
+          <p className="text-xs text-slate-500">Este nome será exibido para todos os usuários com acesso ao contato.</p>
+        </Formulario>
         {!detalhes.cliente.responsavelId && <Formulario acao="assumir" clienteId={detalhes.cliente.id} botao="Assumir cliente" />}
         {editar && <>
           {!!detalhes.etiquetas.length && <Formulario acao="etiquetar" clienteId={detalhes.cliente.id} botao="Adicionar etiqueta"><label className="block text-sm">Etiqueta<select name="etiquetaId" className={campo}>{detalhes.etiquetas.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}</select></label></Formulario>}

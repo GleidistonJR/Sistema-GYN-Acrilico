@@ -16,6 +16,10 @@ Migrações de clientes e mensagens aplicadas em produção em 18/11/2026 com au
 - /atendimento/conexao: QR Code, estado e desconexão, restritos a ADMIN.
 - Contatos novos entram na fila; clientes existentes preservam seu responsável.
   Atribuição usa UPDATE condicional. ADMIN transfere/devolve à fila, com auditoria.
+- Nome do contato pode ser editado em Organizar cliente por ADMIN ou por USER com
+  acesso (fila compartilhada ou carteira própria), sem exigir que assuma a fila.
+  Atualiza Cliente.nome, compartilhado entre logins, com notificação da alteração.
+  O serviço WhatsApp preserva esse nome ao sincronizar contatos já cadastrados.
 - Mensagens, identidades e anexos persistidos no PostgreSQL. Áudio reproduzível,
   imagens visualizáveis e PDFs para download.
 - Respostas citadas aparecem no histórico com autor, tipo e resumo de até 1.000
@@ -137,6 +141,7 @@ Testes integrados exigem RUN_DATABASE_INTEGRATION=1 e serviços ativos:
     node --env-file=.env tests/inbox-integracao.mjs
     node --env-file=.env tests/fila-http-integracao.mjs
     node --env-file=.env tests/citacao-navegacao-integracao.mjs
+    node --env-file=.env tests/nome-contato-integracao.mjs
 
 Registros temporários têm IDs próprios e são removidos em finally. O teste de mensagens
 usa provedor simulado e não envia a clientes reais. Verifica LID, responsável,
