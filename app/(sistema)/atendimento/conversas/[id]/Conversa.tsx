@@ -56,7 +56,7 @@ export default function Conversa({ cliente, onVoltar, onDetalhes, onLida }: {
   const atualizar = useCallback(async (antes?: string, signal?: AbortSignal) => {
     const query = antes ? '?antes=' + encodeURIComponent(antes) : versao.current ? '?versao=' + versao.current : '';
     const resposta = await fetch(`${base}/mensagens${query}`, { cache: 'no-store', signal });
-    if (resposta.status === 304) { setPodeEnviar(resposta.headers.get('X-Pode-Enviar') === 'true'); return; }
+    if (resposta.status === 304) { setPodeEnviar(true); return; }
     const dados = await resposta.json();
     if (!resposta.ok) {
       if (resposta.status === 403) { setMensagens([]); setPodeEnviar(false); }
@@ -165,7 +165,7 @@ export default function Conversa({ cliente, onVoltar, onDetalhes, onLida }: {
     <footer className="shrink-0 border-t border-white/5 bg-[#202c33] p-3 sm:px-5">
       {erro && <p role="alert" className="mb-2 text-sm text-red-300">{erro}</p>}
       {aviso && <p role="status" className="mb-2 text-xs text-[#8696a0]">{aviso}</p>}
-      {!podeEnviar && !carregando ? <p className="p-3 text-center text-sm text-[#aebac1]"><button onClick={onDetalhes} className="font-semibold text-emerald-300 underline">Assuma este cliente</button> para responder.</p> : <form onSubmit={enviar}>
+      {!podeEnviar && !carregando ? <p className="p-3 text-center text-sm text-[#aebac1]">Não foi possível habilitar o envio. {erro ? 'Confira o aviso acima.' : 'Atualize a conversa e verifique seu acesso.'}</p> : <form onSubmit={enviar}>
         {arquivo && <div className="mb-2 flex items-center gap-3 text-xs"><span className="truncate">{arquivo.name}</span><button type="button" disabled={enviando} onClick={() => { setArquivo(null); setVoz(false); pedido.current = null; if (upload.current) upload.current.value = ''; }} className="text-red-300">Remover</button></div>}
         {previewAudio && <audio aria-label="Ouvir áudio antes de enviar" controls src={previewAudio} className="mb-3 h-10 w-full max-w-sm" />}
         <div className="flex flex-wrap items-end gap-2"><label className="cursor-pointer rounded-lg p-3 text-[#aebac1] hover:bg-white/5" title="Anexar imagem, áudio ou PDF"><Paperclip size={22} /><span className="sr-only">Anexar arquivo</span>

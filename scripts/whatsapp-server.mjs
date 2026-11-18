@@ -8,6 +8,7 @@ import { WhatsAppClient } from './whatsapp-client.mjs';
 import { PrismaClient } from '@prisma/client';
 import { criarServicoMensagens } from './whatsapp-mensagens.mjs';
 import { criarEventosAtendimento } from './whatsapp-eventos.mjs';
+import { publicarEstadoServico } from '../lib/whatsapp/estado-servico.mjs';
 
 const prisma = new PrismaClient();
 let mensagens = null;
@@ -29,7 +30,14 @@ let generation = 0;
 let busy = false;
 let watchdog;
 let state = { status: 'desconectado', qr: null, numero: null, mensagem: null, atualizadoEm: new Date().toISOString() };
-function update(values) { state = { ...state, ...values, atualizadoEm: new Date().toISOString() }; }
+let heartbeatChain = Promise.resolve();
+function heartbeat() {
+  heartbeatChain = heartbeatChain.catch(() => {}).then(() => publicarEstadoServico(prisma, state));
+  void heartbeatChain.catch(() => console.error('Falha ao atualizar disponibilidade WhatsApp.'));
+  return heartbeatChain;
+}
+const heartbeatTimer = setInterval(() => void heartbeat(), 10000);
+function update(values) { state = { ...state, ...values, atualizadoEm: new Date().toISOString() }; void heartbeat(); }
 function snapshot() {
   if (state.status === 'qr' && Date.now() - Date.parse(state.atualizadoEm) > 65000) {
     return { ...state, qr: null, mensagem: 'Aguardando renovação do QR Code…' };
@@ -203,6 +211,9 @@ let stopping = false;
 async function stop() {
   if (stopping) return;
   stopping = true;
+  clearInterval(heartbeatTimer);
+  update({ status: 'desconectado', numero: null, qr: null });
+  await heartbeatChain.catch(() => {});
   ++generation;
   clearTimeout(watchdog);
   server.close();

@@ -46,7 +46,11 @@ o callback de conclusão quando a sessão já sincronizou. O estado conectado de
 do evento ready. Revisar esses ajustes antes de atualizar a biblioteca.
 
 Publicar apenas o Next.js não publica o serviço persistente do WhatsApp.
-127.0.0.1 aponta para o computador do servidor, não o de quem visita o site.
+Na Vercel, o envio consulta o estado do serviço no banco compartilhado e grava
+na fila; o computador conectado ao WhatsApp realiza a transmissão. O serviço
+publica disponibilidade a cada 10 segundos, expirada após 45 segundos sem atualização.
+Não é necessário expor a porta local para enviar pela Vercel. Configuração de QR,
+conexão/desconexão e sincronização manual continuam exigindo acesso ao serviço local.
 
 ## Histórico e envio
 
@@ -71,18 +75,23 @@ o histórico antes de reenviar. Após reinício, ENVIANDO vira INCERTO.
 Texto de saída limitado a 6.000 caracteres. Arquivos até 10 MB com assinatura e MIME
 validados. Downloads exigem acesso à conversa, sem cache compartilhado, com suporte
 Range para áudio. Tipos não suportados e arquivos indisponíveis são indicados na tela.
+Gravações de voz são convertidas localmente de WebM/MP4 para Ogg Opus pelo FFmpeg
+antes da transmissão, usando ffmpeg-static (FFMPEG_PATH opcional). Falha de conversão
+é FALHOU, sem transmissão; falha após chamar o WhatsApp permanece INCERTO.
 
 ## Permissões
 
 Sessão real validada no servidor: lib/autorizacao.ts e lib/whatsapp/acesso.ts.
-USER vê fila e carteira própria; responde somente a clientes próprios. ADMIN acessa
+USER vê fila e carteira própria; pode responder em ambas sem assumir. ADMIN acessa
 todos. APIs verificam sessão, origem e responsável. Worker revalida autor antes do envio.
+Responder à fila não muda o responsável. A carteira de outro vendedor continua restrita.
 O cookie legado não concede acesso. Colaboradores, ponto e cálculos também validam
 sessão no servidor. A compilação voltou a verificar TypeScript.
 
 ## Validação
 
     node --test tests/atendimento.test.mjs tests/whatsapp-navegacao.test.mjs
+    node --test tests/whatsapp-audio.test.mjs
     node --test tests/autorizacao-http.test.mjs
     npx tsc --noEmit
     npx next build
@@ -92,6 +101,7 @@ Testes integrados exigem RUN_DATABASE_INTEGRATION=1 e serviços ativos:
     node --env-file=.env tests/atendimento-integracao.mjs
     node --env-file=.env tests/whatsapp-mensagens-integracao.mjs
     node --env-file=.env tests/inbox-integracao.mjs
+    node --env-file=.env tests/fila-http-integracao.mjs
 
 Registros temporários têm IDs próprios e são removidos em finally. O teste de mensagens
 usa provedor simulado e não envia a clientes reais. Verifica LID, responsável,

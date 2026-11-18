@@ -5,6 +5,7 @@ import { PrismaClient } from '@prisma/client';
 import puppeteer from 'puppeteer';
 import { criarServicoMensagens } from '../scripts/whatsapp-mensagens.mjs';
 import { variantesTelefone, telefoneDoJid, validarMidia } from '../lib/whatsapp/conteudo.mjs';
+import { audioWebm } from './fixtures/audio.mjs';
 
 if (process.env.RUN_DATABASE_INTEGRATION !== '1') throw new Error('Requer RUN_DATABASE_INTEGRATION=1.');
 const prisma = new PrismaClient();
@@ -18,12 +19,14 @@ const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR
 const client = new EventEmitter();
 let sends = 0;
 let lastOptions;
+let lastPayload;
 let shouldFail = false;
 client.getNumberId = async number => ({ _serialized: number + '@c.us' });
 client.getContactLidAndPhone = async () => [{ lid, pn: jid }];
 client.getContactById = async () => ({ pushname: 'Contato de teste' });
 client.sendMessage = async (_jid, payload, options) => {
   lastOptions = options;
+  lastPayload = payload;
   sends++;
   if (shouldFail) throw new Error('Simulação: conexão interrompida após tentativa');
   const message = { id: { _serialized: randomUUID() }, fromMe: true, to: jid, from: 'empresa', type: 'chat', body: typeof payload === 'string' ? payload : 'arquivo', timestamp: Date.now() / 1000, ack: 1 };
@@ -87,12 +90,21 @@ try {
   console.log('OK: anexo enviado pelo provedor simulado e autorização conferida novamente antes do envio.');
   const voice = await prisma.mensagemWhatsApp.create({ data: {
     clienteId, conta, autorId: users[0], direcao: 'SAIDA', texto: '', status: 'PENDENTE', tipo: 'ptt',
-    midia: { create: { dados: Buffer.from('OggS-simulado'), mimeType: 'audio/ogg', nome: 'audio.ogg' } },
+    midia: { create: { dados: audioWebm(), mimeType: 'audio/webm', nome: 'audio.webm' } },
   } });
   await service.enviarPendentes(); await service.drain();
   assert.equal(lastOptions.sendAudioAsVoice, true);
+  assert.equal(lastPayload.mimetype, 'audio/ogg; codecs=opus');
+  assert.equal(Buffer.from(lastPayload.data, 'base64').subarray(0, 4).toString(), 'OggS');
   assert.equal((await prisma.mensagemWhatsApp.findUnique({ where: { id: voice.id } })).status, 'ENVIADA');
   console.log('OK: gravação enviada como mensagem de voz ao provedor simulado.');
+  await prisma.cliente.update({ where: { id: clienteId }, data: { responsavelId: null } });
+  const queueReply = await prisma.mensagemWhatsApp.create({ data: { clienteId, conta, autorId: users[1], direcao: 'SAIDA', texto: 'Resposta sem assumir', status: 'PENDENTE' } });
+  await service.enviarPendentes(); await service.drain();
+  assert.equal((await prisma.mensagemWhatsApp.findUnique({ where: { id: queueReply.id } })).status, 'ENVIADA');
+  assert.equal((await prisma.cliente.findUnique({ where: { id: clienteId } })).responsavelId, null);
+  await prisma.cliente.update({ where: { id: clienteId }, data: { responsavelId: users[0] } });
+  console.log('OK: vendedor responde à fila sem assumir e sem alterar responsável.');
 
   browser = await puppeteer.launch({ headless: true, executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe' });
   const pages = [];

@@ -1,4 +1,5 @@
 import whatsapp from 'whatsapp-web.js';
+import { converterVoz } from './whatsapp-audio.mjs';
 import { telefoneDoJid, variantesTelefone, nomeArquivo, validarMidia, LIMITE_MIDIA, statusAck } from '../lib/whatsapp/conteudo.mjs';
 
 export function criarServicoMensagens({ prisma, client, conta, ativo }) {
@@ -140,16 +141,25 @@ export function criarServicoMensagens({ prisma, client, conta, ativo }) {
         const owner = await tx.cliente.updateMany({ where: { id: message.clienteId, responsavelId: message.cliente.responsavelId }, data: { updatedAt: new Date() } });
         if (!owner.count) return false;
         const author = message.autorId ? await tx.user.findUnique({ where: { id: message.autorId }, select: { role: true } }) : null;
-        if (!author || (author.role !== 'ADMIN' && !(author.role === 'USER' && message.cliente.responsavelId === message.autorId))) {
+        if (!author || (author.role !== 'ADMIN' && !(author.role === 'USER' && (message.cliente.responsavelId === null || message.cliente.responsavelId === message.autorId)))) {
           await tx.mensagemWhatsApp.update({ where: { id: message.id }, data: { status: 'FALHOU', erro: 'O vendedor não é mais responsável por este cliente.' } });
           return false;
         }
         return (await tx.mensagemWhatsApp.updateMany({ where: { id: message.id, status: 'PENDENTE' }, data: { status: 'ENVIANDO' } })).count === 1;
       });
       if (!claimed) continue;
+      let payload;
+      try {
+        payload = message.midia ? message.tipo === 'ptt'
+          ? new whatsapp.MessageMedia('audio/ogg; codecs=opus', (await converterVoz(Buffer.from(message.midia.dados))).toString('base64'), 'audio.ogg')
+          : new whatsapp.MessageMedia(message.midia.mimeType, Buffer.from(message.midia.dados).toString('base64'), message.midia.nome)
+          : message.texto;
+      } catch {
+        await prisma.mensagemWhatsApp.update({ where: { id: message.id }, data: { status: 'FALHOU', erro: 'O áudio não pôde ser preparado. Nenhuma mensagem foi enviada. Grave novamente.' } });
+        continue;
+      }
       // Do not retry an ambiguous send automatically: WhatsApp may have accepted it.
       try {
-        const payload = message.midia ? new whatsapp.MessageMedia(message.midia.mimeType, Buffer.from(message.midia.dados).toString('base64'), message.midia.nome) : message.texto;
         const sent = await client.sendMessage(jid, payload, { sendSeen: false, ...(message.midia ? { caption: message.texto, sendMediaAsDocument: message.midia.mimeType === 'application/pdf', sendAudioAsVoice: message.tipo === 'ptt' } : {}) });
         if (!sent?.id?._serialized) throw new Error('Confirmação ausente');
         await prisma.mensagemWhatsApp.update({ where: { id: message.id }, data: { externaId: sent.id._serialized, status: statusAck(sent.ack), ack: Math.max(0, sent.ack || 0), erro: null } });

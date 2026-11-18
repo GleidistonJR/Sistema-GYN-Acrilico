@@ -139,6 +139,13 @@ model LeituraConversa {
   @@index([clienteId])
 }
 
+model EstadoServicoWhatsApp {
+  id           String   @id
+  status       String
+  numero       String?
+  atualizadoEm DateTime @default(now())
+}
+
 model IdentidadeWhatsApp {
   conta String
   jid String

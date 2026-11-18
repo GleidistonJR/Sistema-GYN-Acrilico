@@ -2,12 +2,12 @@ import 'server-only';
 import { prisma } from '@/lib/prisma';
 import { obterUsuarioSessao } from '@/lib/sessao';
 
-export async function acessoConversa(clienteId: string, escrita = false) {
+export async function acessoConversa(clienteId: string) {
   const usuario = await obterUsuarioSessao();
   if (!usuario || !['ADMIN', 'USER'].includes(usuario.role)) return null;
   const cliente = await prisma.cliente.findFirst({ where: {
     id: clienteId,
-    ...(usuario.role === 'ADMIN' ? {} : escrita ? { responsavelId: usuario.id } : { OR: [{ responsavelId: usuario.id }, { responsavelId: null }] }),
+    ...(usuario.role === 'ADMIN' ? {} : { OR: [{ responsavelId: usuario.id }, { responsavelId: null }] }),
   } });
   return cliente ? { usuario, cliente } : null;
 }

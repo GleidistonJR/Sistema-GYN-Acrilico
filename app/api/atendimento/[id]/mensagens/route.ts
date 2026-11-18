@@ -18,7 +18,7 @@ export async function GET(request: Request, { params }: Contexto) {
   const acesso = await acessoConversa(id);
   if (!acesso) return json({ erro: 'Conversa não disponível para este usuário.' }, 403);
   const antes = new URL(request.url).searchParams.get('antes');
-  const podeEnviar = acesso.usuario.role === 'ADMIN' || acesso.cliente.responsavelId === acesso.usuario.id;
+  const podeEnviar = true; // Todos os operadores com acesso podem responder, inclusive na fila.
   if (!antes && new URL(request.url).searchParams.get('versao') === acesso.cliente.versaoMensagens.toString()) {
     return new Response(null, { status: 304, headers: { ...privado, 'X-Pode-Enviar': String(podeEnviar) } });
   }
@@ -35,8 +35,8 @@ export async function GET(request: Request, { params }: Contexto) {
 export async function POST(request: Request, { params }: Contexto) {
   if (!mesmaOrigem(request)) return json({ erro: 'Origem inválida.' }, 403);
   const { id } = await params;
-  const acesso = await acessoConversa(id, true);
-  if (!acesso) return json({ erro: 'Assuma este cliente antes de enviar mensagens.' }, 403);
+  const acesso = await acessoConversa(id);
+  if (!acesso) return json({ erro: 'Conversa não disponível para este usuário.' }, 403);
   try {
     // Enforce the limit while reading, including chunked requests without Content-Length.
     const reader = request.body?.getReader();
@@ -73,7 +73,7 @@ export async function POST(request: Request, { params }: Contexto) {
     const estado = await chamarWhatsApp('status').catch(() => null);
     if (estado?.status !== 'conectado' || !estado.numero) return json({ erro: 'O WhatsApp está desconectado. Conecte o aparelho antes de enviar.' }, 409);
     const mensagem = await prisma.$transaction(async tx => {
-      const allowed = await tx.cliente.updateMany({ where: { id, ...(acesso.usuario.role === 'ADMIN' ? {} : { responsavelId: acesso.usuario.id }) }, data: { ultimaMensagemEm: new Date() } });
+      const allowed = await tx.cliente.updateMany({ where: { id, ...(acesso.usuario.role === 'ADMIN' ? {} : { OR: [{ responsavelId: acesso.usuario.id }, { responsavelId: null }] }) }, data: { ultimaMensagemEm: new Date() } });
       if (!allowed.count) throw new Error('O responsável mudou. Atualize a conversa.');
       return tx.mensagemWhatsApp.create({ data: {
         clienteId: id, conta: estado.numero!, pedidoId, conteudoHash, autorId: acesso.usuario.id,
