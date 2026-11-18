@@ -12,6 +12,11 @@ const status: Record<string, string> = { PENDENTE: 'Na fila', ENVIANDO: 'Enviand
 const tipos: Record<string, string> = { image: 'Imagem', audio: 'Áudio', ptt: 'Áudio', document: 'Documento', video: 'Vídeo', sticker: 'Figurinha', chat: 'Mensagem', indisponivel: 'Mensagem original indisponível' };
 const resumo = (m: { texto: string; tipo: string }) => m.texto || tipos[m.tipo] || 'Mensagem';
 
+function TextoMensagem({ texto }: { texto: string }) {
+  const assinatura = texto.match(/^\*([^*\r\n]{1,40}:)\*(?:\n|$)/);
+  return assinatura ? <><strong>{assinatura[1]}</strong>{texto.length > assinatura[0].length && <><br />{texto.slice(assinatura[0].length)}</>}</> : <>{texto}</>;
+}
+
 export default function Conversa({ cliente, onVoltar, onDetalhes, onLida }: {
   cliente: { id: string; nome: string; telefone: string | null };
   onVoltar: () => void; onDetalhes: () => void; onLida: (id: string) => void;
@@ -220,7 +225,7 @@ export default function Conversa({ cliente, onVoltar, onDetalhes, onLida }: {
           </a>}
           {m.midia?.mimeType.startsWith('audio/') && <audio controls preload="none" className="mb-2 max-w-full" src={`/api/atendimento/midia/${m.id}?arquivo=${encodeURIComponent(m.midia.nome)}`} />}
           {m.midia && <a href={`/api/atendimento/midia/${m.id}`} download={m.midia.nome} className="mb-2 block break-all text-xs font-semibold underline">{m.midia.nome}</a>}
-          {m.texto && <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-[#e9edef] [overflow-wrap:anywhere]">{m.texto}</p>}
+          {m.texto && <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-[#e9edef] [overflow-wrap:anywhere]">{m.direcao === 'SAIDA' ? <TextoMensagem texto={m.texto} /> : m.texto}</p>}
           {!m.texto && !m.midia && <p className="text-sm italic text-[#8696a0]">Mensagem do tipo {m.tipo}</p>}
           {m.erro && <p className="mt-2 max-w-sm text-xs text-amber-300">{m.erro}</p>}
           <div className="mt-2 flex flex-wrap justify-end gap-2 text-[11px] text-[#8696a0]"><time>{new Date(m.enviadoEm).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</time>

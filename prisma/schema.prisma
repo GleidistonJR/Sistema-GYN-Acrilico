@@ -33,6 +33,7 @@ model Ponto {
 model User {
   id        String   @id @default(uuid())
   email     String   @unique
+  apelido   String?  @db.VarChar(40)
   password  String // Aqui vai o hash da senha criptografada
   role      String   @default("USER") // Ex: "ADMIN", "SUPERVISOR", "USER"
   createdAt DateTime @default(now())

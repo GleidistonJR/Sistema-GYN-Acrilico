@@ -24,7 +24,7 @@ function Dialogo({ titulo, fechar, children }: { titulo: string; fechar: () => v
 }
 
 export default function PainelAtendimento({ usuario, etiquetas, filaInicial, clienteInicial }: {
-  usuario: { id: string; role: string }; etiquetas: Etiqueta[]; filaInicial: string; clienteInicial?: string;
+  usuario: { id: string; role: string; apelido?: string }; etiquetas: Etiqueta[]; filaInicial: string; clienteInicial?: string;
 }) {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const fotos = useFotosContatos(clientes.map(c => c.id));
@@ -38,7 +38,7 @@ export default function PainelAtendimento({ usuario, etiquetas, filaInicial, cli
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
   const [online, setOnline] = useState(false);
-  const [modal, setModal] = useState<'cliente' | 'etiqueta' | 'detalhes' | null>(null);
+  const [modal, setModal] = useState<'cliente' | 'etiqueta' | 'detalhes' | 'apelido' | null>(null);
   const [detalhes, setDetalhes] = useState<Detalhes | null>(null);
   const [erroDetalhes, setErroDetalhes] = useState('');
   const entrada = useRef(clienteInicial);
@@ -141,6 +141,7 @@ export default function PainelAtendimento({ usuario, etiquetas, filaInicial, cli
           <button onClick={() => setModal('cliente')} title="Novo cliente" aria-label="Novo cliente" className="rounded-full bg-[#00a884] p-2 text-[#111b21] hover:bg-emerald-400"><Plus size={20} /></button></div>
       </div>
       <div className="space-y-3 px-4 pb-4">
+        <button onClick={() => setModal('apelido')} aria-label="Meu apelido" className="max-w-full truncate text-left text-xs text-emerald-300 hover:underline">Meu apelido: {usuario.apelido || 'Atendimento'}</button>
         <label className="flex items-center gap-3 rounded-lg bg-[#202c33] px-3 py-2.5 text-[#8696a0]"><Search size={17} /><input aria-label="Buscar cliente" value={busca} onChange={e => { setBusca(e.target.value); setPagina(1); }} placeholder="Buscar nome ou telefone" className="min-w-0 flex-1 bg-transparent text-sm text-[#e9edef] outline-none placeholder:text-[#8696a0]" /></label>
         <div className="flex items-center gap-2">
           <select aria-label="Carteira de clientes" value={fila} onChange={e => { setFila(e.target.value); setPagina(1); const url = new URL(window.location.href); url.searchParams.set('fila', e.target.value); window.history.replaceState(null, '', url); }} className="min-w-0 flex-1 cursor-pointer rounded-lg border border-white/10 bg-[#202c33] px-3 py-2 text-sm outline-none focus:border-emerald-500">
@@ -169,7 +170,13 @@ export default function PainelAtendimento({ usuario, etiquetas, filaInicial, cli
     <main className={`${selecionado ? 'flex' : 'hidden md:flex'} min-h-0 min-w-0 flex-1 flex-col`}>
       {selecionado ? <Conversa key={selecionado.id} cliente={selecionado} onVoltar={() => escolher(null)} onDetalhes={abrirDetalhes} onLida={marcarLida} /> : <div className="flex h-full flex-col items-center justify-center border-b-4 border-[#00a884] bg-[#222e35] p-8 text-center"><div className="mb-6 rounded-full bg-[#2a3942] p-7"><MessageCircle size={56} strokeWidth={1.2} className="text-[#00a884]" /></div><h2 className="text-2xl font-light text-[#e9edef]">Suas conversas, em um só lugar</h2><p className="mt-3 max-w-sm text-sm leading-relaxed text-[#8696a0]">Selecione um cliente à esquerda para conversar.<br />A bolinha verde indica mensagens ainda não visualizadas.</p></div>}
     </main>
-    {modal && <Dialogo titulo={modal === 'cliente' ? 'Novo cliente' : modal === 'etiqueta' ? 'Nova etiqueta' : 'Organizar cliente'} fechar={() => setModal(null)}>
+    {modal && <Dialogo titulo={modal === 'apelido' ? 'Meu apelido' : modal === 'cliente' ? 'Novo cliente' : modal === 'etiqueta' ? 'Nova etiqueta' : 'Organizar cliente'} fechar={() => setModal(null)}>
+      {modal === 'apelido' && <Formulario acao="meuApelido" botao="Salvar apelido">
+        <label className="block text-sm">Apelido para o cliente<input name="apelido" required maxLength={40} defaultValue={usuario.apelido || 'Atendimento'} className={campo} autoFocus autoComplete="nickname" placeholder="Ex.: Junior" /></label>
+        <p className="text-xs text-slate-500">Nas próximas mensagens, seu apelido aparecerá em negrito acima do texto. Vale para textos e legendas de imagens/PDFs; áudios não recebem cabeçalho.</p>
+        <div className="rounded-lg bg-emerald-50 p-3 text-sm"><strong>{usuario.apelido || 'Atendimento'}:</strong><br />Mensagem normal</div>
+        <p className="text-xs text-slate-500">Esta configuração pertence ao seu login e funciona em todos os computadores.</p>
+      </Formulario>}
       {modal === 'cliente' && <Formulario acao="criarCliente" botao="Adicionar à fila"><label className="block text-sm">Nome<input name="nome" required maxLength={120} className={campo} autoFocus /></label><label className="block text-sm">WhatsApp com país e DDD<input name="telefone" required type="tel" className={campo} placeholder="+55 62 99999-9999" /></label></Formulario>}
       {modal === 'etiqueta' && <Formulario acao="criarEtiqueta" botao="Criar etiqueta"><label className="block text-sm">Nome<input name="nome" required maxLength={40} className={campo} autoFocus /></label></Formulario>}
       {modal === 'detalhes' && <div className="space-y-6">{erroDetalhes ? <p role="alert" className="text-sm text-red-700">{erroDetalhes}</p> : !detalhes ? <p className="text-sm text-slate-500">Carregando…</p> : <>

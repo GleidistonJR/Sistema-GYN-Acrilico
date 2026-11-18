@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { exigirUsuario } from '@/lib/autorizacao';
 import { prisma } from '@/lib/prisma';
+import { validarApelido } from '@/lib/whatsapp/assinatura.mjs';
 import { normalizarTelefone, podeEditarCliente, validarTexto } from '@/lib/atendimento/regras';
 
 type Resultado = { sucesso: boolean; mensagem: string };
@@ -13,7 +14,11 @@ export async function alterarAtendimento(_anterior: Resultado, form: FormData): 
   const usuario = await exigirUsuario();
   try {
     const acao = form.get('acao');
-    if (acao === 'criarCliente') {
+    if (acao === 'meuApelido') {
+      const apelido = validarApelido(form.get('apelido'));
+      // Only the authenticated account can change its signature, never a posted user ID.
+      await prisma.$executeRaw`UPDATE "User" SET apelido = ${apelido} WHERE id = ${usuario.id}`;
+    } else if (acao === 'criarCliente') {
       await prisma.cliente.create({ data: {
         nome: validarTexto(form.get('nome'), 120),
         telefone: normalizarTelefone(form.get('telefone')),

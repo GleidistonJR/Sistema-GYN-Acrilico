@@ -173,3 +173,11 @@ A fila serial prioriza envio, depois eventos recebidos, depois histórico. Mant�
 Validação: `node --test tests/whatsapp-fila.test.mjs tests/canal-eventos.test.mjs`; `RUN_DATABASE_INTEGRATION=1 node --env-file=.env tests/latencia-atendimento-integracao.mjs`. A variável TEST_BASE_URL permite validar a Vercel. O teste mede registro no banco → exibição/status, com conta simulada; não mede entrega real a um celular. O teste whatsapp-mensagens-integracao.mjs cobre provedor simulado, NOTIFY, autorização, deduplicação, áudio e citações.
 
 Referências técnicas: https://neon.com/docs/connect/connection-pooling e https://vercel.com/docs/functions/configuring-functions/duration .
+
+## Apelido e assinatura por login
+
+Em Atendimento → Meu apelido, ADMIN e USER podem salvar seu próprio apelido (1–40 caracteres). O servidor usa somente o usuário autenticado; IDs e assinaturas enviados pelo navegador não escolhem outro autor. O campo User.apelido é compartilhado entre dispositivos daquele login. Sem personalização, usa o primeiro nome do colaborador, ou Atendimento.
+
+Textos e legendas de imagem/PDF são persistidos com `*Apelido:*` e uma quebra de linha antes do corpo. Áudios não recebem cabeçalho nem mensagem extra. O histórico conserva a assinatura usada no momento do envio. O hash de idempotência continua baseado no conteúdo digitado, evitando duplicação se o apelido mudar entre a primeira tentativa e uma repetição. O apelido vem da consulta de sessão já existente, sem outra leitura por envio. A tela exibe esse cabeçalho em negrito sem interpretar HTML.
+
+Validação: `node --test tests/assinatura.test.mjs`; `RUN_DATABASE_INTEGRATION=1 node --env-file=.env tests/apelido-integracao.mjs`. O teste de integração usa dois USER e um cliente temporário sem telefone ou identidade WhatsApp, portanto não possui destinatário real.

@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { acessoConversa, mesmaOrigem, privado } from '@/lib/whatsapp/acesso';
 import { chamarWhatsApp } from '@/lib/whatsapp/bridge';
+import { apelidoEfetivo, assinarMensagem } from '@/lib/whatsapp/assinatura.mjs';
 import { LIMITE_MIDIA, nomeArquivo, validarMidia } from '@/lib/whatsapp/conteudo.mjs';
 
 export const runtime = 'nodejs';
@@ -94,7 +95,7 @@ export async function POST(request: Request, { params }: Contexto) {
       return tx.mensagemWhatsApp.create({ data: {
         clienteId: id, conta: estado.numero!, pedidoId, conteudoHash, autorId: acesso.usuario.id,
         ...(original ? { citacao: { externaId: original.externaId, texto: original.texto.slice(0, 1000), tipo: original.tipo, direcao: original.direcao } } : {}),
-        direcao: 'SAIDA', texto, status: 'PENDENTE', tipo: voz ? 'ptt' : midia ? midia.mimeType.startsWith('image/') ? 'image' : midia.mimeType.startsWith('audio/') ? 'audio' : 'document' : 'chat',
+        direcao: 'SAIDA', texto: assinarMensagem(texto, apelidoEfetivo(acesso.usuario), midia?.mimeType), status: 'PENDENTE', tipo: voz ? 'ptt' : midia ? midia.mimeType.startsWith('image/') ? 'image' : midia.mimeType.startsWith('audio/') ? 'audio' : 'document' : 'chat',
         ...(midia ? { midia: { create: midia } } : {}),
       }, select: selecao });
     });
