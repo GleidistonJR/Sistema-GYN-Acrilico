@@ -39,6 +39,10 @@ model User {
 
   colaborador Colaborador?
   sessoes Sessao[]
+  clientes Cliente[]
+  atribuicoes AtribuicaoCliente[]
+  mensagens MensagemWhatsApp[]
+  leituras LeituraConversa[]
 }
 
 model Sessao {
@@ -102,4 +106,106 @@ model FotoItem {
   produtoId String? @unique
   material Material? @relation(fields: [materialId], references: [id], onDelete: Cascade)
   produto Produto? @relation(fields: [produtoId], references: [id], onDelete: Cascade)
+}
+
+model Cliente {
+  id String @id @default(uuid())
+  nome String @db.VarChar(120)
+  telefone String? @unique @db.VarChar(16)
+  responsavelId String?
+  responsavel User? @relation(fields: [responsavelId], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  etiquetas ClienteEtiqueta[]
+  atribuicoes AtribuicaoCliente[]
+  mensagens MensagemWhatsApp[]
+  identidades IdentidadeWhatsApp[]
+  ultimaMensagemEm DateTime?
+  versaoEntrada BigInt @default(0)
+  versaoMensagens BigInt @default(0)
+  leituras LeituraConversa[]
+
+  @@index([responsavelId, nome, id])
+  @@index([responsavelId, ultimaMensagemEm])
+}
+
+model LeituraConversa {
+  userId String
+  clienteId String
+  versao BigInt @default(0)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  @@id([userId, clienteId])
+  @@index([clienteId])
+}
+
+model IdentidadeWhatsApp {
+  conta String
+  jid String
+  clienteId String
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  @@id([conta, jid])
+  @@index([clienteId])
+}
+
+model MensagemWhatsApp {
+  id String @id @default(uuid())
+  clienteId String
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  conta String
+  externaId String?
+  pedidoId String? @unique
+  conteudoHash String?
+  autorId String?
+  autor User? @relation(fields: [autorId], references: [id], onDelete: SetNull)
+  direcao String
+  tipo String @default("chat")
+  texto String @default("")
+  status String
+  ack Int @default(0)
+  erro String?
+  enviadoEm DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  midia MidiaWhatsApp?
+  @@unique([conta, externaId])
+  @@index([clienteId, enviadoEm, id])
+  @@index([status, createdAt])
+}
+
+model MidiaWhatsApp {
+  mensagemId String @id
+  mensagem MensagemWhatsApp @relation(fields: [mensagemId], references: [id], onDelete: Cascade)
+  dados Bytes
+  mimeType String
+  nome String
+}
+
+model Etiqueta {
+  id String @id @default(uuid())
+  nome String @unique @db.VarChar(40)
+  clientes ClienteEtiqueta[]
+}
+
+model ClienteEtiqueta {
+  clienteId String
+  etiquetaId String
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  etiqueta Etiqueta @relation(fields: [etiquetaId], references: [id], onDelete: Cascade)
+
+  @@id([clienteId, etiquetaId])
+  @@index([etiquetaId])
+}
+
+model AtribuicaoCliente {
+  id String @id @default(uuid())
+  clienteId String
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  atorId String?
+  ator User? @relation(fields: [atorId], references: [id], onDelete: SetNull)
+  anteriorId String?
+  novoId String?
+  createdAt DateTime @default(now())
+
+  @@index([clienteId, createdAt])
 }

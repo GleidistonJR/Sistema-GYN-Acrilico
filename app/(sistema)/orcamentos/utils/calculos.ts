@@ -1,6 +1,7 @@
 'use server'
 
 import { prisma } from '@/lib/prisma'; // Adapte conforme a localização do seu cliente Prisma
+import { exigirUsuario } from '@/lib/autorizacao';
 import type { Prisma } from '@prisma/client';
 import { formatarMoeda } from './formatarMoeda';
 import { geometriaCaixa, NOMES_TAMPAS, type TipoTampa } from './geometriaCaixa';
@@ -267,6 +268,7 @@ function calcularPersonalizacao(
  * de acordo com a modalidade (chapa, corte, caixa ou personalização).
  */
 export async function calcularOrcamentoItem(dados: DadosCalculo): Promise<ResultadoCalculo> {
+  await exigirUsuario();
   const taxas = calcularTaxas(dados);
 
   // O formulário envia 'perso'; aceita 'personalizacao' por compatibilidade

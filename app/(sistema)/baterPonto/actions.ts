@@ -1,9 +1,11 @@
 "use server";
+import { exigirUsuario } from "@/lib/autorizacao";
 
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
 export async function salvarPontoNoBanco(cpf: string) {
+  await exigirUsuario(['ADMIN', 'OUTRO']);
   try {
     // 1. Usando findUnique em vez de findFirst (é mais rápido no Postgres)
     const colaborador = await prisma.colaborador.findUnique({

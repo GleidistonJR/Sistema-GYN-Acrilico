@@ -1,27 +1,21 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { obterUsuarioSessao } from '@/lib/sessao';
 
 const regrasDeAcesso: { rota: string; rolesPermitidas: string[] }[] = [
   { rota: '/administracao', rolesPermitidas: ['ADMIN'] },
   { rota: '/orcamentos', rolesPermitidas: ['ADMIN', 'USER',] },
+  { rota: '/atendimento/conexao', rolesPermitidas: ['ADMIN'] },
+  { rota: '/atendimento', rolesPermitidas: ['ADMIN', 'USER'] },
+  { rota: '/produtos', rolesPermitidas: ['ADMIN', 'USER'] },
   { rota: '/materiais', rolesPermitidas: ['ADMIN', 'USER',] },
   { rota: '/baterPonto', rolesPermitidas: ['ADMIN', 'OUTRO'] },
   { rota: '/relatorioPontos', rolesPermitidas: ['ADMIN', 'USER', 'OUTRO'] },
 ];
 
-export function proxy(request: NextRequest) {
-  const sessaoCookie = request.cookies.get('sessao_admin')?.value;
-
-  if (!sessaoCookie) {
-    return NextResponse.redirect(new URL('/login', request.url));
-  }
-
-  let sessao: { role: string; userId?: number; userNome?: string };
-  try {
-    sessao = JSON.parse(sessaoCookie);
-  } catch {
-    return NextResponse.redirect(new URL('/login', request.url));
-  }
+export async function proxy(request: NextRequest) {
+  const sessao = await obterUsuarioSessao();
+  if (!sessao) return NextResponse.redirect(new URL('/login', request.url));
 
   const rotaAtual = request.nextUrl.pathname;
 
@@ -37,7 +31,7 @@ export function proxy(request: NextRequest) {
     }
 
     // USER só pode acessar se o id da rota for o dele mesmo
-    if (sessao.role === 'USER' && String(sessao.userId) === idNaRota) {
+    if (sessao.role === 'USER' && String(sessao.colaborador?.id) === idNaRota) {
       return NextResponse.next();
     }
 
@@ -59,6 +53,8 @@ export const config = {
     '/administracao/:path*',
     '/orcamentos/:path*',
     '/materiais/:path*',
+    '/produtos/:path*',
+    '/atendimento/:path*',
     '/relatorioPontos/:path*',
     '/baterPonto/:path*'
   ],

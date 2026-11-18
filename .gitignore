@@ -47,3 +47,8 @@ next-env.d.ts
 
 # Generated PDF.js worker
 /public/pdf.worker.min.mjs
+
+# Private WhatsApp linked-device credentials and browser cache
+/.whatsapp-session/
+/.wwebjs_auth/
+/.wwebjs_cache/

@@ -26,7 +26,8 @@ export default function LoginPage() {
       setCookie('sessao_admin', sessaoData);
 
       router.refresh();
-      window.location.href = '/administracao/colaboradores/' + dadosUser.userId;
+      window.location.href = dadosUser.role === 'OUTRO' ? '/baterPonto'
+        : dadosUser.userId ? '/administracao/colaboradores/' + dadosUser.userId : '/atendimento';
     } else {
       setErro(dadosUser.erro ?? 'Usuário ou senha incorretos!');
     }

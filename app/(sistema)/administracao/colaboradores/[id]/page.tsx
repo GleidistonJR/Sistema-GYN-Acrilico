@@ -1,3 +1,4 @@
+import { exigirPerfil } from '@/lib/autorizacao';
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import ModalAtestado from "./ModalAtestado";
@@ -26,7 +27,8 @@ export default async function DetalhesColaborador({ params, searchParams }: Deta
   const { mes } = await searchParams;
 
   const idNumero = Number(id);
-  if (isNaN(idNumero)) return notFound();
+  if (!Number.isSafeInteger(idNumero)) return notFound();
+  await exigirPerfil(idNumero);
 
   let mesInicialValue = "";
   let anoAlvo = 0;

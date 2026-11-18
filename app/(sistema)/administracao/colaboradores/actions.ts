@@ -1,4 +1,5 @@
 "use server";
+import { exigirUsuario, exigirPerfil } from "@/lib/autorizacao";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache"; // Importante para atualizar a tela
 import bcrypt from "bcryptjs"
@@ -6,7 +7,7 @@ import { Colaboradortype } from "./ModalRegistro"; // Importante para atualizar 
 
 interface Pontos {
   id: number;
-  cpf: string;
+  cpf?: string;
   dataHora: Date | string;
   tipo: string;
   colaborador: { nome: string };
@@ -15,6 +16,7 @@ interface Pontos {
 
 // FUNÇÃO 1: CRIAR
 export async function salvarColaborador(dados: Colaboradortype) {
+  await exigirUsuario(['ADMIN']);
   try {
     if (dados.id) {
       // Atualiza os dados normais do colaborador
@@ -87,6 +89,7 @@ export async function salvarColaborador(dados: Colaboradortype) {
 
 // FUNÇÃO 2: BUSCAR
 export async function buscarColaboradores(filtroCpf?: string) {
+  await exigirUsuario(['ADMIN']);
   try {
     const colaboradores = await prisma.colaborador.findMany({
       where: filtroCpf ? { cpf: { contains: filtroCpf } } : {},
@@ -104,6 +107,7 @@ export async function buscarColaboradores(filtroCpf?: string) {
 
 // Para a edição
 export async function buscarColaboradorPorId(id: number) {
+  await exigirPerfil(id);
   return await prisma.colaborador.findUnique({
     where: { id }
   });
@@ -111,6 +115,7 @@ export async function buscarColaboradorPorId(id: number) {
 
 // FUNÇÃO 3: DELETAR
 export async function deletarColaborador(id: number) {
+  await exigirUsuario(['ADMIN']);
   try {
 
     await prisma.colaborador.delete({
@@ -130,6 +135,7 @@ export async function deletarColaborador(id: number) {
 }
 
 export async function atualizarPonto(dados: Pontos, motivo: string) {
+  await exigirUsuario(['ADMIN']);
   try {
     if (dados.id) {
       // Se tem ID, é um UPDATE (prisma.colaborador.update...)
@@ -155,6 +161,7 @@ export async function atualizarPonto(dados: Pontos, motivo: string) {
 
 
 export async function deletarPonto(id: number) {
+  await exigirUsuario(['ADMIN']);
   try {
 
     await prisma.ponto.delete({
@@ -174,6 +181,7 @@ export async function deletarPonto(id: number) {
 }
 
 export async function adicionarPontoManual(formData: FormData) {
+  await exigirUsuario(['ADMIN']);
   const colaboradorId = Number(formData.get("colaboradorId"));
   const dataHoraRaw = formData.get("dataHora") as string;
   const tipo = formData.get("tipo") as string;
@@ -197,6 +205,7 @@ export async function adicionarPontoManual(formData: FormData) {
 
 
 export async function adicionarAtestado(formData: FormData) {
+  await exigirUsuario(['ADMIN']);
   const colaboradorId = Number(formData.get("colaboradorId"));
   const dataAtestadoRaw = formData.get("data") as string;
   const horas = Number(formData.get("horas"));
@@ -233,6 +242,7 @@ export async function adicionarAtestado(formData: FormData) {
 }
 
 export async function criarFeriado(colaboradorId: number | string, dataStr: string) {
+  await exigirUsuario(['ADMIN']);
   try {
     // 1. Converte e garante que o ID é um número válido
     const idValido = Number(colaboradorId);

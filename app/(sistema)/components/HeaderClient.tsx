@@ -1,0 +1,272 @@
+"use client";
+import Link from 'next/link';
+
+import { useRouter, usePathname } from 'next/navigation';
+import { useEffect, useState, useRef } from 'react';
+import { ChevronDown, Menu, X } from 'lucide-react';
+import { encerrarSessao } from '../login/actions';
+
+type UsuarioMenu = {
+  role: string; userNome: string; userId: number | null;
+} | null;
+
+export default function HeaderClient({ usuario }: { usuario: UsuarioMenu }) {
+  const pathname = usePathname();
+  return <MenuNavegacao key={pathname} usuario={usuario} pathname={pathname} />;
+}
+
+function MenuNavegacao({ usuario, pathname }: { usuario: UsuarioMenu; pathname: string }) {
+  const router = useRouter();
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const estaLogado = !!usuario;
+  const role = usuario?.role;
+  const userNome = usuario?.userNome;
+  const userId = usuario?.userId;
+
+  const [menuAberto, setMenuAberto] = useState(false);
+  const [dropdownAberto, setDropdownAberto] = useState(false);
+  const [dropdownMobileAberto, setDropdownMobileAberto] = useState(false);
+
+  useEffect(() => {
+    function cliqueFora(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setDropdownAberto(false);
+      }
+    }
+    document.addEventListener("mousedown", cliqueFora);
+    return () => document.removeEventListener("mousedown", cliqueFora);
+  }, []);
+
+  const logout = async () => {
+    if (estaLogado) {
+      await encerrarSessao();
+      router.push('/');
+      router.refresh();
+    } else {
+      router.push('/login');
+    }
+  };
+
+  const fecharMenu = () => {
+    setMenuAberto(false);
+    setDropdownMobileAberto(false);
+  };
+
+  const linkClasse = (rota: string) =>
+    `relative py-1 transition-colors duration-200 ${pathname === rota ? 'text-amber-400' : 'text-slate-200 hover:text-amber-400'
+    }`;
+
+  return (
+    <header className="sticky top-0 z-50 print:hidden bg-linear-to-b from-[#0A2540] to-[#051B36] border-b border-/[0.06] shadow-[0_1px_0_0_rgba(240,162,2,0.15)]">
+
+      <div className="mx-auto px-3 sm:px-6">
+
+        <div className="flex justify-between items-center h-16">
+
+          {/* Logo */}
+          <Link href="/" className="min-w-0 flex flex-wrap items-baseline gap-x-1.5 font-semibold text-[13px] sm:text-[15px] tracking-tight text-white">
+            <span className="text-amber-400 font-bold">Sistema</span>
+            <span className="text-slate-300 font-normal">Goiânia Acrílico</span>
+          </Link>
+
+
+
+
+          {/* Botão Mobile */}
+          <button
+            onClick={() => setMenuAberto(!menuAberto)}
+            className="md:hidden shrink-0 min-w-11 min-h-11 p-2 rounded-md text-slate-200 hover:text-amber-400 hover:bg-white/5 transition-colors"
+            aria-label={menuAberto ? "Fechar menu" : "Abrir menu"}
+            aria-expanded={menuAberto}
+          >
+            {menuAberto ? <X size={22} /> : <Menu size={22} />}
+          </button>
+
+
+
+
+          {/* Menu Desktop */}
+          <nav className="hidden md:flex items-center gap-7 text-sm font-medium">
+
+
+
+            {role === 'ADMIN' || role === 'USER' ? (
+
+              <>
+                <Link href="/atendimento" className={linkClasse('/atendimento')}>Atendimento</Link>
+                <Link href="/orcamentos" className={linkClasse('/orcamentos')}>Orçamentos</Link>
+              </>
+
+            ) : ('')}
+
+
+
+
+            {role === 'ADMIN' || role === 'OUTRO' ? (
+
+              <>
+                <Link href="/baterPonto" className={linkClasse('/baterPonto')}>Bater ponto</Link>
+                <Link href="/relatorioPontos" className={linkClasse('/relatorioPontos')}>Relatórios</Link>
+              </>
+
+            ) : ('')}
+
+
+
+
+            {role === 'ADMIN' || role === 'USER' ? (
+              <>
+                <button
+                  onClick={() => setDropdownAberto(!dropdownAberto)}
+                  className="flex items-center gap-1 py-1 text-slate-200 hover:text-amber-400 transition-colors focus:outline-none"
+                >
+                  {userNome?.split(' ')[0]}
+                  <ChevronDown size={15} className={`transition-transform duration-200 ${dropdownAberto ? 'rotate-180 text-amber-400' : ''}`} />
+                </button>
+
+                {dropdownAberto && (
+                  <div className="absolute right-0 top-0 mt-14 w-56 rounded-xl border border-white/10 bg-[#0A2540]/95 backdrop-blur-md shadow-2xl shadow-black/40 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-150">
+                    <div className=" from-transparent via-amber-400/70 to-transparent" />
+                    <Link href={"/administracao/colaboradores/" + userId} className="flex items-center px-4 py-2.5 text-sm text-slate-200 hover:bg-white/5 hover:text-amber-400 transition-colors">
+                      Meu Perfil
+                    </Link>
+                    <Link href="/materiais" className="flex items-center px-4 py-2.5 text-sm text-slate-200 hover:bg-white/5 hover:text-amber-400 transition-colors">
+                      Materiais
+                    </Link>
+                    <Link href="/produtos" className="flex items-center px-4 py-2.5 text-sm text-slate-200 hover:bg-white/5 hover:text-amber-400 transition-colors">
+                      Produtos
+                    </Link>
+
+
+
+                    {role === 'ADMIN' && (
+                      <>
+                        <div className="h-\[2px\] bg-linear-to-r from-transparent via-amber-400/70 to-transparent" />
+                        <Link href="/administracao" className="flex items-center px-4 py-2.5 text-sm text-slate-200 hover:bg-white/5 hover:text-amber-400 transition-colors">
+                          Painel geral
+                        </Link>
+                        <Link href="/administracao/colaboradores" className="flex items-center px-4 py-2.5 text-sm text-slate-200 hover:bg-white/5 hover:text-amber-400 transition-colors">
+                          Colaboradores
+                        </Link>
+                      </>
+                    )}
+
+
+
+                    <button onClick={logout} className="px-4 py-1.5 w-full text-sm font-semibold text-[#0A2540] bg-amber-400 hover:bg-amber-300 active:scale-95 transition-all duration-150"
+                    >
+                      Deslogar
+                    </button>
+                  </div>
+                )}
+
+
+              </>
+
+            ) : ('')}
+
+
+
+
+            {role === "OUTRO" &&
+
+              <button onClick={logout} className="px-4 py-1.5 w-30 text-sm font-semibold text-[#0A2540] bg-amber-400 hover:bg-amber-300 active:scale-95 transition-all duration-150"
+              >
+                Deslogar
+              </button>
+
+            }
+
+
+
+
+            {!estaLogado &&
+              <button
+                onClick={logout}
+                className="px-4 py-1.5 text-sm font-semibold text-[#0A2540] bg-amber-400 hover:bg-amber-300 active:scale-95 transition-all duration-150"
+              >
+                Acessar Sistema
+              </button>
+            }
+
+          </nav>
+        </div>
+      </div>
+
+
+
+
+
+
+
+      {/* Menu Mobile */}
+      <div className={`${menuAberto ? 'max-h-[calc(100dvh-4rem)] overflow-y-auto' : 'max-h-0'} md:hidden overflow-hidden transition-all duration-300 bg-[#061c38] border-t border-white/[0.06]`}>
+        <div className="px-4 pt-3 pb-4 flex flex-col gap-1 text-[15px]">
+
+          {(role === 'ADMIN' || role === 'USER') && (
+            <Link href="/atendimento" onClick={fecharMenu} className="px-2 py-2.5 text-slate-200">Atendimento</Link>
+          )}
+          {(role === 'ADMIN' || role === 'USER') && (
+            <Link href="/orcamentos" onClick={fecharMenu} className="px-2 py-2.5 rounded-md text-slate-200 hover:bg-white/5 hover:text-amber-400 transition-colors">
+              Orçamentos
+            </Link>
+          )}
+
+          {(role === 'ADMIN' || role === 'OUTRO') && (
+            <>
+              <Link href="/baterPonto" onClick={fecharMenu} className="px-2 py-2.5 rounded-md text-slate-200 hover:bg-white/5 hover:text-amber-400 transition-colors">
+                Bater ponto
+              </Link>
+
+              <Link href="/relatorioPontos" onClick={fecharMenu} className="px-2 py-2.5 rounded-md text-slate-200 hover:bg-white/5 hover:text-amber-400 transition-colors">
+                Relatórios
+              </Link>
+            </>
+          )}
+
+          {(role === 'ADMIN' || role === 'USER') && (
+            <>
+              <button
+                onClick={() => setDropdownMobileAberto(!dropdownMobileAberto)}
+                className="w-full flex justify-between items-center px-2 py-2.5 rounded-md text-slate-200 hover:bg-white/5 font-medium focus:outline-none"
+              >
+                {userNome?.split(' ')[0]}
+                <ChevronDown size={16} className={`transition-transform duration-200 ${dropdownMobileAberto ? 'rotate-180 text-amber-400' : ''}`} />
+              </button>
+
+              <div className={`${dropdownMobileAberto ? 'max-h-96' : 'max-h-0'} overflow-hidden transition-all duration-200 pl-3 border-l border-amber-400/30 ml-3`}>
+                <Link href={"/administracao/colaboradores/" + userId} onClick={fecharMenu} className="block px-3 py-3 text-sm text-slate-300 hover:text-amber-400">
+                  Meu Perfil
+                </Link>
+                <Link href="/materiais" onClick={fecharMenu} className="block px-3 py-3 text-sm text-slate-300 hover:text-amber-400">
+                  Materiais
+                </Link>
+                <Link href="/produtos" onClick={fecharMenu} className="block px-3 py-3 text-sm text-slate-300 hover:text-amber-400">Produtos</Link>
+
+                {role === 'ADMIN' && (
+                  <>
+                    <Link href="/administracao" onClick={fecharMenu} className="block px-3 py-3 text-sm text-slate-300 hover:text-amber-400">
+                      Painel geral
+                    </Link>
+                    <Link href="/administracao/colaboradores" onClick={fecharMenu} className="block px-3 py-3 text-sm text-slate-300 hover:text-amber-400">
+                      Colaboradores
+                    </Link>
+                  </>
+                )}
+              </div>
+            </>
+          )}
+
+          <button
+            onClick={() => { logout(); fecharMenu(); }}
+            className="mt-2 px-2 py-2.5 rounded-md text-left text-sm font-semibold text-amber-400 bg-white/5"
+          >
+            {estaLogado ? 'Sair do sistema' : 'Fazer login'}
+          </button>
+        </div>
+      </div>
+
+    </header>
+  );
+}

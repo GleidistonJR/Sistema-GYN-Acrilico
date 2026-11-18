@@ -1,4 +1,5 @@
 "use server";
+import { exigirUsuario } from "@/lib/autorizacao";
 
 import { prisma } from "@/lib/prisma";
 
@@ -11,6 +12,7 @@ interface Pontos {
 }
 
 export async function buscarPontos(dataString: string) {
+  await exigirUsuario(['ADMIN', 'USER', 'OUTRO']);
   // Monta o início e fim do dia baseado no fuso horário para abranger o dia todo
   const inicioDia = new Date(`${dataString}T00:00:00-03:00`);
   const fimDia = new Date(`${dataString}T23:59:59-03:00`);

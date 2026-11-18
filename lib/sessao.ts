@@ -30,11 +30,15 @@ export async function criarSessao(userId: string) {
 export async function obterUsuarioSessao() {
   const token = (await cookies()).get(COOKIE)?.value;
   if (!token || !/^[a-f0-9]{64}$/.test(token)) return null;
-  const sessao = await prisma.sessao.findUnique({
-    where: { tokenHash: hash(token) },
-    select: { expiresAt: true, user: { select: { id: true, role: true } } },
-  });
-  return sessao && sessao.expiresAt > new Date() ? sessao.user : null;
+  // One parameterized round trip instead of separate session/user/profile queries.
+  const [user] = await prisma.$queryRaw<Array<{ id: string; role: string; email: string; colaboradorId: number | null; nome: string | null }>>`
+    SELECT u.id, u.role, u.email, c.id AS "colaboradorId", c.nome
+    FROM "Sessao" s JOIN "User" u ON u.id = s."userId"
+    LEFT JOIN "Colaborador" c ON c."userId" = u.id
+    WHERE s."tokenHash" = ${hash(token)} AND s."expiresAt" > CURRENT_TIMESTAMP LIMIT 1`;
+  return user ? { id: user.id, role: user.role, email: user.email,
+    colaborador: user.colaboradorId === null ? null : { id: user.colaboradorId, nome: user.nome! },
+  } : null;
 }
 
 export async function removerSessao() {

@@ -1,5 +1,6 @@
 "use server";
 import { prisma } from "@/lib/prisma";
+import { exigirUsuario } from '@/lib/autorizacao';
 import { obterUsuarioSessao } from '@/lib/sessao';
 import { prepararFoto, selecaoFoto } from '@/lib/fotos';
 
@@ -13,13 +14,7 @@ interface DadosProduto {
     foto?: string | null;
 }
 
-async function exigirUsuario() {
-    const usuario = await obterUsuarioSessao();
-    if (!usuario || !['ADMIN', 'USER'].includes(usuario.role)) {
-        throw new Error('Faça login novamente para acessar os produtos.');
-    }
-    return usuario;
-}
+
 
 function validarQuantidade(valor: unknown) {
     if (typeof valor !== 'number' || !Number.isSafeInteger(valor) || valor < 0 || valor > 2147483647) {
