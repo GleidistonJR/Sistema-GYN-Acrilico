@@ -187,7 +187,11 @@ export default function Conversa({ cliente, onVoltar, onDetalhes, onLida }: {
       setTexto(''); setArquivo(null); setVoz(false); setResponder(null); pedido.current = null;
       if (upload.current) upload.current.value = '';
       seguirFim.current = true;
-      if (emContexto.current) await voltarAoFim(); else await atualizar();
+      if (emContexto.current) void voltarAoFim();
+      else if (dados.mensagem) {
+        // Show the persisted message immediately; never overwrite a newer SSE status.
+        setMensagens(atuais => atuais.some(m => m.id === dados.mensagem.id) ? atuais : [...atuais, dados.mensagem as Mensagem]);
+      } else void atualizar().catch(() => setErro('Mensagem registrada. Não foi possível atualizar o histórico agora.'));
     } catch (error) { setErro(error instanceof Error ? error.message : 'Não foi possível confirmar. Tente novamente com a mesma mensagem.'); }
     finally { setEnviando(false); }
   }

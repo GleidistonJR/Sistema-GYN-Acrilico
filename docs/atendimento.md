@@ -7,7 +7,8 @@ Migrações de clientes e mensagens aplicadas em produção em 18/11/2026 com au
 
 - /atendimento: lista compacta à esquerda, conversa ao centro, carteira/fila em dropdown,
   etiquetas, busca e paginação. Sem prévia; indicador de não lida por usuário.
-- Atualização por eventos SSE com PostgreSQL LISTEN/NOTIFY no serviço persistente.
+- Atualização por eventos SSE com PostgreSQL LISTEN/NOTIFY diretamente no servidor
+  da aplicação, inclusive na Vercel, sem depender de acesso à porta local do WhatsApp.
   Reconexão automática e consulta de contingência a cada 5 segundos quando indisponível.
   Histórico usa versões para evitar transferências sem mudanças; leitura registra apenas
   a versão exibida na conversa visível. Migração de leitura/eventos aplicada em produção.
@@ -162,3 +163,13 @@ As fotos da lista são opcionais: iniciais aparecem imediatamente e voltam se a 
 
 Validação: `node --test tests/whatsapp-fotos.test.mjs`; `RUN_DATABASE_INTEGRATION=1 node --env-file=.env tests/fotos-integracao.mjs` (fixtures temporárias, permissões, rolagem, imagens simuladas e fallback).
 
+
+## Latência de atendimento
+
+A rota SSE compartilha uma conexão LISTEN direta por instância da aplicação entre as abas conectadas e a fecha ao sair o último consumidor. Não faz consultas periódicas ao Neon: transmite somente invalidações vazias, agrupadas por 40 ms. Cada busca de dados revalida permissões. O stream renova após 55 segundos para reautenticar, com maxDuration de 60 segundos, heartbeat de 15 segundos e fallback de cinco segundos somente durante falhas. A conexão direta é necessária porque o pool transacional não preserva LISTEN; as consultas normais continuam no pool Prisma.
+
+A fila serial prioriza envio, depois eventos recebidos, depois histórico. Mantém o processamento de ecos depois da gravação do envio e intercala recebimentos após quatro lotes de saída. Uma operação já em execução (por exemplo download de anexo) ainda precisa terminar. Identidades de números já verificadas são reutilizadas. Autorização e reserva PENDENTE → ENVIANDO usam uma operação atômica com lock do cliente; o estado ambíguo continua sem reenvio automático. A resposta do POST inclui a mensagem persistida, liberando o compositor sem esperar outra leitura do histórico.
+
+Validação: `node --test tests/whatsapp-fila.test.mjs tests/canal-eventos.test.mjs`; `RUN_DATABASE_INTEGRATION=1 node --env-file=.env tests/latencia-atendimento-integracao.mjs`. A variável TEST_BASE_URL permite validar a Vercel. O teste mede registro no banco → exibição/status, com conta simulada; não mede entrega real a um celular. O teste whatsapp-mensagens-integracao.mjs cobre provedor simulado, NOTIFY, autorização, deduplicação, áudio e citações.
+
+Referências técnicas: https://neon.com/docs/connect/connection-pooling e https://vercel.com/docs/functions/configuring-functions/duration .

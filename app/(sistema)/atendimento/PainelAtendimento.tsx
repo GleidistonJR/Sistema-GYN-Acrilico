@@ -101,7 +101,7 @@ export default function PainelAtendimento({ usuario, etiquetas, filaInicial, cli
       source?.close();
       if (document.visibilityState === 'hidden') { connected = false; return; }
       source = new EventSource('/api/atendimento/eventos');
-      source.onopen = () => { connected = true; setOnline(true); };
+      source.addEventListener('pronto', () => { connected = true; setOnline(true); });
       source.onerror = () => { connected = false; setOnline(false); };
       source.addEventListener('atualizar', invalidate);
     }

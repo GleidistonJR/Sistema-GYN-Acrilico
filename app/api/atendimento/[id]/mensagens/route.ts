@@ -96,9 +96,9 @@ export async function POST(request: Request, { params }: Contexto) {
         ...(original ? { citacao: { externaId: original.externaId, texto: original.texto.slice(0, 1000), tipo: original.tipo, direcao: original.direcao } } : {}),
         direcao: 'SAIDA', texto, status: 'PENDENTE', tipo: voz ? 'ptt' : midia ? midia.mimeType.startsWith('image/') ? 'image' : midia.mimeType.startsWith('audio/') ? 'audio' : 'document' : 'chat',
         ...(midia ? { midia: { create: midia } } : {}),
-      } });
+      }, select: selecao });
     });
-    return json({ id: mensagem.id, status: mensagem.status }, 202);
+    return json({ id: mensagem.id, status: mensagem.status, mensagem }, 202);
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') return json({ erro: 'Esta solicitação já foi registrada. Atualize o histórico antes de tentar novamente.' }, 409);
     if (error instanceof Prisma.PrismaClientKnownRequestError || error instanceof Prisma.PrismaClientInitializationError) return json({ erro: 'Não foi possível salvar a mensagem. Tente novamente.' }, 503);

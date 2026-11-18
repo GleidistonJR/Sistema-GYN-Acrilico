@@ -1,10 +1,11 @@
 import whatsapp from 'whatsapp-web.js';
+import { criarFilaPrioritaria } from './whatsapp-fila.mjs';
 import { converterVoz } from './whatsapp-audio.mjs';
 import { obterCitacao } from '../lib/whatsapp/citacao.mjs';
 import { telefoneDoJid, variantesTelefone, nomeArquivo, validarMidia, LIMITE_MIDIA, statusAck } from '../lib/whatsapp/conteudo.mjs';
 
 export function criarServicoMensagens({ prisma, client, conta, ativo }) {
-  let chain = Promise.resolve();
+  const fila = criarFilaPrioritaria();
   let timer;
   let stopped = false;
   let waking = false;
@@ -12,10 +13,11 @@ export function criarServicoMensagens({ prisma, client, conta, ativo }) {
   let lastSync = 0;
   let lastClient = '';
   const synchronizing = new Map();
+  const destinos = new Map();
   const log = error => console.error('Falha no histórico WhatsApp:', error?.code || error?.name || 'erro');
-  const enqueue = operation => {
-    const work = chain.then(() => stopped || !ativo() ? undefined : operation());
-    chain = work.catch(log);
+  const enqueue = (operation, priority = 1) => {
+    const work = fila.enqueue(() => stopped || !ativo() ? undefined : operation(), priority);
+    void work.catch(log);
     return work;
   };
 
@@ -103,16 +105,29 @@ export function criarServicoMensagens({ prisma, client, conta, ativo }) {
   }
 
   async function destino(cliente) {
+    const cacheKey = cliente.id + ':' + (cliente.telefone || '');
+    const cached = destinos.get(cacheKey);
+    if (cached && cached.until > Date.now()) return cached.jid;
+    const remember = jid => {
+      if (destinos.size >= 500) destinos.delete(destinos.keys().next().value);
+      destinos.set(cacheKey, { jid, until: Date.now() + 120000 });
+      return jid;
+    };
     if (cliente.telefone) {
+      // Reuse verified identities instead of querying WhatsApp on every send.
+      const known = await prisma.identidadeWhatsApp.findFirst({ where: { conta, clienteId: cliente.id,
+        jid: { in: variantesTelefone(cliente.telefone).map(phone => phone.replace(/\D/g, '') + '@c.us') },
+      } });
+      if (known) return remember(known.jid);
       const id = await client.getNumberId(cliente.telefone.replace(/\D/g, ''));
       if (!id?._serialized) throw new Error('Este número não está disponível no WhatsApp. Confira país e DDD.');
       const mapped = await identificar(id._serialized, cliente.id);
       if (mapped !== cliente.id) throw new Error('Este WhatsApp está vinculado a outro cadastro. Revise os clientes duplicados.');
-      return id._serialized;
+      return remember(id._serialized);
     }
     const identity = await prisma.identidadeWhatsApp.findFirst({ where: { clienteId: cliente.id, conta } });
     if (!identity) throw new Error('Cliente sem identidade válida do WhatsApp.');
-    return identity.jid;
+    return remember(identity.jid);
   }
 
   async function sincronizarHistorico(clienteId) {
@@ -128,7 +143,7 @@ export function criarServicoMensagens({ prisma, client, conta, ativo }) {
       const previous = known.get(message.id._serialized);
       if (previous && !(message.hasQuotedMsg && !previous.citacao) && (!message.fromMe || (message.ack >= 0 && message.ack <= previous.ack))) continue;
       // Yield between history items so newly arriving messages are never stuck behind the whole import.
-      await enqueue(() => receber(message));
+      await enqueue(() => receber(message), 2);
     }
   }
 
@@ -140,23 +155,38 @@ export function criarServicoMensagens({ prisma, client, conta, ativo }) {
   }
 
   async function enviarPendentes() {
-    const pending = await prisma.mensagemWhatsApp.findMany({ where: { conta, status: 'PENDENTE', direcao: 'SAIDA' }, orderBy: { createdAt: 'asc' }, take: 5, include: { cliente: true, midia: true } });
+    // Fetch the small queue batch and attachments together instead of three remote queries.
+    const pending = await prisma.$queryRaw`
+      SELECT m.*, a.dados AS "dadosMidia", json_build_object('id', c.id, 'telefone', c.telefone, 'responsavelId', c."responsavelId") AS cliente,
+        CASE WHEN a."mensagemId" IS NULL THEN NULL ELSE json_build_object(
+          'mimeType', a."mimeType", 'nome', a.nome
+        ) END AS midia
+      FROM "MensagemWhatsApp" m JOIN "Cliente" c ON c.id = m."clienteId"
+      LEFT JOIN "MidiaWhatsApp" a ON a."mensagemId" = m.id
+      WHERE m.conta = ${conta} AND m.status = 'PENDENTE' AND m.direcao = 'SAIDA'
+      ORDER BY m."createdAt" ASC LIMIT 5`;
     for (const message of pending) {
       if (!ativo() || stopped) return;
+      if (message.midia) message.midia.dados = message.dadosMidia;
       let jid;
       try { jid = await destino(message.cliente); }
       catch (error) { await prisma.mensagemWhatsApp.update({ where: { id: message.id }, data: { status: 'FALHOU', erro: error.message } }); continue; }
-      const claimed = await prisma.$transaction(async tx => {
-        const owner = await tx.cliente.updateMany({ where: { id: message.clienteId, responsavelId: message.cliente.responsavelId }, data: { updatedAt: new Date() } });
-        if (!owner.count) return false;
-        const author = message.autorId ? await tx.user.findUnique({ where: { id: message.autorId }, select: { role: true } }) : null;
-        if (!author || (author.role !== 'ADMIN' && !(author.role === 'USER' && (message.cliente.responsavelId === null || message.cliente.responsavelId === message.autorId)))) {
-          await tx.mensagemWhatsApp.update({ where: { id: message.id }, data: { status: 'FALHOU', erro: 'O vendedor não é mais responsável por este cliente.' } });
-          return false;
-        }
-        return (await tx.mensagemWhatsApp.updateMany({ where: { id: message.id, status: 'PENDENTE' }, data: { status: 'ENVIANDO' } })).count === 1;
-      });
-      if (!claimed) continue;
+      // Lock ownership and claim atomically in one DB round trip, preserving permissions
+      // and preventing two workers from transmitting the same pending message.
+      const claimed = await prisma.$queryRaw`
+        WITH dono AS MATERIALIZED (
+          SELECT id, "responsavelId" FROM "Cliente" WHERE id = ${message.clienteId} FOR UPDATE
+        ), permitido AS (
+          SELECT 1 FROM dono JOIN "User" u ON u.id = ${message.autorId}
+          WHERE u.role = 'ADMIN' OR (u.role = 'USER' AND (dono."responsavelId" IS NULL OR dono."responsavelId" = u.id))
+        )
+        UPDATE "MensagemWhatsApp" SET
+          status = CASE WHEN EXISTS (SELECT 1 FROM permitido) THEN 'ENVIANDO' ELSE 'FALHOU' END,
+          erro = CASE WHEN EXISTS (SELECT 1 FROM permitido) THEN NULL ELSE 'O vendedor não é mais responsável por este cliente.' END,
+          "updatedAt" = NOW()
+        WHERE id = ${message.id} AND status = 'PENDENTE' AND EXISTS (SELECT 1 FROM dono)
+        RETURNING status`;
+      if (claimed[0]?.status !== 'ENVIANDO') continue;
       let payload;
       try {
         if (message.midia && message.tipo === 'ptt') {
@@ -204,7 +234,7 @@ export function criarServicoMensagens({ prisma, client, conta, ativo }) {
     if (stopped || (account && account !== conta)) return;
     if (waking) { wakePending = true; return; }
     waking = true;
-    void enqueue(enviarPendentes).then(more => { if (more) wakePending = true; }).catch(log).finally(() => {
+    void enqueue(enviarPendentes, 0).then(more => { if (more) wakePending = true; }).catch(log).finally(() => {
       waking = false;
       if (wakePending) { wakePending = false; acordarEnvios(); }
     });
@@ -224,8 +254,8 @@ export function criarServicoMensagens({ prisma, client, conta, ativo }) {
   }
 
   return {
-    receber, confirmar, identificar, acordarEnvios, enviarPendentes: () => enqueue(enviarPendentes),
-    drain: () => chain,
+    receber, confirmar, identificar, acordarEnvios, enviarPendentes: () => enqueue(enviarPendentes, 0),
+    drain: () => fila.drain(),
     sincronizar,
     async start() {
       await prisma.mensagemWhatsApp.updateMany({ where: { conta, status: 'ENVIANDO' }, data: { status: 'INCERTO', erro: 'A conexão reiniciou durante o envio. Confira o histórico antes de reenviar.' } });
@@ -237,6 +267,6 @@ export function criarServicoMensagens({ prisma, client, conta, ativo }) {
         await sincronizar(customer.id).catch(log);
       }
     },
-    async stop() { stopped = true; clearTimeout(timer); client.off('message_create', onMessage); client.off('message_ack', onAck); await Promise.allSettled([...synchronizing.values()]); await chain; },
+    async stop() { stopped = true; clearTimeout(timer); client.off('message_create', onMessage); client.off('message_ack', onAck); await Promise.allSettled([...synchronizing.values()]); await fila.drain(); },
   };
 }
