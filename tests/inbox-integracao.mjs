@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { randomUUID, randomBytes, createHash } from 'node:crypto';
 import { PrismaClient } from '@prisma/client';
 import puppeteer from 'puppeteer';
+import { validarMidia } from '../lib/whatsapp/conteudo.mjs';
 
 if (process.env.RUN_DATABASE_INTEGRATION !== '1') throw new Error('Requer RUN_DATABASE_INTEGRATION=1');
 const db = new PrismaClient();
@@ -13,7 +14,7 @@ try {
   await db.cliente.create({ data: { id, nome: 'Cliente de validação', responsavelId: userId } });
   const incoming = texto => db.mensagemWhatsApp.create({ data: { clienteId: id, conta, direcao: 'ENTRADA', status: 'RECEBIDA', texto } });
   await incoming('Mensagem privada sem prévia');
-  browser = await puppeteer.launch({ headless: true, executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe' });
+  browser = await puppeteer.launch({ headless: true, executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', args: ['--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'] });
   const context = await browser.createBrowserContext();
   await context.setCookie({ name: 'sessao_segura', value: token, domain: 'localhost', path: '/', httpOnly: true });
   const page = await context.newPage(); page.setDefaultTimeout(45000); page.on('pageerror', e => console.log('BROWSER:', e.message));
@@ -45,6 +46,34 @@ try {
   console.log(`OK: mensagem exibida automaticamente em ${Date.now() - start} ms (inclui gravação no banco).`);
   assert.equal(await page.$eval('aside', el => el.textContent.includes('Atualização automática')), false);
   await page.waitForFunction(selector => !document.querySelector(selector + ' [aria-label="Mensagens não lidas"]'), {}, row);
+  await page.click('[aria-label="Gravar áudio"]');
+  await page.waitForSelector('[aria-label="Parar gravação"]');
+  await page.waitForFunction(() => document.querySelector('[role="status"]')?.textContent.includes('0:01'));
+  await page.click('[aria-label="Parar gravação"]');
+  await page.waitForSelector('[aria-label="Ouvir áudio antes de enviar"]');
+  await page.evaluate(() => {
+    const original = window.fetch;
+    window.fetch = async (url, options) => {
+      if (String(url).endsWith('/mensagens') && options?.method === 'POST') {
+        const file = options.body.get('arquivo');
+        window.__audioRequest = { voz: options.body.get('voz'), type: file.type, bytes: [...new Uint8Array(await file.arrayBuffer())] };
+        return new Response(JSON.stringify({ id: 'simulado', status: 'PENDENTE' }), { status: 202 });
+      }
+      return original(url, options);
+    };
+  });
+  await page.click('button[type="submit"]');
+  await page.waitForFunction(() => !!window.__audioRequest);
+  const audio = await page.evaluate(() => window.__audioRequest);
+  assert.equal(audio.voz, 'true'); assert.equal(validarMidia(Buffer.from(audio.bytes), audio.type), 'audio/webm');
+  await page.waitForSelector('[aria-label="Ouvir áudio antes de enviar"]', { hidden: true });
+  await page.waitForSelector('[aria-label="Gravar áudio"]:not(:disabled)');
+  await page.click('[aria-label="Gravar áudio"]');
+  await page.waitForSelector('[aria-label="Descartar gravação"]');
+  await page.click('[aria-label="Descartar gravação"]');
+  await page.waitForSelector('[aria-label="Gravar áudio"]');
+  assert.equal(await page.$('[aria-label="Ouvir áudio antes de enviar"]'), null);
+  console.log('OK: microfone simulado gera áudio válido, prévia, envio interceptado e descarte.');
   if (process.env.TEST_SCREENSHOT_DIR) await page.screenshot({ path: process.env.TEST_SCREENSHOT_DIR + '/inbox-desktop.png' });
   await page.setViewport({ width: 390, height: 844 });
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);

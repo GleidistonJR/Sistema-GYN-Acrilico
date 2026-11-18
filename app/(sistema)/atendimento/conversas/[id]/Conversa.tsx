@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Paperclip, Send, RefreshCw, MoreVertical } from 'lucide-react';
+import GravarAudio from './GravarAudio';
 
 type Mensagem = { id: string; texto: string; tipo: string; direcao: string; status: string; erro: string | null; enviadoEm: string;
   autor: { colaborador: { nome: string } | null } | null; midia: { nome: string; mimeType: string } | null;
@@ -15,6 +16,14 @@ export default function Conversa({ cliente, onVoltar, onDetalhes, onLida }: {
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
   const [texto, setTexto] = useState('');
   const [arquivo, setArquivo] = useState<File | null>(null);
+  const [voz, setVoz] = useState(false);
+  const [gravando, setGravando] = useState(false);
+  const [previewAudio, setPreviewAudio] = useState('');
+  useEffect(() => {
+    if (!arquivo?.type.startsWith('audio/')) { setPreviewAudio(''); return; }
+    const url = URL.createObjectURL(arquivo); setPreviewAudio(url);
+    return () => URL.revokeObjectURL(url);
+  }, [arquivo]);
   const [enviando, setEnviando] = useState(false);
   const [podeEnviar, setPodeEnviar] = useState(false);
   const [carregando, setCarregando] = useState(true);
@@ -106,17 +115,18 @@ export default function Conversa({ cliente, onVoltar, onDetalhes, onLida }: {
 
   async function enviar(event: React.FormEvent) {
     event.preventDefault();
-    if (enviando || !podeEnviar || (!texto.trim() && !arquivo)) return;
+    if (enviando || gravando || !podeEnviar || (!texto.trim() && !arquivo)) return;
     setEnviando(true); setErro(''); setAviso('');
     pedido.current ??= crypto.randomUUID();
     const form = new FormData();
     form.set('pedidoId', pedido.current); form.set('texto', texto);
     if (arquivo) form.set('arquivo', arquivo);
+    if (voz && arquivo) form.set('voz', 'true');
     try {
       const resposta = await fetch(`${base}/mensagens`, { method: 'POST', body: form });
       const dados = await resposta.json();
       if (!resposta.ok) throw new Error(dados.erro || 'Falha ao enviar.');
-      setTexto(''); setArquivo(null); pedido.current = null;
+      setTexto(''); setArquivo(null); setVoz(false); pedido.current = null;
       if (upload.current) upload.current.value = '';
       seguirFim.current = true;
       await atualizar();
@@ -156,11 +166,13 @@ export default function Conversa({ cliente, onVoltar, onDetalhes, onLida }: {
       {erro && <p role="alert" className="mb-2 text-sm text-red-300">{erro}</p>}
       {aviso && <p role="status" className="mb-2 text-xs text-[#8696a0]">{aviso}</p>}
       {!podeEnviar && !carregando ? <p className="p-3 text-center text-sm text-[#aebac1]"><button onClick={onDetalhes} className="font-semibold text-emerald-300 underline">Assuma este cliente</button> para responder.</p> : <form onSubmit={enviar}>
-        {arquivo && <div className="mb-2 flex items-center gap-3 text-xs"><span className="truncate">{arquivo.name}</span><button type="button" disabled={enviando} onClick={() => { setArquivo(null); pedido.current = null; if (upload.current) upload.current.value = ''; }} className="text-red-300">Remover</button></div>}
-        <div className="flex items-end gap-2"><label className="cursor-pointer rounded-lg p-3 text-[#aebac1] hover:bg-white/5" title="Anexar imagem, áudio ou PDF"><Paperclip size={22} /><span className="sr-only">Anexar arquivo</span>
-          <input ref={upload} type="file" disabled={enviando || !podeEnviar} className="sr-only" accept="image/jpeg,image/png,image/webp,image/gif,audio/ogg,audio/mpeg,audio/mp4,audio/wav,audio/webm,application/pdf" onChange={e => { const file = e.target.files?.[0]; if (file && file.size > 10 * 1024 * 1024) { setErro('O arquivo deve ter até 10 MB.'); e.target.value = ''; return; } setArquivo(file ?? null); pedido.current = null; }} /></label>
-          <textarea value={texto} onChange={e => { setTexto(e.target.value); pedido.current = null; }} disabled={enviando || !podeEnviar} maxLength={6000} rows={1} aria-label="Mensagem" placeholder="Digite sua mensagem…" className="max-h-40 min-w-0 flex-1 resize-y rounded-lg border border-transparent bg-[#2a3942] p-3 text-sm text-[#e9edef] outline-none placeholder:text-[#8696a0] focus:border-emerald-600" />
-          <button type="submit" disabled={enviando || !podeEnviar || (!texto.trim() && !arquivo)} className="flex items-center gap-2 rounded-full bg-[#00a884] px-4 py-3 text-sm font-semibold text-white disabled:opacity-40"><Send size={18} /><span className="hidden sm:inline">{enviando ? 'Salvando…' : 'Enviar'}</span><span className="sr-only sm:hidden">Enviar</span></button>
+        {arquivo && <div className="mb-2 flex items-center gap-3 text-xs"><span className="truncate">{arquivo.name}</span><button type="button" disabled={enviando} onClick={() => { setArquivo(null); setVoz(false); pedido.current = null; if (upload.current) upload.current.value = ''; }} className="text-red-300">Remover</button></div>}
+        {previewAudio && <audio aria-label="Ouvir áudio antes de enviar" controls src={previewAudio} className="mb-3 h-10 w-full max-w-sm" />}
+        <div className="flex flex-wrap items-end gap-2"><label className="cursor-pointer rounded-lg p-3 text-[#aebac1] hover:bg-white/5" title="Anexar imagem, áudio ou PDF"><Paperclip size={22} /><span className="sr-only">Anexar arquivo</span>
+          <input ref={upload} type="file" disabled={enviando || gravando || !podeEnviar} className="sr-only" accept="image/jpeg,image/png,image/webp,image/gif,audio/ogg,audio/mpeg,audio/mp4,audio/wav,audio/webm,application/pdf" onChange={e => { const file = e.target.files?.[0]; if (file && file.size > 10 * 1024 * 1024) { setErro('O arquivo deve ter até 10 MB.'); e.target.value = ''; return; } setArquivo(file ?? null); setVoz(false); pedido.current = null; }} /></label>
+          <textarea hidden={gravando} value={texto} onChange={e => { setTexto(e.target.value); pedido.current = null; }} disabled={enviando || gravando || !podeEnviar} maxLength={6000} rows={1} aria-label="Mensagem" placeholder="Digite sua mensagem…" className="max-h-40 min-w-0 flex-1 resize-y rounded-lg border border-transparent bg-[#2a3942] p-3 text-sm text-[#e9edef] outline-none placeholder:text-[#8696a0] focus:border-emerald-600" />
+          <GravarAudio disabled={enviando || !podeEnviar || !!arquivo} onArquivo={file => { setArquivo(file); setVoz(true); pedido.current = null; }} onGravando={setGravando} onErro={setErro} />
+          <button type="submit" disabled={enviando || gravando || !podeEnviar || (!texto.trim() && !arquivo)} className="flex items-center gap-2 rounded-full bg-[#00a884] px-4 py-3 text-sm font-semibold text-white disabled:opacity-40"><Send size={18} /><span className="hidden sm:inline">{enviando ? 'Salvando…' : 'Enviar'}</span><span className="sr-only sm:hidden">Enviar</span></button>
         </div><p className="mt-1 text-[10px] text-[#8696a0]">Imagens, áudio e PDF até 10 MB. O estado de envio aparece em cada mensagem.</p>
       </form>}
     </footer>

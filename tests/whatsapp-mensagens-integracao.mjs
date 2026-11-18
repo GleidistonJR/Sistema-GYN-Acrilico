@@ -17,11 +17,13 @@ const lid = '123456789012345@lid';
 const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aD1sAAAAASUVORK5CYII=', 'base64');
 const client = new EventEmitter();
 let sends = 0;
+let lastOptions;
 let shouldFail = false;
 client.getNumberId = async number => ({ _serialized: number + '@c.us' });
 client.getContactLidAndPhone = async () => [{ lid, pn: jid }];
 client.getContactById = async () => ({ pushname: 'Contato de teste' });
-client.sendMessage = async (_jid, payload) => {
+client.sendMessage = async (_jid, payload, options) => {
+  lastOptions = options;
   sends++;
   if (shouldFail) throw new Error('Simulação: conexão interrompida após tentativa');
   const message = { id: { _serialized: randomUUID() }, fromMe: true, to: jid, from: 'empresa', type: 'chat', body: typeof payload === 'string' ? payload : 'arquivo', timestamp: Date.now() / 1000, ack: 1 };
@@ -83,6 +85,14 @@ try {
   assert.equal(sends, 3);
   assert.equal((await prisma.mensagemWhatsApp.findUnique({ where: { id: unauthorized.id } })).status, 'FALHOU');
   console.log('OK: anexo enviado pelo provedor simulado e autorização conferida novamente antes do envio.');
+  const voice = await prisma.mensagemWhatsApp.create({ data: {
+    clienteId, conta, autorId: users[0], direcao: 'SAIDA', texto: '', status: 'PENDENTE', tipo: 'ptt',
+    midia: { create: { dados: Buffer.from('OggS-simulado'), mimeType: 'audio/ogg', nome: 'audio.ogg' } },
+  } });
+  await service.enviarPendentes(); await service.drain();
+  assert.equal(lastOptions.sendAudioAsVoice, true);
+  assert.equal((await prisma.mensagemWhatsApp.findUnique({ where: { id: voice.id } })).status, 'ENVIADA');
+  console.log('OK: gravação enviada como mensagem de voz ao provedor simulado.');
 
   browser = await puppeteer.launch({ headless: true, executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe' });
   const pages = [];

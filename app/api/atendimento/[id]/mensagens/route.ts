@@ -56,13 +56,15 @@ export async function POST(request: Request, { params }: Contexto) {
     const pedidoId = String(form.get('pedidoId') || '');
     if (!/^[a-f0-9-]{36}$/i.test(pedidoId) || texto.length > 6000) return json({ erro: 'Mensagem inválida ou acima de 6.000 caracteres.' }, 400);
     const arquivo = form.get('arquivo');
+    const voz = form.get('voz') === 'true';
     let midia: { dados: Buffer; nome: string; mimeType: string } | undefined;
     if (arquivo instanceof File && arquivo.size) {
       const dados = Buffer.from(await arquivo.arrayBuffer());
       midia = { dados, nome: nomeArquivo(arquivo.name), mimeType: validarMidia(dados, arquivo.type) };
     }
     if (!texto && !midia) return json({ erro: 'Digite uma mensagem ou selecione um arquivo.' }, 400);
-    const conteudoHash = createHash('sha256').update(JSON.stringify([texto, midia?.nome, midia?.mimeType])).update(midia?.dados ?? '').digest('hex');
+    if (voz && !midia?.mimeType.startsWith('audio/')) return json({ erro: 'A mensagem de voz precisa de um arquivo de áudio.' }, 400);
+    const conteudoHash = createHash('sha256').update(JSON.stringify([texto, midia?.nome, midia?.mimeType])).update(midia?.dados ?? '').update(voz ? ':voz' : '').digest('hex');
     const existing = await prisma.mensagemWhatsApp.findUnique({ where: { pedidoId } });
     if (existing) {
       if (existing.clienteId !== id || existing.autorId !== acesso.usuario.id || existing.conteudoHash !== conteudoHash) return json({ erro: 'Identificador já utilizado para outra mensagem.' }, 409);
@@ -75,7 +77,7 @@ export async function POST(request: Request, { params }: Contexto) {
       if (!allowed.count) throw new Error('O responsável mudou. Atualize a conversa.');
       return tx.mensagemWhatsApp.create({ data: {
         clienteId: id, conta: estado.numero!, pedidoId, conteudoHash, autorId: acesso.usuario.id,
-        direcao: 'SAIDA', texto, status: 'PENDENTE', tipo: midia ? midia.mimeType.startsWith('image/') ? 'image' : midia.mimeType.startsWith('audio/') ? 'audio' : 'document' : 'chat',
+        direcao: 'SAIDA', texto, status: 'PENDENTE', tipo: voz ? 'ptt' : midia ? midia.mimeType.startsWith('image/') ? 'image' : midia.mimeType.startsWith('audio/') ? 'audio' : 'document' : 'chat',
         ...(midia ? { midia: { create: midia } } : {}),
       } });
     });

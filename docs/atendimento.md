@@ -18,7 +18,9 @@ Migrações de clientes e mensagens aplicadas em produção em 18/11/2026 com au
   Atribuição usa UPDATE condicional. ADMIN transfere/devolve à fila, com auditoria.
 - Mensagens, identidades e anexos persistidos no PostgreSQL. Áudio reproduzível,
   imagens visualizáveis e PDFs para download.
-- Respostas inteligentes e gravação de áudio pelo microfone ainda não implementadas.
+- Gravação pelo microfone por até 2 minutos, prévia para ouvir, descarte e envio como
+  mensagem de voz. Exige permissão do navegador e localhost/HTTPS. Anexar áudio
+  continua disponível. Respostas inteligentes ainda não implementadas.
 
 ## Operação local
 

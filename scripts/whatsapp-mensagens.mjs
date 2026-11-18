@@ -150,7 +150,7 @@ export function criarServicoMensagens({ prisma, client, conta, ativo }) {
       // Do not retry an ambiguous send automatically: WhatsApp may have accepted it.
       try {
         const payload = message.midia ? new whatsapp.MessageMedia(message.midia.mimeType, Buffer.from(message.midia.dados).toString('base64'), message.midia.nome) : message.texto;
-        const sent = await client.sendMessage(jid, payload, { sendSeen: false, ...(message.midia ? { caption: message.texto, sendMediaAsDocument: message.midia.mimeType === 'application/pdf' } : {}) });
+        const sent = await client.sendMessage(jid, payload, { sendSeen: false, ...(message.midia ? { caption: message.texto, sendMediaAsDocument: message.midia.mimeType === 'application/pdf', sendAudioAsVoice: message.tipo === 'ptt' } : {}) });
         if (!sent?.id?._serialized) throw new Error('Confirmação ausente');
         await prisma.mensagemWhatsApp.update({ where: { id: message.id }, data: { externaId: sent.id._serialized, status: statusAck(sent.ack), ack: Math.max(0, sent.ack || 0), erro: null } });
       } catch {
