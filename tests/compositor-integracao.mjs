@@ -20,11 +20,17 @@ try {
     void request.continue();
   });
   await page.evaluateOnNewDocument(() => {
-    window.__envios = []; window.__falhar = false;
+    window.__envios = []; window.__falhar = false; window.__arquivo = null;
+    window.XMLHttpRequest = class {
+      upload = {}; status = 200; responseText = '{}';
+      open() {} setRequestHeader() {}
+      async send(file) { window.__arquivo = file; this.onload(); }
+    };
     const original = window.fetch.bind(window);
     window.fetch = async (url, options) => {
+      if (options?.method === 'POST' && String(url).endsWith('/anexos')) return Response.json({ token: 'simulado', url: 'https://upload.invalid' });
       if (options?.method !== 'POST' || !String(url).endsWith('/mensagens')) return original(url, options);
-      const form = options.body, file = form.get('arquivo');
+      const form = options.body, file = form.get('uploadToken') ? window.__arquivo : null;
       window.__envios.push({ pedidoId: form.get('pedidoId'), texto: form.get('texto'), nome: file?.name, mime: file?.type, dados: file ? await file.text() : null });
       await new Promise(resolve => setTimeout(resolve, 200));
       if (window.__falhar) { window.__falhar = false; return Response.json({ erro: 'Falha simulada' }, { status: 503 }); }

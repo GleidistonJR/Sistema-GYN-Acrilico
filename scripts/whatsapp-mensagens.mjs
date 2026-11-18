@@ -1,8 +1,9 @@
 import whatsapp from 'whatsapp-web.js';
+import { lerArquivo, salvarArquivo, removerAposEnvio } from './whatsapp-arquivos.mjs';
 import { criarFilaPrioritaria } from './whatsapp-fila.mjs';
 import { converterVoz } from './whatsapp-audio.mjs';
 import { obterCitacao } from '../lib/whatsapp/citacao.mjs';
-import { telefoneDoJid, variantesTelefone, nomeArquivo, validarMidia, LIMITE_MIDIA, statusAck } from '../lib/whatsapp/conteudo.mjs';
+import { telefoneDoJid, variantesTelefone, nomeArquivo, statusAck } from '../lib/whatsapp/conteudo.mjs';
 
 export function criarServicoMensagens({ prisma, client, conta, ativo, retryDelayMs = 5000 }) {
   const fila = criarFilaPrioritaria();
@@ -60,13 +61,28 @@ export function criarServicoMensagens({ prisma, client, conta, ativo, retryDelay
     return existing.id;
   }
 
+  function metadadosMidia(message) {
+    let media;
+    if (message.hasMedia || ['image', 'video', 'audio', 'ptt', 'document', 'sticker'].includes(message.type)) {
+      const fallback = { image: 'image/jpeg', sticker: 'image/webp', video: 'video/mp4', audio: 'audio/mpeg', ptt: 'audio/ogg' };
+      const mimeType = String(message.rawData?.mimetype || fallback[message.type] || 'application/octet-stream').split(';')[0];
+      media = { dados: Buffer.alloc(0), mimeType, nome: nomeArquivo(message.rawData?.filename || 'arquivo.' + (mimeType.split('/')[1] || 'bin')) };
+    }
+    return media;
+  }
+
   async function receber(message) {
     if (message.isStatus || message.broadcast || !message.id?._serialized) return;
     const jid = message.fromMe ? message.to : message.from;
     if (!/^\d+@(c\.us|lid)$/.test(jid)) return;
     const external = { conta, externaId: message.id._serialized };
-    const exists = await prisma.mensagemWhatsApp.findUnique({ where: { conta_externaId: external }, select: { id: true, citacao: true } });
+    const exists = await prisma.mensagemWhatsApp.findUnique({ where: { conta_externaId: external }, select: { id: true, citacao: true, midia: { select: { mensagemId: true } } } });
     if (exists) {
+      const media = !exists.midia && metadadosMidia(message);
+      if (media) {
+        await prisma.midiaWhatsApp.upsert({ where: { mensagemId: exists.id }, create: { mensagemId: exists.id, ...media }, update: {} });
+        await prisma.mensagemWhatsApp.updateMany({ where: { id: exists.id, erro: { startsWith: 'Anexo indisponível' } }, data: { erro: null } });
+      }
       if (message.hasQuotedMsg && !exists.citacao) {
         await prisma.mensagemWhatsApp.update({ where: { id: exists.id }, data: { citacao: await obterCitacao(message) } });
       }
@@ -81,18 +97,7 @@ export function criarServicoMensagens({ prisma, client, conta, ativo, retryDelay
       status: message.fromMe ? statusAck(message.ack) : 'RECEBIDA',
       ...(message.hasQuotedMsg ? { citacao: await obterCitacao(message) } : {}),
     };
-    let media;
-    if (message.hasMedia) {
-      try {
-        if (Number(message.rawData?.size) > LIMITE_MIDIA) throw new Error('Arquivo acima de 10 MB.');
-        const downloaded = await message.downloadMedia();
-        if (!downloaded?.data || downloaded.data.length > Math.ceil(LIMITE_MIDIA * 4 / 3) + 4) throw new Error('Arquivo indisponível ou acima de 10 MB.');
-        const dados = Buffer.from(downloaded.data, 'base64');
-        const mimeType = validarMidia(dados, downloaded.mimetype);
-        const extension = mimeType === 'application/pdf' ? '.pdf' : '.' + mimeType.split('/')[1];
-        media = { dados, mimeType, nome: nomeArquivo(downloaded.filename || 'arquivo' + extension) };
-      } catch { data.erro = 'Anexo indisponível, acima de 10 MB ou em formato não suportado. Consulte o WhatsApp no celular.'; }
-    }
+    const media = metadadosMidia(message);
     // A batch stays atomic without an interactive transaction's five-second deadline.
     // Slow attachment uploads must not roll back a successfully received message.
     await prisma.$transaction([
@@ -140,12 +145,12 @@ export function criarServicoMensagens({ prisma, client, conta, ativo, retryDelay
     const jid = await destino(cliente);
     const chat = await client.getChatById(jid);
     const messages = await chat.fetchMessages({ limit: 50 });
-    const existing = await prisma.mensagemWhatsApp.findMany({ where: { conta, externaId: { in: messages.map(m => m.id._serialized) } }, select: { externaId: true, ack: true, citacao: true } });
+    const existing = await prisma.mensagemWhatsApp.findMany({ where: { conta, externaId: { in: messages.map(m => m.id._serialized) } }, select: { externaId: true, ack: true, citacao: true, midia: { select: { mensagemId: true } } } });
     const known = new Map(existing.map(m => [m.externaId, m]));
     for (const message of messages) {
       if (stopped) return;
       const previous = known.get(message.id._serialized);
-      if (previous && !(message.hasQuotedMsg && !previous.citacao) && (!message.fromMe || (message.ack >= 0 && message.ack <= previous.ack))) continue;
+      if (previous && !(metadadosMidia(message) && !previous.midia) && !(message.hasQuotedMsg && !previous.citacao) && (!message.fromMe || (message.ack >= 0 && message.ack <= previous.ack))) continue;
       // Yield between history items so newly arriving messages are never stuck behind the whole import.
       try { await enqueue(() => receber(message), 2); }
       catch { agendarRecebimento(message, 2); }
@@ -162,12 +167,13 @@ export function criarServicoMensagens({ prisma, client, conta, ativo, retryDelay
   async function enviarPendentes() {
     // Fetch the small queue batch and attachments together instead of three remote queries.
     const pending = await prisma.$queryRaw`
-      SELECT m.*, a.dados AS "dadosMidia", json_build_object('id', c.id, 'telefone', c.telefone, 'responsavelId', c."responsavelId") AS cliente,
+      SELECT m.*, a.dados AS "dadosMidia", f.chave AS "chaveArquivo", json_build_object('id', c.id, 'telefone', c.telefone, 'responsavelId', c."responsavelId") AS cliente,
         CASE WHEN a."mensagemId" IS NULL THEN NULL ELSE json_build_object(
           'mimeType', a."mimeType", 'nome', a.nome
         ) END AS midia
       FROM "MensagemWhatsApp" m JOIN "Cliente" c ON c.id = m."clienteId"
       LEFT JOIN "MidiaWhatsApp" a ON a."mensagemId" = m.id
+      LEFT JOIN "ArquivoWhatsApp" f ON f."mensagemId" = m.id
       WHERE m.conta = ${conta} AND m.status = 'PENDENTE' AND m.direcao = 'SAIDA'
       ORDER BY m."createdAt" ASC LIMIT 5`;
     for (const message of pending) {
@@ -176,41 +182,45 @@ export function criarServicoMensagens({ prisma, client, conta, ativo, retryDelay
       let jid;
       try { jid = await destino(message.cliente); }
       catch (error) { await prisma.mensagemWhatsApp.update({ where: { id: message.id }, data: { status: 'FALHOU', erro: error.message } }); continue; }
-      // Lock ownership and claim atomically in one DB round trip, preserving permissions
+      // Lock the customer and claim atomically in one DB round trip, preserving permissions
       // and preventing two workers from transmitting the same pending message.
       const claimed = await prisma.$queryRaw`
         WITH dono AS MATERIALIZED (
           SELECT id, "responsavelId" FROM "Cliente" WHERE id = ${message.clienteId} FOR UPDATE
         ), permitido AS (
           SELECT 1 FROM dono JOIN "User" u ON u.id = ${message.autorId}
-          WHERE u.role = 'ADMIN' OR (u.role = 'USER' AND (dono."responsavelId" IS NULL OR dono."responsavelId" = u.id))
+          WHERE u.role IN ('ADMIN', 'USER')
         )
         UPDATE "MensagemWhatsApp" SET
           status = CASE WHEN EXISTS (SELECT 1 FROM permitido) THEN 'ENVIANDO' ELSE 'FALHOU' END,
-          erro = CASE WHEN EXISTS (SELECT 1 FROM permitido) THEN NULL ELSE 'O vendedor não é mais responsável por este cliente.' END,
+          erro = CASE WHEN EXISTS (SELECT 1 FROM permitido) THEN NULL ELSE 'O usuário não tem mais permissão para responder.' END,
           "updatedAt" = NOW()
         WHERE id = ${message.id} AND status = 'PENDENTE' AND EXISTS (SELECT 1 FROM dono)
         RETURNING status`;
       if (claimed[0]?.status !== 'ENVIANDO') continue;
       let payload;
       try {
+        if (message.chaveArquivo) message.midia.dados = await lerArquivo(message.chaveArquivo);
+        if (message.midia && !message.midia.dados?.length) throw new Error("Anexo temporário indisponível.");
         if (message.midia && message.tipo === 'ptt') {
           const dados = await converterVoz(Buffer.from(message.midia.dados));
           // Keep exactly the transmitted file, not the original browser recording.
-          await prisma.midiaWhatsApp.update({ where: { mensagemId: message.id }, data: { dados, mimeType: 'audio/mpeg', nome: 'gravacao.mp3' } });
+          if (message.chaveArquivo) await salvarArquivo(message.chaveArquivo, dados);
+          await prisma.midiaWhatsApp.update({ where: { mensagemId: message.id }, data: { dados: message.chaveArquivo ? Buffer.alloc(0) : dados, mimeType: 'audio/mpeg', nome: 'gravacao.mp3' } });
           payload = new whatsapp.MessageMedia('audio/mpeg', dados.toString('base64'), 'gravacao.mp3');
         } else payload = message.midia ? new whatsapp.MessageMedia(message.midia.mimeType, Buffer.from(message.midia.dados).toString('base64'), message.midia.nome) : message.texto;
       } catch {
-        await prisma.mensagemWhatsApp.update({ where: { id: message.id }, data: { status: 'FALHOU', erro: 'O áudio não pôde ser preparado. Nenhuma mensagem foi enviada. Grave novamente.' } });
+        await prisma.mensagemWhatsApp.update({ where: { id: message.id }, data: { status: 'FALHOU', erro: 'O anexo temporário não pôde ser preparado ou expirou. Nenhuma mensagem foi enviada. Anexe novamente.' } });
         continue;
       }
       // Do not retry an ambiguous send automatically: WhatsApp may have accepted it.
       try {
         const sent = await client.sendMessage(jid, payload, { sendSeen: false,
           ...(message.citacao?.externaId ? { quotedMessageId: message.citacao.externaId, ignoreQuoteErrors: false } : {}),
-          ...(message.midia ? { caption: message.texto, sendMediaAsDocument: message.midia.mimeType === 'application/pdf', sendAudioAsVoice: false } : {}) });
+          ...(message.midia ? { caption: message.texto, sendMediaAsDocument: message.midia.mimeType === 'application/pdf' || (message.midia.mimeType.startsWith('video/') && message.midia.dados.length > 60 * 1024 * 1024), sendAudioAsVoice: false } : {}) });
         if (!sent?.id?._serialized) throw new Error('Confirmação ausente');
         await prisma.mensagemWhatsApp.update({ where: { id: message.id }, data: { externaId: sent.id._serialized, ...(message.tipo === 'ptt' ? { tipo: 'audio' } : {}), status: statusAck(sent.ack), ack: Math.max(0, sent.ack || 0), erro: null } });
+        if (message.chaveArquivo) removerAposEnvio(message.chaveArquivo);
       } catch (error) {
         const quoteUnavailable = error?.code === 'QUOTE_UNAVAILABLE' || String(error?.message).includes('Could not get the quoted message.');
         await prisma.mensagemWhatsApp.update({ where: { id: message.id }, data: {

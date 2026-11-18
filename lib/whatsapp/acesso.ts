@@ -5,10 +5,7 @@ import { obterUsuarioSessao } from '@/lib/sessao';
 export async function acessoConversa(clienteId: string) {
   const usuario = await obterUsuarioSessao();
   if (!usuario || !['ADMIN', 'USER'].includes(usuario.role)) return null;
-  const cliente = await prisma.cliente.findFirst({ where: {
-    id: clienteId,
-    ...(usuario.role === 'ADMIN' ? {} : { OR: [{ responsavelId: usuario.id }, { responsavelId: null }] }),
-  } });
+  const cliente = await prisma.cliente.findUnique({ where: { id: clienteId } });
   return cliente ? { usuario, cliente } : null;
 }
 

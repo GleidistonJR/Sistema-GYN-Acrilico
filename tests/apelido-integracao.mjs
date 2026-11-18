@@ -1,3 +1,5 @@
+import { unlink } from 'node:fs/promises';
+import { caminhoArquivo } from '../scripts/whatsapp-arquivos.mjs';
 import assert from 'node:assert/strict';
 import { randomUUID, randomBytes, createHash } from 'node:crypto';
 import { PrismaClient } from '@prisma/client';
@@ -40,7 +42,11 @@ try {
       const form = new FormData(); form.set('pedidoId', pedidoId); form.set('texto', 'Mensagem normal'); form.set('apelido', 'Falsificado');
       if (image) {
         const data = Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII='), c => c.charCodeAt(0));
-        form.set('arquivo', new File([data], 'teste.png', { type: 'image/png' }));
+        const grant = await fetch(`/api/atendimento/${clienteId}/anexos`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nome: 'teste.png', mimeType: 'image/png', tamanho: data.length }) });
+        const ticket = await grant.json(); if (!grant.ok) throw new Error(ticket.erro);
+        const upload = await fetch(ticket.url, { method: 'PUT', headers: { 'Content-Type': 'application/octet-stream' }, body: data });
+        if (!upload.ok) throw new Error(await upload.text());
+        form.set('uploadToken', ticket.token);
       }
       const response = await fetch(`/api/atendimento/${clienteId}/mensagens`, { method: 'POST', body: form });
       return { status: response.status, data: await response.json() };
@@ -63,6 +69,11 @@ try {
   console.log('OK: dois USER configuram apelidos independentes, assinatura no texto e imagem, servidor ignora apelido falsificado, histórico imutável, retry idempotente e cabeçalho em negrito. Nenhum destinatário real.');
 } finally {
   await browser?.close();
+  for (const id of users) {
+    const tickets = await db.$queryRaw`SELECT payload FROM "TransferenciaWhatsApp" WHERE payload->>'userId' = ${id}`;
+    for (const t of tickets) if (t.payload.chave) await unlink(caminhoArquivo(t.payload.chave)).catch(() => {});
+    await db.$executeRaw`DELETE FROM "TransferenciaWhatsApp" WHERE payload->>'userId' = ${id}`;
+  }
   await db.mensagemWhatsApp.deleteMany({ where: { clienteId } });
   await db.cliente.deleteMany({ where: { id: clienteId } });
   await db.user.deleteMany({ where: { id: { in: users } } });

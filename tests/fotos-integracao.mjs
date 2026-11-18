@@ -37,7 +37,7 @@ try {
     const response = await fetch('/api/atendimento/fotos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids }) });
     return response.json();
   }, [ids[0], ids[24]]);
-  assert.deepEqual(result.fotos.map(f => f.id), [ids[0]]);
+  assert.deepEqual(new Set(result.fotos.map(f => f.id)), new Set([ids[0], ids[24]]));
   await db.cliente.update({ where: { id: ids[0] }, data: { telefone: '+999' + Date.now().toString().slice(-10) } });
   await db.$executeRaw`UPDATE "FotoContato" SET "consultadaEm" = NOW() - INTERVAL '2 days' WHERE "clienteId" = ${ids[0]}`;
   const pending = await page.evaluate(async id => (await (await fetch('/api/atendimento/fotos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: [id] }) })).json()).fotos[0].pendente, ids[0]);
@@ -45,7 +45,7 @@ try {
   assert.equal((await fetch(base + '/api/atendimento/fotos', { method: 'POST', headers: { Origin: base, 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: [ids[0]] }) })).status, 401);
   await page.$eval('[data-cliente-id]:last-child img', el => el.dispatchEvent(new Event('error')));
   await page.waitForFunction(() => !document.querySelector('[data-cliente-id]:last-child img'));
-  console.log('OK: fotos visíveis, rolagem, cache compartilhado, isolamento USER, autenticação e fallback de imagem.');
+  console.log('OK: fotos visíveis, rolagem, cache compartilhado, acesso compartilhado USER, autenticação e fallback de imagem.');
 } finally {
   await browser?.close();
   await db.cliente.deleteMany({ where: { id: { in: ids } } });

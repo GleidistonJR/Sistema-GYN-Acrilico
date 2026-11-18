@@ -30,7 +30,7 @@ export async function alterarAtendimento(_anterior: Resultado, form: FormData): 
       const id = validarTexto(form.get('clienteId'), 100);
       const nome = validarTexto(form.get('nome'), 120);
       const resultado = await prisma.cliente.updateMany({
-        where: { id, ...(usuario.role === 'ADMIN' ? {} : { OR: [{ responsavelId: usuario.id }, { responsavelId: null }] }) },
+        where: { id },
         data: { nome },
       });
       if (resultado.count !== 1) throw new Error('Cliente não disponível para alteração. Atualize a conversa.');

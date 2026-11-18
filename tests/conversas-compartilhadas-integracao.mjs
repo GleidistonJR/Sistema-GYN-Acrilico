@@ -1,0 +1,47 @@
+import assert from 'node:assert/strict';
+import { randomUUID, randomBytes, createHash } from 'node:crypto';
+import { PrismaClient } from '@prisma/client';
+import puppeteer from 'puppeteer';
+if (process.env.RUN_DATABASE_INTEGRATION !== '1') throw new Error('Requer RUN_DATABASE_INTEGRATION=1');
+const db = new PrismaClient(), base = process.env.TEST_BASE_URL || 'http://localhost:3000';
+const users = [randomUUID(), randomUUID(), randomUUID()], tokens = users.map(() => randomBytes(32).toString('hex'));
+const clienteId = randomUUID(), nome = 'Compartilhado ' + randomUUID();
+let browser;
+try {
+  for (let i = 0; i < users.length; i++) await db.user.create({ data: { id: users[i], email: `${users[i]}@example.invalid`, password: 'teste', role: i === 2 ? 'OUTRO' : 'USER', sessoes: { create: { tokenHash: createHash('sha256').update(tokens[i]).digest('hex'), expiresAt: new Date(Date.now() + 3600000) } } } });
+  await db.$executeRaw`UPDATE "User" SET apelido = 'Gleidiston' WHERE id = ${users[0]}`;
+  await db.$executeRaw`UPDATE "User" SET apelido = 'Claudia' WHERE id = ${users[1]}`;
+  await db.cliente.create({ data: { id: clienteId, nome, responsavelId: users[0] } });
+  const headers = { Cookie: `sessao_segura=${tokens[1]}`, Origin: base };
+  const search = encodeURIComponent(nome);
+  const all = await (await fetch(`${base}/api/atendimento/clientes?fila=todos&busca=${search}`, { headers })).json();
+  assert.equal(all.clientes[0].id, clienteId); assert.equal(all.clientes[0].responsavelNome, 'Gleidiston');
+  assert.equal((await (await fetch(`${base}/api/atendimento/clientes?fila=meus&busca=${search}`, { headers })).json()).clientes.length, 0);
+  const history = await fetch(`${base}/api/atendimento/${clienteId}/mensagens`, { headers }); assert.equal(history.status, 200); assert.equal((await history.json()).podeEnviar, true);
+  const form = new FormData(); form.set('pedidoId', randomUUID()); form.set('texto', 'Resposta de outra vendedora');
+  const sent = await fetch(`${base}/api/atendimento/${clienteId}/mensagens`, { method: 'POST', headers, body: form });
+  const message = await sent.json(); assert.equal(sent.status, 202, message.erro);
+  assert.ok(message.mensagem.texto.startsWith('*Claudia:*'));
+  assert.equal((await db.cliente.findUnique({ where: { id: clienteId } })).responsavelId, users[0]);
+  const denied = await fetch(`${base}/api/atendimento/${clienteId}/mensagens`, { headers: { Cookie: `sessao_segura=${tokens[2]}` } }); assert.equal(denied.status, 403);
+  assert.equal((await fetch(`${base}/api/atendimento/${clienteId}/mensagens`)).status, 403);
+  browser = await puppeteer.launch({ headless: true, executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe' });
+  const page = await browser.newPage(); page.setDefaultTimeout(45000);
+  await page.setCookie({ name: 'sessao_segura', value: tokens[1], url: base, httpOnly: true, secure: base.startsWith('https:') });
+  await page.goto(base + '/atendimento?fila=todos', { waitUntil: 'networkidle2' });
+  await page.type('[aria-label="Buscar cliente"]', nome);
+  const row = `[data-cliente-id="${clienteId}"]`;
+  await page.waitForSelector(row + ' [title="Responsável: Gleidiston"]');
+  await page.hover(row + ' [title="Responsável: Gleidiston"]');
+  await page.click(row); await page.waitForSelector('textarea:not(:disabled)');
+  await db.cliente.update({ where: { id: clienteId }, data: { responsavelId: users[1] } });
+  await page.waitForSelector(row + ' [title="Responsável: Claudia"]');
+  await page.select('[aria-label="Carteira de clientes"]', 'meus');
+  await page.waitForSelector(row);
+  const mine = await (await fetch(`${base}/api/atendimento/clientes?fila=meus&busca=${search}`, { headers })).json();
+  assert.equal(mine.clientes[0].id, clienteId);
+  console.log('OK: todos os USER visualizam e respondem sem mudar responsável; Meus filtra a carteira; ícone mostra responsável e atualiza; OUTRO e visitantes bloqueados. Nenhum destinatário real.');
+} finally {
+  await browser?.close(); await db.cliente.deleteMany({ where: { id: clienteId } });
+  await db.user.deleteMany({ where: { id: { in: users } } }); await db.$disconnect();
+}

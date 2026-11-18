@@ -19,9 +19,9 @@ test('um vendedor não pode editar clientes de outro vendedor nem da fila', () =
   assert.equal(podeEditarCliente({ id: 'admin', role: 'ADMIN' }, 'vendedor-b'), true);
 });
 
-test('alterar o filtro para todos não expõe outras carteiras a um vendedor', () => {
+test('todos mostra a equipe e meus mantém apenas a carteira do vendedor', () => {
   const vendedor = { id: 'vendedor-a', role: 'USER' };
-  assert.deepEqual(filtroClientes(vendedor, 'todos'), { responsavelId: vendedor.id });
+  assert.deepEqual(filtroClientes(vendedor, 'todos'), {});
   assert.deepEqual(filtroClientes(vendedor, 'invalido'), { responsavelId: vendedor.id });
   assert.deepEqual(filtroClientes(vendedor, 'fila'), { responsavelId: null });
   assert.deepEqual(filtroClientes({ id: 'admin', role: 'ADMIN' }, 'todos'), {});

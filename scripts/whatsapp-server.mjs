@@ -11,8 +11,12 @@ import { criarEventosAtendimento } from './whatsapp-eventos.mjs';
 import { criarFotosContatos } from './whatsapp-fotos.mjs';
 import { publicarEstadoServico } from '../lib/whatsapp/estado-servico.mjs';
 import { sessionPath } from './whatsapp-caminhos.mjs';
+import { criarServidorMidia } from './whatsapp-midia-servidor.mjs';
+import { iniciarTunel } from './whatsapp-tunel.mjs';
 
 const prisma = new PrismaClient();
+let pararTunel;
+const servidorMidia = criarServidorMidia({ prisma, getClient: () => state.status === 'conectado' && client ? { client, conta: state.numero } : null });
 let mensagens = null;
 let fotos = null;
 const eventos = criarEventosAtendimento({ onEnvio: conta => mensagens?.acordarEnvios(conta), onFotos: () => void fotos?.acordar() });
@@ -32,6 +36,14 @@ let client = null;
 let generation = 0;
 let busy = false;
 let watchdog;
+let reconnectTimer;
+let automatic = true;
+let reconnectAttempts = 0;
+function reconnectLater() {
+  clearTimeout(reconnectTimer);
+  if (!automatic) return;
+  reconnectTimer = setTimeout(() => void connect(), Math.min(60000, 5000 * 2 ** Math.min(reconnectAttempts++, 4)));
+}
 let state = { status: 'desconectado', qr: null, numero: null, mensagem: null, atualizadoEm: new Date().toISOString() };
 let heartbeatChain = Promise.resolve();
 function heartbeat() {
@@ -66,6 +78,8 @@ async function destroyCurrent() {
 
 async function connect() {
   if (busy || ['iniciando', 'qr', 'autenticando', 'conectado'].includes(state.status)) return;
+  automatic = true;
+  clearTimeout(reconnectTimer);
   busy = true;
   const current = ++generation;
   clearTimeout(watchdog);
@@ -92,6 +106,7 @@ async function connect() {
       clearTimeout(readyProbe);
       update({ status: 'erro', qr: null, numero: null, mensagem: message });
       await destroyCurrent();
+      reconnectLater();
     };
     instance.on('qr', async value => {
       if (!active()) return;
@@ -125,6 +140,7 @@ async function connect() {
     });
     instance.on('ready', () => {
       if (!active()) return;
+      reconnectAttempts = 0;
       clearTimeout(watchdog);
       clearTimeout(readyProbe);
       update({ status: 'conectado', qr: null, numero: instance.info?.wid?.user ?? null, mensagem: null });
@@ -141,11 +157,12 @@ async function connect() {
     });
     instance.on('auth_failure', () => void fail('O WhatsApp recusou a autenticação. Tente conectar novamente.'));
     instance.on('error', () => void fail('O navegador do WhatsApp encontrou uma falha. Tente conectar novamente.'));
-    instance.on('disconnected', () => {
+    instance.on('disconnected', reason => {
       if (!active()) return;
       ++generation;
       clearTimeout(watchdog);
       update({ status: 'desconectado', qr: null, numero: null, mensagem: 'Conexão encerrada. Você pode conectar novamente.' });
+      if (reason !== 'LOGOUT') reconnectLater();
       // Do not destroy the page inside the library's logout/navigation callback.
       // Keep it for destroyCurrent() to close before the next explicit connection.
     });
@@ -153,10 +170,13 @@ async function connect() {
     void instance.initialize().catch(() => fail('Falha ao iniciar o WhatsApp Web. Verifique o navegador e tente novamente.'));
   } catch {
     update({ status: 'erro', qr: null, numero: null, mensagem: 'Não foi possível iniciar a conexão.' });
+    reconnectLater();
   } finally { busy = false; }
 }
 
 async function disconnect() {
+  automatic = false;
+  clearTimeout(reconnectTimer);
   fotos?.stop(); fotos = null;
   if (busy) return;
   busy = true;
@@ -215,6 +235,7 @@ const server = http.createServer((req, res) => {
 server.requestTimeout = 10000;
 server.headersTimeout = 10000;
 server.listen(port, '127.0.0.1', () => {
+  void servidorMidia.start().then(() => { pararTunel = iniciarTunel(prisma); }).catch(() => console.error('Não foi possível abrir o serviço de arquivos.'));
   console.log(`Serviço WhatsApp disponível em 127.0.0.1:${port}`);
   // Restore only an existing profile. A first-time QR is requested from the admin screen.
   if (existsSync(path.join(dataPath, 'session-empresa'))) void connect();
@@ -224,12 +245,16 @@ let stopping = false;
 async function stop() {
   if (stopping) return;
   stopping = true;
+  automatic = false;
+  clearTimeout(reconnectTimer);
   clearInterval(heartbeatTimer);
   update({ status: 'desconectado', numero: null, qr: null });
   await heartbeatChain.catch(() => {});
   ++generation;
   clearTimeout(watchdog);
   server.close();
+  servidorMidia.stop();
+  await pararTunel?.();
   await eventos.stop();
   await destroyCurrent(); // Preserve LocalAuth when stopping the process.
   await prisma.$disconnect();

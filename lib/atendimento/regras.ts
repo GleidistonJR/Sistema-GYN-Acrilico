@@ -22,6 +22,6 @@ export function validarTexto(valor: unknown, limite: number) {
 
 export function filtroClientes(usuario: Operador, fila: string) {
   if (fila === 'fila') return { responsavelId: null };
-  if (fila === 'todos' && usuario.role === 'ADMIN') return {};
+  if (fila === 'todos' && ['ADMIN', 'USER'].includes(usuario.role)) return {};
   return { responsavelId: usuario.id };
 }

@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { acessoConversa, mesmaOrigem, privado } from '@/lib/whatsapp/acesso';
 import { chamarWhatsApp } from '@/lib/whatsapp/bridge';
 import { apelidoEfetivo, assinarMensagem } from '@/lib/whatsapp/assinatura.mjs';
-import { LIMITE_MIDIA, nomeArquivo, validarMidia } from '@/lib/whatsapp/conteudo.mjs';
+import { lerTransferencia } from '@/lib/whatsapp/transferencia.mjs';
 
 export const runtime = 'nodejs';
 type Contexto = { params: Promise<{ id: string }> };
@@ -60,7 +60,7 @@ export async function POST(request: Request, { params }: Contexto) {
       const { done, value } = await reader.read();
       if (done) break;
       total += value.length;
-      if (total > LIMITE_MIDIA + 65536) { await reader.cancel(); return json({ erro: 'O arquivo deve ter até 10 MB.' }, 413); }
+      if (total > 65536) { await reader.cancel(); return json({ erro: 'Transfira o anexo antes de enviar a mensagem.' }, 413); }
       chunks.push(value);
     }
     const body = Buffer.concat(chunks);
@@ -68,18 +68,17 @@ export async function POST(request: Request, { params }: Contexto) {
     const texto = String(form.get('texto') || '').trim();
     const pedidoId = String(form.get('pedidoId') || '');
     if (!/^[a-f0-9-]{36}$/i.test(pedidoId) || texto.length > 6000) return json({ erro: 'Mensagem inválida ou acima de 6.000 caracteres.' }, 400);
-    const arquivo = form.get('arquivo');
+    const uploadToken = String(form.get('uploadToken') || '');
+    const transferencia = uploadToken ? await lerTransferencia(prisma, uploadToken) : null;
+    if (uploadToken && (!transferencia || transferencia.acao !== 'upload' || !transferencia.pronto || transferencia.clienteId !== id || transferencia.userId !== acesso.usuario.id)) return json({ erro: 'O anexo expirou ou não está disponível. Remova e anexe novamente.' }, 400);
+    if (form.get('arquivo') instanceof File) return json({ erro: 'Atualize a página para enviar anexos pela nova conexão.' }, 400);
     const voz = form.get('voz') === 'true';
     const responderId = String(form.get('responderId') || '');
     if (responderId.length > 100) return json({ erro: 'Mensagem citada inválida.' }, 400);
-    let midia: { dados: Buffer; nome: string; mimeType: string } | undefined;
-    if (arquivo instanceof File && arquivo.size) {
-      const dados = Buffer.from(await arquivo.arrayBuffer());
-      midia = { dados, nome: nomeArquivo(arquivo.name), mimeType: validarMidia(dados, arquivo.type) };
-    }
+    const midia = transferencia ? { dados: Buffer.alloc(0), nome: String(transferencia.nome), mimeType: String(transferencia.mimeType) } : undefined;
     if (!texto && !midia) return json({ erro: 'Digite uma mensagem ou selecione um arquivo.' }, 400);
     if (voz && !midia?.mimeType.startsWith('audio/')) return json({ erro: 'A mensagem de voz precisa de um arquivo de áudio.' }, 400);
-    const conteudoHash = createHash('sha256').update(JSON.stringify([texto, midia?.nome, midia?.mimeType])).update(midia?.dados ?? '').update(voz ? ':voz' : '').update(responderId ? ':resposta:' + responderId : '').digest('hex');
+    const conteudoHash = createHash('sha256').update(JSON.stringify([texto, midia?.nome, midia?.mimeType])).update(transferencia?.sha256 ?? '').update(voz ? ':voz' : '').update(responderId ? ':resposta:' + responderId : '').digest('hex');
     const existing = await prisma.mensagemWhatsApp.findUnique({ where: { pedidoId } });
     if (existing) {
       if (existing.clienteId !== id || existing.autorId !== acesso.usuario.id || existing.conteudoHash !== conteudoHash) return json({ erro: 'Identificador já utilizado para outra mensagem.' }, 409);
@@ -90,15 +89,17 @@ export async function POST(request: Request, { params }: Contexto) {
     const original = responderId ? await prisma.mensagemWhatsApp.findFirst({ where: { id: responderId, clienteId: id, conta: estado.numero, externaId: { not: null } }, select: { externaId: true, texto: true, tipo: true, direcao: true } }) : null;
     if (responderId && !original) return json({ erro: 'A mensagem citada não está disponível nesta conversa ou ainda não foi enviada.' }, 400);
     const mensagem = await prisma.$transaction(async tx => {
-      const allowed = await tx.cliente.updateMany({ where: { id, ...(acesso.usuario.role === 'ADMIN' ? {} : { OR: [{ responsavelId: acesso.usuario.id }, { responsavelId: null }] }) }, data: { ultimaMensagemEm: new Date() } });
-      if (!allowed.count) throw new Error('O responsável mudou. Atualize a conversa.');
-      return tx.mensagemWhatsApp.create({ data: {
+      const allowed = await tx.cliente.updateMany({ where: { id }, data: { ultimaMensagemEm: new Date() } });
+      if (!allowed.count) throw new Error('Cliente não disponível. Atualize a conversa.');
+      const criada = await tx.mensagemWhatsApp.create({ data: {
         clienteId: id, conta: estado.numero!, pedidoId, conteudoHash, autorId: acesso.usuario.id,
         ...(original ? { citacao: { externaId: original.externaId, texto: original.texto.slice(0, 1000), tipo: original.tipo, direcao: original.direcao } } : {}),
-        direcao: 'SAIDA', texto: assinarMensagem(texto, apelidoEfetivo(acesso.usuario), midia?.mimeType), status: 'PENDENTE', tipo: voz ? 'ptt' : midia ? midia.mimeType.startsWith('image/') ? 'image' : midia.mimeType.startsWith('audio/') ? 'audio' : 'document' : 'chat',
+        direcao: 'SAIDA', texto: assinarMensagem(texto, apelidoEfetivo(acesso.usuario), midia?.mimeType), status: 'PENDENTE', tipo: voz ? 'ptt' : midia ? midia.mimeType.startsWith('image/') ? 'image' : midia.mimeType.startsWith('audio/') ? 'audio' : midia.mimeType.startsWith('video/') ? 'video' : 'document' : 'chat',
         ...(midia ? { midia: { create: midia } } : {}),
       }, select: selecao });
-    });
+      if (transferencia) await tx.$executeRaw`INSERT INTO "ArquivoWhatsApp" ("mensagemId", chave, tamanho) VALUES (${criada.id}, ${transferencia.chave}, ${transferencia.tamanho})`;
+      return criada;
+    }, { timeout: 15000 });
     return json({ id: mensagem.id, status: mensagem.status, mensagem }, 202);
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') return json({ erro: 'Esta solicitação já foi registrada. Atualize o histórico antes de tentar novamente.' }, 409);

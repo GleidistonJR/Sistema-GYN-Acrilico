@@ -3,13 +3,13 @@
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Search, Plus, MessageCircle, Tags, Settings2, X, ChevronLeft, ChevronRight, SlidersHorizontal } from 'lucide-react';
+import { Search, Plus, UserRound, MessageCircle, Tags, Settings2, X, ChevronLeft, ChevronRight, SlidersHorizontal } from 'lucide-react';
 import Formulario from './Formulario';
 import AvatarContato from './AvatarContato';
 import { useFotosContatos } from './useFotosContatos';
 
 const Conversa = dynamic(() => import('./conversas/[id]/Conversa'), { loading: () => <div className="flex h-full items-center justify-center text-sm text-slate-400">Abrindo conversa…</div> });
-type Cliente = { id: string; nome: string; telefone: string | null; responsavelId: string | null; naoLida: boolean };
+type Cliente = { id: string; nome: string; telefone: string | null; responsavelId: string | null; naoLida: boolean; responsavelNome?: string | null };
 type Etiqueta = { id: string; nome: string };
 type Detalhes = { cliente: Cliente; etiquetas: Etiqueta[]; selecionadas: string[]; vendedores: { id: string; email: string; colaborador: { nome: string } | null }[] };
 const campo = 'mt-1 block w-full rounded-lg border border-slate-300 bg-white p-2.5 text-sm text-slate-800';
@@ -155,7 +155,7 @@ export default function PainelAtendimento({ usuario, etiquetas, filaInicial, cli
         <label className="flex items-center gap-3 rounded-lg bg-[#202c33] px-3 py-2.5 text-[#8696a0]"><Search size={17} /><input aria-label="Buscar cliente" value={busca} onChange={e => { setBusca(e.target.value); setPagina(1); }} placeholder="Buscar nome ou telefone" className="min-w-0 flex-1 bg-transparent text-sm text-[#e9edef] outline-none placeholder:text-[#8696a0]" /></label>
         <div className="flex items-center gap-2">
           <select aria-label="Carteira de clientes" value={fila} onChange={e => { setFila(e.target.value); setPagina(1); const url = new URL(window.location.href); url.searchParams.set('fila', e.target.value); window.history.replaceState(null, '', url); }} className="min-w-0 flex-1 cursor-pointer rounded-lg border border-white/10 bg-[#202c33] px-3 py-2 text-sm outline-none focus:border-emerald-500">
-            <option value="meus">Meus clientes</option><option value="fila">Fila compartilhada</option>{usuario.role === 'ADMIN' && <option value="todos">Todos os clientes</option>}
+            <option value="meus">Meus clientes</option><option value="fila">Fila compartilhada</option><option value="todos">Todos os clientes</option>
           </select>
           <button onClick={() => setFiltros(!filtros)} aria-label="Filtrar por etiqueta" aria-expanded={filtros} className={`rounded-lg p-2.5 ${etiqueta ? 'bg-emerald-900 text-emerald-300' : 'bg-[#202c33] text-[#8696a0]'}`}><SlidersHorizontal size={18} /></button>
         </div>
@@ -169,6 +169,7 @@ export default function PainelAtendimento({ usuario, etiquetas, filaInicial, cli
           className={`flex w-full items-center gap-3 px-4 py-4 text-left transition-colors focus-visible:outline-2 focus-visible:outline-emerald-400 ${selecionado?.id === c.id ? 'bg-[#2a3942]' : 'hover:bg-[#202c33]'}`}>
           <AvatarContato nome={c.nome} url={fotos[c.id]} />
           <span className="min-w-0 flex-1"><span className={`block truncate text-[15px] ${c.naoLida ? 'font-semibold text-white' : 'text-[#e9edef]'}`}>{c.nome}</span><span className="mt-1 block truncate text-xs text-[#8696a0]">{c.telefone || 'Contato do WhatsApp'}</span></span>
+          {fila === 'todos' && <span role="img" title={c.responsavelNome ? `Responsável: ${c.responsavelNome}` : 'Sem responsável · fila compartilhada'} aria-label={c.responsavelNome ? `Responsável: ${c.responsavelNome}` : 'Sem responsável'} className={c.responsavelId ? 'shrink-0 text-sky-300' : 'shrink-0 text-[#8696a0]'}><UserRound size={17} /></span>}
           {c.naoLida && <span role="img" aria-label="Mensagens não lidas" className="size-2.5 shrink-0 rounded-full bg-[#00d084]" />}
         </button>)}
       </div>

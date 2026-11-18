@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ArrowLeft, Paperclip, Send, RefreshCw, MoreVertical, Reply, X } from 'lucide-react';
 import GravarAudio from './GravarAudio';
+import AnexoMensagem from './AnexoMensagem';
 
 type Mensagem = { id: string; texto: string; tipo: string; direcao: string; status: string; erro: string | null; enviadoEm: string;
   externaId: string | null; citacao: { externaId: string | null; texto: string; tipo: string; direcao: string | null } | null;
@@ -23,6 +24,8 @@ export default function Conversa({ cliente, onVoltar, onDetalhes, onLida }: {
 }) {
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
   const [texto, setTexto] = useState('');
+  const anexoEnviado = useRef<{ arquivo: File; token: string } | null>(null);
+  const [progressoAnexo, setProgressoAnexo] = useState('');
   const [responder, setResponder] = useState<Mensagem | null>(null);
   const [destacada, setDestacada] = useState<string | null>(null);
   const [salto, setSalto] = useState(0);
@@ -213,13 +216,35 @@ export default function Conversa({ cliente, onVoltar, onDetalhes, onLida }: {
     pedido.current ??= crypto.randomUUID();
     const form = new FormData();
     form.set('pedidoId', pedido.current); form.set('texto', texto);
-    if (arquivo) form.set('arquivo', arquivo);
+
     if (voz && arquivo) form.set('voz', 'true');
     if (responder) form.set('responderId', responder.id);
     try {
+      if (arquivo) {
+        if (anexoEnviado.current?.arquivo !== arquivo) {
+          setProgressoAnexo('Preparando anexo…');
+          const grant = await fetch(base + '/anexos', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nome: arquivo.name, mimeType: arquivo.type, tamanho: arquivo.size }) });
+          const ticket = await grant.json();
+          if (!grant.ok) throw new Error(ticket.erro || 'Não foi possível preparar o anexo.');
+          await new Promise<void>((resolve, reject) => {
+            const xhr = new XMLHttpRequest(); xhr.open('PUT', ticket.url); xhr.timeout = 300000;
+            xhr.setRequestHeader('Content-Type', 'application/octet-stream');
+            xhr.upload.onprogress = e => setProgressoAnexo(e.lengthComputable ? 'Transferindo anexo: ' + Math.round(e.loaded / e.total * 100) + '%' : 'Transferindo anexo…');
+            xhr.onload = () => xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(xhr.responseText || 'Falha ao transferir o anexo. Tente novamente.'));
+            xhr.onerror = () => reject(new Error('A conexão de arquivos falhou. Confira a internet e tente novamente.'));
+            xhr.ontimeout = () => reject(new Error('A transferência demorou demais. Tente novamente.'));
+            xhr.send(arquivo);
+          });
+          anexoEnviado.current = { arquivo, token: ticket.token };
+        }
+        form.set('uploadToken', anexoEnviado.current.token);
+        setProgressoAnexo('Registrando mensagem…');
+      }
       const resposta = await fetch(`${base}/mensagens`, { method: 'POST', body: form });
       const dados = await resposta.json();
       if (!resposta.ok) throw new Error(dados.erro || 'Falha ao enviar.');
+      anexoEnviado.current = null;
       setTexto(''); setArquivo(null); setVoz(false); setResponder(null); pedido.current = null;
       if (upload.current) upload.current.value = '';
       seguirFim.current = true;
@@ -229,7 +254,7 @@ export default function Conversa({ cliente, onVoltar, onDetalhes, onLida }: {
         setMensagens(atuais => atuais.some(m => m.id === dados.mensagem.id) ? atuais : [...atuais, dados.mensagem as Mensagem]);
       } else void atualizar().catch(() => setErro('Mensagem registrada. Não foi possível atualizar o histórico agora.'));
     } catch (error) { setErro(error instanceof Error ? error.message : 'Não foi possível confirmar. Tente novamente com a mesma mensagem.'); }
-    finally { envioEmCurso.current = false; setEnviando(false); requestAnimationFrame(() => entradaTexto.current?.focus()); }
+    finally { setProgressoAnexo(''); envioEmCurso.current = false; setEnviando(false); requestAnimationFrame(() => entradaTexto.current?.focus()); }
   }
 
   function soltarArquivo(event: React.DragEvent) {
@@ -240,10 +265,10 @@ export default function Conversa({ cliente, onVoltar, onDetalhes, onLida }: {
     const files = Array.from(event.dataTransfer.files);
     if (files.length !== 1) { setErro('Solte um arquivo por vez.'); return; }
     let file = files[0];
-    if (!file.size || file.size > 10 * 1024 * 1024) { setErro('O arquivo deve conter dados e ter até 10 MB.'); return; }
-    const tiposArquivo: Record<string, string> = { pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', gif: 'image/gif', ogg: 'audio/ogg', mp3: 'audio/mpeg', m4a: 'audio/mp4', mp4: 'audio/mp4', wav: 'audio/wav', webm: 'audio/webm' };
+    if (!file.size || file.size > 90 * 1024 * 1024) { setErro('O arquivo deve conter dados e ter até 90 MB.'); return; }
+    const tiposArquivo: Record<string, string> = { pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', gif: 'image/gif', ogg: 'audio/ogg', mp3: 'audio/mpeg', m4a: 'audio/mp4', mp4: 'video/mp4', mov: 'video/quicktime', wav: 'audio/wav', webm: 'video/webm' };
     const mime = tiposArquivo[file.name.split('.').at(-1)?.toLowerCase() || ''];
-    if (!mime || (file.type && file.type !== 'application/octet-stream' && !Object.values(tiposArquivo).includes(file.type))) { setErro('Envie uma imagem, áudio ou PDF compatível.'); return; }
+    if (!mime || (file.type && file.type !== 'application/octet-stream' && !Object.values(tiposArquivo).includes(file.type) && file.type !== 'audio/webm')) { setErro('Envie uma imagem, vídeo, áudio ou PDF compatível.'); return; }
     if (!file.type || file.type === 'application/octet-stream') file = new File([file], file.name, { type: mime, lastModified: file.lastModified });
     setArquivo(file); setVoz(false); pedido.current = null; setErro('');
     setAviso('Arquivo anexado. Escreva uma legenda se quiser e confirme com Enter ou Enviar.');
@@ -254,7 +279,7 @@ export default function Conversa({ cliente, onVoltar, onDetalhes, onLida }: {
     onDragOver={e => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); e.dataTransfer.dropEffect = enviando || gravando || !podeEnviar || arquivo ? 'none' : 'copy'; } }}
     onDragLeave={e => { if (e.dataTransfer.types.includes('Files')) { profundidadeDrag.current = Math.max(0, profundidadeDrag.current - 1); if (!profundidadeDrag.current) setArrastando(false); } }}
     onDrop={soltarArquivo} className="relative flex h-full min-h-0 flex-1 flex-col bg-[#0b141a] text-[#e9edef]">
-    {arrastando && <div role="status" className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center border-2 border-dashed border-emerald-400 bg-[#0b141a]/95 p-6 text-center"><div><Paperclip size={40} className="mx-auto mb-4 text-emerald-300" /><p className="text-lg font-semibold">{enviando || gravando || !podeEnviar || arquivo ? 'Aguarde para enviar um arquivo' : `Solte para anexar na conversa com ${cliente.nome}`}</p><p className="mt-2 text-sm text-[#8696a0]">Um arquivo por vez · até 10 MB</p></div></div>}
+    {arrastando && <div role="status" className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center border-2 border-dashed border-emerald-400 bg-[#0b141a]/95 p-6 text-center"><div><Paperclip size={40} className="mx-auto mb-4 text-emerald-300" /><p className="text-lg font-semibold">{enviando || gravando || !podeEnviar || arquivo ? 'Aguarde para enviar um arquivo' : `Solte para anexar na conversa com ${cliente.nome}`}</p><p className="mt-2 text-sm text-[#8696a0]">Um arquivo por vez · até 90 MB</p></div></div>}
     <header className="flex h-[72px] shrink-0 items-center justify-between gap-3 border-b border-white/5 bg-[#202c33] px-3 sm:px-6">
       <div className="flex min-w-0 items-center gap-3"><button onClick={onVoltar} aria-label="Voltar aos clientes" className="rounded-lg p-2 hover:bg-white/5 md:hidden"><ArrowLeft size={20} /></button>
         <span className="hidden size-10 shrink-0 items-center justify-center rounded-full bg-[#3c5154] text-sm font-semibold text-emerald-200 sm:flex">{cliente.nome.slice(0, 1).toUpperCase()}</span>
@@ -271,13 +296,7 @@ export default function Conversa({ cliente, onVoltar, onDetalhes, onLida }: {
             <p className="mb-1 font-semibold text-emerald-300">{m.citacao.direcao === 'SAIDA' ? 'Empresa' : m.citacao.direcao === 'ENTRADA' ? cliente.nome : 'Mensagem original'}</p>
             <p className="line-clamp-3 whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{resumo(m.citacao)}</p>
           </button>}
-          {m.midia?.mimeType.startsWith('image/') && <a href={`/api/atendimento/midia/${m.id}`} target="_blank" rel="noreferrer">
-            {/* Authenticated media must not be sent through a shared image cache. */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={`/api/atendimento/midia/${m.id}`} alt={m.midia.nome} className="mb-2 max-h-80 max-w-full rounded-lg object-contain" loading="lazy" />
-          </a>}
-          {m.midia?.mimeType.startsWith('audio/') && <audio controls preload="none" className="mb-2 max-w-full" src={`/api/atendimento/midia/${m.id}?arquivo=${encodeURIComponent(m.midia.nome)}`} />}
-          {m.midia && <a href={`/api/atendimento/midia/${m.id}`} download={m.midia.nome} className="mb-2 block break-all text-xs font-semibold underline">{m.midia.nome}</a>}
+          {m.midia && <AnexoMensagem id={m.id} midia={m.midia} />}
           {m.texto && <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-[#e9edef] [overflow-wrap:anywhere]">{m.direcao === 'SAIDA' ? <TextoMensagem texto={m.texto} /> : m.texto}</p>}
           {!m.texto && !m.midia && <p className="text-sm italic text-[#8696a0]">Mensagem do tipo {m.tipo}</p>}
           {m.erro && <p className="mt-2 max-w-sm text-xs text-amber-300">{m.erro}</p>}
@@ -290,6 +309,7 @@ export default function Conversa({ cliente, onVoltar, onDetalhes, onLida }: {
     {contexto && <div className="flex shrink-0 items-center justify-between gap-2 bg-[#182229] px-4 py-2 text-xs text-[#aebac1]"><span>Trecho da mensagem citada</span><button onClick={() => void voltarAoFim()} className="rounded px-3 py-2 font-semibold text-emerald-300 hover:bg-white/5">Voltar às mensagens recentes</button></div>}
     <footer className="shrink-0 border-t border-white/5 bg-[#202c33] p-3 sm:px-5">
       {localizando && <p role="status" className="mb-2 text-xs text-emerald-300">Localizando mensagem…</p>}
+      {progressoAnexo && <p role="status" className="mb-2 text-sm text-emerald-300">{progressoAnexo}</p>}
       {erro && <p role="alert" className="mb-2 text-sm text-red-300">{erro}</p>}
       {aviso && <p role="status" className="mb-2 text-xs text-[#8696a0]">{aviso}</p>}
       {responder && <div aria-label="Respondendo à mensagem" className="mb-3 flex items-center gap-3 rounded-lg border-l-4 border-emerald-400 bg-[#182229] px-3 py-2">
@@ -299,14 +319,14 @@ export default function Conversa({ cliente, onVoltar, onDetalhes, onLida }: {
       {!podeEnviar && !carregando ? <p className="p-3 text-center text-sm text-[#aebac1]">Não foi possível habilitar o envio. {erro ? 'Confira o aviso acima.' : 'Atualize a conversa e verifique seu acesso.'}</p> : <form onSubmit={enviar}>
         {arquivo && <div className="mb-2 flex items-center gap-3 text-xs"><span className="truncate">{arquivo.name}</span><button type="button" disabled={enviando} onClick={() => { setArquivo(null); setVoz(false); pedido.current = null; if (upload.current) upload.current.value = ''; }} className="text-red-300">Remover</button></div>}
         {previewAudio && <audio aria-label="Ouvir áudio antes de enviar" controls src={previewAudio} className="mb-3 h-10 w-full max-w-sm" />}
-        <div className="flex flex-wrap items-end gap-2"><label className="cursor-pointer rounded-lg p-3 text-[#aebac1] hover:bg-white/5" title="Anexar imagem, áudio ou PDF"><Paperclip size={22} /><span className="sr-only">Anexar arquivo</span>
-          <input ref={upload} type="file" disabled={enviando || gravando || !podeEnviar} className="sr-only" accept="image/jpeg,image/png,image/webp,image/gif,audio/ogg,audio/mpeg,audio/mp4,audio/wav,audio/webm,application/pdf" onChange={e => { const file = e.target.files?.[0]; if (file && file.size > 10 * 1024 * 1024) { setErro('O arquivo deve ter até 10 MB.'); e.target.value = ''; return; } setArquivo(file ?? null); setVoz(false); pedido.current = null; }} /></label>
+        <div className="flex flex-wrap items-end gap-2"><label className="cursor-pointer rounded-lg p-3 text-[#aebac1] hover:bg-white/5" title="Anexar imagem, vídeo, áudio ou PDF"><Paperclip size={22} /><span className="sr-only">Anexar arquivo</span>
+          <input ref={upload} type="file" disabled={enviando || gravando || !podeEnviar} className="sr-only" accept="image/jpeg,image/png,image/webp,image/gif,audio/ogg,audio/mpeg,audio/mp4,audio/wav,audio/webm,video/mp4,video/webm,video/quicktime,application/pdf" onChange={e => { const file = e.target.files?.[0]; if (file && file.size > 90 * 1024 * 1024) { setErro('O arquivo deve ter até 90 MB.'); e.target.value = ''; return; } setArquivo(file ?? null); setVoz(false); pedido.current = null; }} /></label>
           <textarea ref={entradaTexto} hidden={gravando} value={texto} onChange={e => { setTexto(e.target.value); pedido.current = null; }} onKeyDown={e => {
             if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && e.keyCode !== 229) { e.preventDefault(); if (!e.repeat) e.currentTarget.form?.requestSubmit(); }
           }} disabled={enviando || gravando || !podeEnviar} maxLength={6000} rows={1} aria-label="Mensagem" placeholder="Digite sua mensagem…" className="min-w-0 flex-1 resize-none rounded-lg border border-transparent bg-[#2a3942] p-3 text-sm leading-5 text-[#e9edef] outline-none placeholder:text-[#8696a0] focus:border-emerald-600" />
           <GravarAudio disabled={enviando || !podeEnviar || !!arquivo} onArquivo={file => { setArquivo(file); setVoz(true); pedido.current = null; }} onGravando={setGravando} onErro={setErro} />
           <button type="submit" disabled={enviando || gravando || !podeEnviar || (!texto.trim() && !arquivo)} className="flex items-center gap-2 rounded-full bg-[#00a884] px-4 py-3 text-sm font-semibold text-white disabled:opacity-40"><Send size={18} /><span className="hidden sm:inline">{enviando ? 'Salvando…' : 'Enviar'}</span><span className="sr-only sm:hidden">Enviar</span></button>
-        </div><p className="mt-1 text-[10px] text-[#8696a0]">Enter envia · Shift + Enter quebra linha · Arraste um arquivo para anexar; confirme o envio quando terminar (até 10 MB).</p>
+        </div><p className="mt-1 text-[10px] text-[#8696a0]">Enter envia · Shift + Enter quebra linha · Arraste um arquivo para anexar; confirme o envio quando terminar (até 90 MB).</p>
       </form>}
     </footer>
   </section>;

@@ -1,3 +1,7 @@
+import { unlink } from 'node:fs/promises';
+import { salvarArquivo, lerArquivo, caminhoArquivo } from '../scripts/whatsapp-arquivos.mjs';
+import { criarServidorMidia } from '../scripts/whatsapp-midia-servidor.mjs';
+import { emitirTransferencia, hashToken } from '../lib/whatsapp/transferencia.mjs';
 import assert from 'node:assert/strict';
 import { randomUUID, randomBytes, createHash } from 'node:crypto';
 import { EventEmitter } from 'node:events';
@@ -34,6 +38,9 @@ client.sendMessage = async (_jid, payload, options) => {
   client.emit('message_create', message);
   return message;
 };
+const localFiles = [];
+let mediaServer;
+let downloadTicket;
 let browser;
 let service;
 let eventos;
@@ -58,10 +65,10 @@ try {
   assert.equal(await prisma.mensagemWhatsApp.count({ where: { conta, externaId: incoming.id._serialized } }), 1);
   assert.equal((await prisma.cliente.findUnique({ where: { id: clienteId } })).responsavelId, users[0]);
   console.log('OK: recebimento por LID vinculado ao cadastro e vendedor existentes, sem duplicação.');
-  const picture = { ...incoming, id: { _serialized: randomUUID() }, type: 'image', body: 'Referência', hasMedia: true, downloadMedia: async () => ({ data: png.toString('base64'), mimetype: 'image/png', filename: 'referencia.png' }) };
+  const picture = { ...incoming, id: { _serialized: randomUUID() }, type: 'image', body: 'Referência', hasMedia: true, rawData: { mimetype: 'image/png', filename: 'referencia.png' }, downloadMedia: async () => { throw new Error('Não deve baixar automaticamente'); } };
   await service.receber(picture);
   const savedPicture = await prisma.mensagemWhatsApp.findUnique({ where: { conta_externaId: { conta, externaId: picture.id._serialized } } });
-  assert.equal((await prisma.midiaWhatsApp.findUnique({ where: { mensagemId: savedPicture.id } })).dados.length, png.length);
+  assert.equal((await prisma.midiaWhatsApp.findUnique({ where: { mensagemId: savedPicture.id } })).dados.length, 0);
   const pedidoId = randomUUID();
   const texto = 'Olá! Como posso ajudar?';
   const conteudoHash = createHash('sha256').update(JSON.stringify([texto, undefined, undefined])).update('').digest('hex');
@@ -88,20 +95,26 @@ try {
   shouldFail = false;
   const mediaOutgoing = await prisma.mensagemWhatsApp.create({ data: {
     clienteId, conta, autorId: users[0], direcao: 'SAIDA', texto: 'Imagem de teste', status: 'PENDENTE', tipo: 'image',
-    midia: { create: { dados: png, mimeType: 'image/png', nome: 'teste.png' } },
+    midia: { create: { dados: Buffer.alloc(0), mimeType: 'image/png', nome: 'teste.png' } },
   } });
+  const imageKey = randomUUID(); localFiles.push(imageKey); await salvarArquivo(imageKey, png);
+  await prisma.$executeRaw`INSERT INTO "ArquivoWhatsApp" ("mensagemId", chave, tamanho) VALUES (${mediaOutgoing.id}, ${imageKey}, ${png.length})`;
   await service.enviarPendentes(); await service.drain();
   assert.equal((await prisma.mensagemWhatsApp.findUnique({ where: { id: mediaOutgoing.id } })).status, 'ENVIADA');
+  await prisma.user.update({ where: { id: users[1] }, data: { role: 'OUTRO' } });
   const unauthorized = await prisma.mensagemWhatsApp.create({ data: { clienteId, conta, autorId: users[1], direcao: 'SAIDA', texto: 'Não deve sair', status: 'PENDENTE' } });
   await service.enviarPendentes();
   assert.equal(sends, 3);
   assert.equal((await prisma.mensagemWhatsApp.findUnique({ where: { id: unauthorized.id } })).status, 'FALHOU');
+  await prisma.user.update({ where: { id: users[1] }, data: { role: 'USER' } });
   console.log('OK: anexo enviado pelo provedor simulado e autorização conferida novamente antes do envio.');
   const voice = await prisma.mensagemWhatsApp.create({ data: {
     clienteId, conta, autorId: users[0], direcao: 'SAIDA', texto: '', status: 'PENDENTE', tipo: 'ptt',
     citacao: { externaId: incoming.id._serialized, texto: incoming.body, tipo: 'chat', direcao: 'ENTRADA' },
-    midia: { create: { dados: audioWebm(), mimeType: 'audio/webm', nome: 'audio.webm' } },
+    midia: { create: { dados: Buffer.alloc(0), mimeType: 'audio/webm', nome: 'audio.webm' } },
   } });
+  const voiceKey = randomUUID(); localFiles.push(voiceKey); const recording = audioWebm(); await salvarArquivo(voiceKey, recording);
+  await prisma.$executeRaw`INSERT INTO "ArquivoWhatsApp" ("mensagemId", chave, tamanho) VALUES (${voice.id}, ${voiceKey}, ${recording.length})`;
   await service.enviarPendentes(); await service.drain();
   assert.equal(lastOptions.sendAudioAsVoice, false);
   assert.equal(lastOptions.quotedMessageId, incoming.id._serialized);
@@ -110,9 +123,14 @@ try {
   assert.equal(Buffer.from(lastPayload.data, 'base64').subarray(0, 3).toString(), 'ID3');
   const storedVoice = await prisma.midiaWhatsApp.findUnique({ where: { mensagemId: voice.id } });
   assert.equal(storedVoice.mimeType, 'audio/mpeg');
-  assert.equal(Buffer.from(storedVoice.dados).toString('base64'), lastPayload.data);
+  assert.equal(storedVoice.dados.length, 0);
+  assert.equal((await lerArquivo(voiceKey)).toString('base64'), lastPayload.data);
   assert.equal((await prisma.mensagemWhatsApp.findUnique({ where: { id: voice.id } })).status, 'ENVIADA');
-  console.log('OK: gravação enviada como MP3 comum e arquivo transmitido preservado no banco.');
+  console.log('OK: gravação enviada como MP3 comum e arquivo transmitido temporário no PC; zero bytes no banco.');
+  const sharedReply = await prisma.mensagemWhatsApp.create({ data: { clienteId, conta, autorId: users[1], direcao: 'SAIDA', texto: 'Resposta de colega', status: 'PENDENTE' } });
+  await service.enviarPendentes(); await service.drain();
+  assert.equal((await prisma.mensagemWhatsApp.findUnique({ where: { id: sharedReply.id } })).status, 'ENVIADA');
+  assert.equal((await prisma.cliente.findUnique({ where: { id: clienteId } })).responsavelId, users[0]);
   await prisma.cliente.update({ where: { id: clienteId }, data: { responsavelId: null } });
   const queueReply = await prisma.mensagemWhatsApp.create({ data: { clienteId, conta, autorId: users[1], direcao: 'SAIDA', texto: 'Resposta sem assumir', status: 'PENDENTE' } });
   await service.enviarPendentes(); await service.drain();
@@ -148,8 +166,8 @@ try {
     history: (await fetch(`/api/atendimento/${id}/mensagens`)).status,
     send: (await fetch(`/api/atendimento/${id}/mensagens`, { method: 'POST' })).status,
   }), clienteId);
-  assert.deepEqual(outsider, { history: 403, send: 403 });
-  assert.equal(await pages[1].evaluate(async id => (await fetch(`/api/atendimento/midia/${id}`)).status, savedPicture.id), 404);
+  assert.deepEqual(outsider, { history: 200, send: 400 });
+  assert.equal(await pages[1].evaluate(async id => (await fetch(`/api/atendimento/midia/${id}?link=1`)).status, savedPicture.id), 200);
   await pages[0].goto(`http://localhost:3000/atendimento/conversas/${clienteId}`, { waitUntil: 'networkidle2' });
   await pages[0].waitForFunction(() => document.body.innerText.includes('Gostaria de um orçamento.'));
   const duplicate = await pages[0].evaluate(async ({ id, pedidoId, texto }) => {
@@ -159,7 +177,15 @@ try {
   }, { id: clienteId, pedidoId, texto });
   assert.equal(duplicate.status, 200); assert.equal(duplicate.data.id, outgoing.id);
   assert.equal(await prisma.mensagemWhatsApp.count({ where: { pedidoId } }), 1);
-  const range = await pages[0].evaluate(async id => { const r = await fetch(`/api/atendimento/midia/${id}`, { headers: { Range: 'bytes=0-7' } }); return { status: r.status, size: (await r.arrayBuffer()).byteLength }; }, savedPicture.id);
+  let downloads = 0;
+  client.getMessageById = async () => ({ downloadMedia: async () => { downloads++; return { data: png.toString('base64'), mimetype: 'image/png', filename: 'imagem.png' }; } });
+  mediaServer = criarServidorMidia({ prisma, port: 3123, getClient: () => ({ client, conta }) }); await mediaServer.start();
+  downloadTicket = await emitirTransferencia(prisma, { acao: 'download', mensagemId: savedPicture.id, clienteId, userId: users[0], sessionHash: hashToken(tokens[0]), origem: 'http://localhost:3000' });
+  assert.equal(downloads, 0);
+  const response = await fetch('http://127.0.0.1:3123/arquivo?token=' + downloadTicket, { headers: { Range: 'bytes=0-7' } });
+  const range = { status: response.status, size: (await response.arrayBuffer()).byteLength };
+  assert.equal(downloads, 1);
+  localFiles.push(savedPicture.id);
   assert.deepEqual(range, { status: 206, size: 8 });
   if (process.env.TEST_SCREENSHOT_DIR) {
     await pages[0].setViewport({ width: 1440, height: 1000 });
@@ -173,6 +199,9 @@ try {
   assert.deepEqual(variantesTelefone('+5562991234567'), ['+5562991234567', '+556291234567']);
   assert.throws(() => validarMidia(Buffer.from('<script>'), 'image/png'));
 } finally {
+  mediaServer?.stop();
+  if (downloadTicket) await prisma.$executeRaw`DELETE FROM "TransferenciaWhatsApp" WHERE "tokenHash" = ${hashToken(downloadTicket)}`;
+  for (const key of localFiles) await unlink(caminhoArquivo(key)).catch(() => {});
   await eventos?.stop(); await service?.stop(); await browser?.close();
   await prisma.mensagemWhatsApp.deleteMany({ where: { conta } });
   await prisma.identidadeWhatsApp.deleteMany({ where: { conta } });

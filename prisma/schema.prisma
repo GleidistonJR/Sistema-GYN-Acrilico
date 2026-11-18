@@ -166,6 +166,7 @@ model IdentidadeWhatsApp {
 }
 
 model MensagemWhatsApp {
+  arquivo ArquivoWhatsApp?
   id String @id @default(uuid())
   clienteId String
   cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
@@ -193,7 +194,7 @@ model MensagemWhatsApp {
 
 model MidiaWhatsApp {
   mensagemId String @id
-  mensagem MensagemWhatsApp @relation(fields: [mensagemId], references: [id], onDelete: Cascade)
+  mensagem MensagemWhatsApp @relation(fields: [mensagemId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   dados Bytes
   mimeType String
   nome String
@@ -226,4 +227,22 @@ model AtribuicaoCliente {
   createdAt DateTime @default(now())
 
   @@index([clienteId, createdAt])
+}
+
+model TransferenciaWhatsApp {
+  tokenHash String @id
+  payload Json
+  expiresAt DateTime
+  @@index([expiresAt])
+}
+model PonteMidiaWhatsApp {
+  id String @id
+  url String
+  atualizadoEm DateTime
+}
+model ArquivoWhatsApp {
+  mensagemId String @id
+  chave String @unique
+  tamanho Int
+  mensagem MensagemWhatsApp @relation(fields: [mensagemId], references: [id], onDelete: Cascade)
 }

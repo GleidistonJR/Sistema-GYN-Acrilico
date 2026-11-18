@@ -1,0 +1,46 @@
+import assert from 'node:assert/strict';
+import { randomUUID, randomBytes, createHash } from 'node:crypto';
+import { mkdtemp, writeFile, unlink, rmdir } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { PrismaClient } from '@prisma/client';
+import puppeteer from 'puppeteer';
+import { caminhoArquivo } from '../scripts/whatsapp-arquivos.mjs';
+if (process.env.RUN_DATABASE_INTEGRATION !== '1') throw new Error('Requer RUN_DATABASE_INTEGRATION=1');
+const db = new PrismaClient(), base = process.env.TEST_BASE_URL || 'http://localhost:3000';
+const userId = randomUUID(), clienteId = randomUUID(), token = randomBytes(32).toString('hex');
+const sessionHash = createHash('sha256').update(token).digest('hex');
+const directory = await mkdtemp(path.join(tmpdir(), 'gyn-anexo-')), file = path.join(directory, 'teste-12MB.pdf');
+let browser;
+try {
+  const data = Buffer.alloc(12 * 1024 * 1024, 32); data.write('%PDF-1.4\n'); await writeFile(file, data);
+  await db.user.create({ data: { id: userId, email: `${userId}@example.invalid`, password: 'teste', role: 'USER', sessoes: { create: { tokenHash: sessionHash, expiresAt: new Date(Date.now() + 3600000) } } } });
+  await db.cliente.create({ data: { id: clienteId, nome: 'Teste navegador sem telefone', responsavelId: userId } });
+  browser = await puppeteer.launch({ headless: true, executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe' });
+  const page = await browser.newPage(); page.setDefaultTimeout(120000);
+  await page.setCookie({ name: 'sessao_segura', value: token, url: base, httpOnly: true, secure: base.startsWith('https:') });
+  let mediaRequests = 0;
+  page.on('request', request => { if (request.url().includes('/arquivo?token=')) mediaRequests++; });
+  await page.goto(base + '/atendimento?cliente=' + clienteId, { waitUntil: 'networkidle2' });
+  await page.waitForSelector('textarea:not(:disabled)');
+  await (await page.$('input[type="file"]')).uploadFile(file);
+  await page.type('textarea', 'Comentário antes do envio');
+  assert.equal(mediaRequests, 0);
+  await page.click('button[type="submit"]');
+  await page.waitForFunction(() => document.querySelector('textarea')?.value === '' && !document.querySelector('textarea').disabled);
+  const messages = await db.mensagemWhatsApp.findMany({ where: { clienteId }, include: { midia: true } });
+  assert.equal(messages.length, 1); assert.equal(messages[0].midia.dados.length, 0);
+  assert.ok(messages[0].texto.includes('Comentário antes do envio'));
+  const afterSend = mediaRequests;
+  await page.reload({ waitUntil: 'networkidle2' });
+  await page.waitForSelector('[data-mensagem-id]');
+  assert.equal(mediaRequests, afterSend, 'A conversa não deve baixar anexos automaticamente');
+  console.log('OK: Chrome transferiu PDF de 12 MB com legenda pela conexão real; conversa não baixa anexos ao abrir; zero bytes de conteúdo no Neon. Sem destinatário WhatsApp real.');
+} finally {
+  await browser?.close();
+  const records = await db.$queryRaw`SELECT payload FROM "TransferenciaWhatsApp" WHERE payload->>'userId' = ${userId}`;
+  for (const { payload } of records) if (payload.chave) await unlink(caminhoArquivo(payload.chave)).catch(() => {});
+  await db.$executeRaw`DELETE FROM "TransferenciaWhatsApp" WHERE payload->>'userId' = ${userId}`;
+  await db.cliente.deleteMany({ where: { id: clienteId } }); await db.user.deleteMany({ where: { id: userId } }); await db.$disconnect();
+  await unlink(file); await rmdir(directory);
+}
