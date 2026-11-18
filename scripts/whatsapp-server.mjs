@@ -8,11 +8,13 @@ import { WhatsAppClient } from './whatsapp-client.mjs';
 import { PrismaClient } from '@prisma/client';
 import { criarServicoMensagens } from './whatsapp-mensagens.mjs';
 import { criarEventosAtendimento } from './whatsapp-eventos.mjs';
+import { criarFotosContatos } from './whatsapp-fotos.mjs';
 import { publicarEstadoServico } from '../lib/whatsapp/estado-servico.mjs';
 
 const prisma = new PrismaClient();
 let mensagens = null;
-const eventos = criarEventosAtendimento({ onEnvio: conta => mensagens?.acordarEnvios(conta) });
+let fotos = null;
+const eventos = criarEventosAtendimento({ onEnvio: conta => mensagens?.acordarEnvios(conta), onFotos: () => void fotos?.acordar() });
 
 const { LocalAuth } = whatsapp;
 const token = process.env.WHATSAPP_BRIDGE_TOKEN;
@@ -32,6 +34,7 @@ let watchdog;
 let state = { status: 'desconectado', qr: null, numero: null, mensagem: null, atualizadoEm: new Date().toISOString() };
 let heartbeatChain = Promise.resolve();
 function heartbeat() {
+  void fotos?.acordar();
   heartbeatChain = heartbeatChain.catch(() => {}).then(() => publicarEstadoServico(prisma, state));
   void heartbeatChain.catch(() => console.error('Falha ao atualizar disponibilidade WhatsApp.'));
   return heartbeatChain;
@@ -51,6 +54,7 @@ function authorized(header) {
 }
 
 async function destroyCurrent() {
+  fotos?.stop(); fotos = null;
   await mensagens?.stop();
   mensagens = null;
   const previous = client;
@@ -123,6 +127,8 @@ async function connect() {
       clearTimeout(readyProbe);
       update({ status: 'conectado', qr: null, numero: instance.info?.wid?.user ?? null, mensagem: null });
       if (!mensagens && state.numero) {
+        fotos = criarFotosContatos({ prisma, client: instance, ativo: () => active() && state.status === 'conectado' });
+        void fotos.acordar();
         mensagens = criarServicoMensagens({ prisma, client: instance, conta: state.numero, ativo: () => active() && state.status === 'conectado' });
         void mensagens.start().catch(error => console.error('Falha ao iniciar histórico WhatsApp:', error?.code || error?.name));
       }
@@ -145,6 +151,7 @@ async function connect() {
 }
 
 async function disconnect() {
+  fotos?.stop(); fotos = null;
   if (busy) return;
   busy = true;
   ++generation;

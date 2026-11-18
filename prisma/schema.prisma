@@ -120,6 +120,7 @@ model Cliente {
   atribuicoes AtribuicaoCliente[]
   mensagens MensagemWhatsApp[]
   identidades IdentidadeWhatsApp[]
+  foto FotoContato?
   ultimaMensagemEm DateTime?
   versaoEntrada BigInt @default(0)
   versaoMensagens BigInt @default(0)
@@ -127,6 +128,14 @@ model Cliente {
 
   @@index([responsavelId, nome, id])
   @@index([responsavelId, ultimaMensagemEm])
+}
+
+model FotoContato {
+  clienteId String @id
+  url String?
+  consultadaEm DateTime?
+  pendente Boolean @default(true)
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
 }
 
 model LeituraConversa {

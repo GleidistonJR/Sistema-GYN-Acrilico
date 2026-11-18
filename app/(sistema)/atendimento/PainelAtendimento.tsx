@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Search, Plus, MessageCircle, Tags, Settings2, X, ChevronLeft, ChevronRight, SlidersHorizontal } from 'lucide-react';
 import Formulario from './Formulario';
+import AvatarContato from './AvatarContato';
+import { useFotosContatos } from './useFotosContatos';
 
 const Conversa = dynamic(() => import('./conversas/[id]/Conversa'), { loading: () => <div className="flex h-full items-center justify-center text-sm text-slate-400">Abrindo conversa…</div> });
 type Cliente = { id: string; nome: string; telefone: string | null; responsavelId: string | null; naoLida: boolean };
@@ -25,6 +27,7 @@ export default function PainelAtendimento({ usuario, etiquetas, filaInicial, cli
   usuario: { id: string; role: string }; etiquetas: Etiqueta[]; filaInicial: string; clienteInicial?: string;
 }) {
   const [clientes, setClientes] = useState<Cliente[]>([]);
+  const fotos = useFotosContatos(clientes.map(c => c.id));
   const [selecionado, setSelecionado] = useState<Cliente | null>(null);
   const [fila, setFila] = useState(filaInicial);
   const [busca, setBusca] = useState('');
@@ -153,7 +156,7 @@ export default function PainelAtendimento({ usuario, etiquetas, filaInicial, cli
         {!carregando && !clientes.length && <p className="p-8 text-center text-sm text-[#8696a0]">Nenhum cliente nesta lista.</p>}
         {clientes.map(c => <button key={c.id} data-cliente-id={c.id} onClick={() => escolher(c)} aria-label={`Conversar com ${c.nome}${c.naoLida ? ', mensagens não lidas' : ''}`} aria-current={selecionado?.id === c.id ? 'true' : undefined}
           className={`flex w-full items-center gap-3 px-4 py-4 text-left transition-colors focus-visible:outline-2 focus-visible:outline-emerald-400 ${selecionado?.id === c.id ? 'bg-[#2a3942]' : 'hover:bg-[#202c33]'}`}>
-          <span className="flex size-11 shrink-0 items-center justify-center rounded-full bg-[#2d4444] text-sm font-semibold text-emerald-200" aria-hidden="true">{c.nome.split(/\s+/).filter(Boolean).slice(0, 2).map(p => p[0]).join('').toUpperCase()}</span>
+          <AvatarContato nome={c.nome} url={fotos[c.id]} />
           <span className="min-w-0 flex-1"><span className={`block truncate text-[15px] ${c.naoLida ? 'font-semibold text-white' : 'text-[#e9edef]'}`}>{c.nome}</span><span className="mt-1 block truncate text-xs text-[#8696a0]">{c.telefone || 'Contato do WhatsApp'}</span></span>
           {c.naoLida && <span role="img" aria-label="Mensagens não lidas" className="size-2.5 shrink-0 rounded-full bg-[#00d084]" />}
         </button>)}

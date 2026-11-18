@@ -1,6 +1,6 @@
 import pg from 'pg';
 
-export function criarEventosAtendimento({ onEnvio = () => {} } = {}) {
+export function criarEventosAtendimento({ onEnvio = () => {}, onFotos = () => {} } = {}) {
   const listeners = new Set();
   let database;
   let retry;
@@ -24,6 +24,7 @@ export function criarEventosAtendimento({ onEnvio = () => {} } = {}) {
     database = connection;
     connection.on('notification', event => {
       if (event.channel === 'whatsapp_envio') onEnvio(event.payload);
+      else if (event.channel === 'whatsapp_fotos') onFotos();
       else publish();
     });
     connection.on('error', () => { void connection.end().catch(() => {}); });
@@ -34,6 +35,8 @@ export function criarEventosAtendimento({ onEnvio = () => {} } = {}) {
       await connection.connect();
       await connection.query('LISTEN atendimento_alterado');
       await connection.query('LISTEN whatsapp_envio');
+      await connection.query('LISTEN whatsapp_fotos');
+      onFotos();
       onEnvio(); // Catch up after reconnecting, without waiting for the fallback timer.
       publish();
     }

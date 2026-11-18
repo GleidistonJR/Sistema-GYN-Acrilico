@@ -154,3 +154,11 @@ Não executar reset do banco de produção.
 
 Referências: https://wwebjs.dev/guide/creating-your-bot/authentication
 https://docs.wwebjs.dev/Client.html
+# Fotos dos contatos
+
+As fotos da lista são opcionais: iniciais aparecem imediatamente e voltam se a imagem falhar. Um IntersectionObserver solicita apenas os contatos visíveis, agrupados em uma chamada autenticada, com as mesmas permissões da conversa. A lista e a fila de mensagens não aguardam fotos.
+
+`FotoContato` guarda somente URL e data, nunca os bytes da imagem. Cache de 24 horas inclui contatos sem foto; erros transitórios têm espera de uma hora. O worker recebe `whatsapp_fotos` por NOTIFY, busca uma foto de cada vez com pausa de 500 ms e aproveita o heartbeat de 30 segundos para recuperar notificações perdidas. O navegador consulta resultados pendentes a cada 10 segundos por até seis tentativas e então reduz para cinco minutos; consultas concluídas ficam em memória por 30 minutos. Abas ocultas não consultam fotos. Imagens usam HTTPS de CDN WhatsApp/Meta, carregamento lazy e decodificação assíncrona.
+
+Validação: `node --test tests/whatsapp-fotos.test.mjs`; `RUN_DATABASE_INTEGRATION=1 node --env-file=.env tests/fotos-integracao.mjs` (fixtures temporárias, permissões, rolagem, imagens simuladas e fallback).
+
