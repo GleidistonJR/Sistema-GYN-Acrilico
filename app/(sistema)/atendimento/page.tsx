@@ -8,7 +8,7 @@ export default async function Atendimento({ searchParams }: {
 }) {
   const usuario = await exigirUsuario();
   const params = await searchParams;
-  const fila = params.fila === 'fila' ? 'fila' : params.fila === 'todos' ? 'todos' : 'meus';
+  const fila = params.fila === 'todos' || params.fila === 'fila' ? 'todos' : 'meus';
   const etiquetas = await prisma.etiqueta.findMany({ orderBy: { nome: 'asc' } });
   return <PainelAtendimento usuario={{ id: usuario.id, role: usuario.role, apelido: apelidoEfetivo(usuario) }} etiquetas={etiquetas} filaInicial={fila} clienteInicial={params.cliente?.slice(0, 100)} />;
 }

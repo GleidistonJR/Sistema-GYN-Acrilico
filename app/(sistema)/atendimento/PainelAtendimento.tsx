@@ -155,7 +155,7 @@ export default function PainelAtendimento({ usuario, etiquetas, filaInicial, cli
         <label className="flex items-center gap-3 rounded-lg bg-[#202c33] px-3 py-2.5 text-[#8696a0]"><Search size={17} /><input aria-label="Buscar cliente" value={busca} onChange={e => { setBusca(e.target.value); setPagina(1); }} placeholder="Buscar nome ou telefone" className="min-w-0 flex-1 bg-transparent text-sm text-[#e9edef] outline-none placeholder:text-[#8696a0]" /></label>
         <div className="flex items-center gap-2">
           <select aria-label="Carteira de clientes" value={fila} onChange={e => { setFila(e.target.value); setPagina(1); const url = new URL(window.location.href); url.searchParams.set('fila', e.target.value); window.history.replaceState(null, '', url); }} className="min-w-0 flex-1 cursor-pointer rounded-lg border border-white/10 bg-[#202c33] px-3 py-2 text-sm outline-none focus:border-emerald-500">
-            <option value="meus">Meus clientes</option><option value="fila">Fila compartilhada</option><option value="todos">Todos os clientes</option>
+            <option value="meus">Meus clientes</option><option value="todos">Todos os clientes</option>
           </select>
           <button onClick={() => setFiltros(!filtros)} aria-label="Filtrar por etiqueta" aria-expanded={filtros} className={`rounded-lg p-2.5 ${etiqueta ? 'bg-emerald-900 text-emerald-300' : 'bg-[#202c33] text-[#8696a0]'}`}><SlidersHorizontal size={18} /></button>
         </div>
@@ -169,7 +169,7 @@ export default function PainelAtendimento({ usuario, etiquetas, filaInicial, cli
           className={`flex w-full items-center gap-3 px-4 py-4 text-left transition-colors focus-visible:outline-2 focus-visible:outline-emerald-400 ${selecionado?.id === c.id ? 'bg-[#2a3942]' : 'hover:bg-[#202c33]'}`}>
           <AvatarContato nome={c.nome} url={fotos[c.id]} />
           <span className="min-w-0 flex-1"><span className={`block truncate text-[15px] ${c.naoLida ? 'font-semibold text-white' : 'text-[#e9edef]'}`}>{c.nome}</span><span className="mt-1 block truncate text-xs text-[#8696a0]">{c.telefone || 'Contato do WhatsApp'}</span></span>
-          {fila === 'todos' && <span role="img" title={c.responsavelNome ? `Responsável: ${c.responsavelNome}` : 'Sem responsável · fila compartilhada'} aria-label={c.responsavelNome ? `Responsável: ${c.responsavelNome}` : 'Sem responsável'} className={c.responsavelId ? 'shrink-0 text-sky-300' : 'shrink-0 text-[#8696a0]'}><UserRound size={17} /></span>}
+          {c.responsavelId && <span role="img" title={`Responsável: ${c.responsavelNome || 'Atribuído'}`} aria-label={`Responsável: ${c.responsavelNome || 'Atribuído'}`} className={`shrink-0 ${c.responsavelId === usuario.id ? 'text-emerald-400' : 'text-red-400'}`}><UserRound size={17} /></span>}
           {c.naoLida && <span role="img" aria-label="Mensagens não lidas" className="size-2.5 shrink-0 rounded-full bg-[#00d084]" />}
         </button>)}
       </div>
@@ -188,7 +188,7 @@ export default function PainelAtendimento({ usuario, etiquetas, filaInicial, cli
         <div className="rounded-lg bg-emerald-50 p-3 text-sm"><strong>{usuario.apelido || 'Atendimento'}:</strong><br />Mensagem normal</div>
         <p className="text-xs text-slate-500">Esta configuração pertence ao seu login e funciona em todos os computadores.</p>
       </Formulario>}
-      {modal === 'cliente' && <Formulario acao="criarCliente" botao="Adicionar à fila"><label className="block text-sm">Nome<input name="nome" required maxLength={120} className={campo} autoFocus /></label><label className="block text-sm">WhatsApp com país e DDD<input name="telefone" required type="tel" className={campo} placeholder="+55 62 99999-9999" /></label></Formulario>}
+      {modal === 'cliente' && <Formulario acao="criarCliente" botao="Adicionar cliente"><label className="block text-sm">Nome<input name="nome" required maxLength={120} className={campo} autoFocus /></label><label className="block text-sm">WhatsApp com país e DDD<input name="telefone" required type="tel" className={campo} placeholder="+55 62 99999-9999" /></label></Formulario>}
       {modal === 'etiqueta' && <Formulario acao="criarEtiqueta" botao="Criar etiqueta"><label className="block text-sm">Nome<input name="nome" required maxLength={40} className={campo} autoFocus /></label></Formulario>}
       {modal === 'detalhes' && <div className="space-y-6">{erroDetalhes ? <p role="alert" className="text-sm text-red-700">{erroDetalhes}</p> : !detalhes ? <p className="text-sm text-slate-500">Carregando…</p> : <>
         <div><h3 className="font-semibold">{detalhes.cliente.nome}</h3><p className="text-sm text-slate-500">{detalhes.cliente.telefone}</p></div>
@@ -200,7 +200,7 @@ export default function PainelAtendimento({ usuario, etiquetas, filaInicial, cli
         {editar && <>
           {!!detalhes.etiquetas.length && <Formulario acao="etiquetar" clienteId={detalhes.cliente.id} botao="Adicionar etiqueta"><label className="block text-sm">Etiqueta<select name="etiquetaId" className={campo}>{detalhes.etiquetas.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}</select></label></Formulario>}
           {!!detalhes.selecionadas.length && <Formulario acao="removerEtiqueta" clienteId={detalhes.cliente.id} botao="Remover etiqueta"><label className="block text-sm">Etiqueta atual<select name="etiquetaId" className={campo}>{detalhes.etiquetas.filter(e => detalhes.selecionadas.includes(e.id)).map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}</select></label></Formulario>}
-          {usuario.role === 'ADMIN' && <Formulario acao="transferir" clienteId={detalhes.cliente.id} botao="Alterar responsável"><label className="block text-sm">Responsável<select name="responsavelId" defaultValue={detalhes.cliente.responsavelId ?? ''} className={campo}><option value="">Devolver à fila</option>{detalhes.vendedores.map(v => <option key={v.id} value={v.id}>{v.colaborador?.nome || v.email}</option>)}</select></label></Formulario>}
+          {usuario.role === 'ADMIN' && <Formulario acao="transferir" clienteId={detalhes.cliente.id} botao="Alterar responsável"><label className="block text-sm">Responsável<select name="responsavelId" defaultValue={detalhes.cliente.responsavelId ?? ''} className={campo}><option value="">Sem responsável</option>{detalhes.vendedores.map(v => <option key={v.id} value={v.id}>{v.colaborador?.nome || v.email}</option>)}</select></label></Formulario>}
         </>}
       </>}</div>}
     </Dialogo>}
