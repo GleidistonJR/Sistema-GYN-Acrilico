@@ -1,6 +1,5 @@
 "use client";
 import { useState } from 'react';
-import { setCookie } from 'cookies-next';
 import { useRouter } from 'next/navigation';
 import { verificarLogin } from './actions';
 
@@ -17,13 +16,6 @@ export default function LoginPage() {
     const dadosUser = await verificarLogin(usuario, senha);
 
     if (dadosUser.sucesso) {
-      const sessaoData = JSON.stringify({
-        role: dadosUser.role,
-        userId: dadosUser.userId,
-        userNome: dadosUser.userNome,
-      });
-
-      setCookie('sessao_admin', sessaoData);
 
       router.refresh();
       window.location.href = dadosUser.role === 'OUTRO' ? '/baterPonto'

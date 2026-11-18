@@ -59,22 +59,30 @@ try {
     }, { names, target });
   }
   assert.equal(await drop(['orcamento.pdf']), true);
+  assert.equal(await page.evaluate(() => window.__envios.length), 1);
+  assert.equal(await page.$eval(input, el => el.value), draft);
+  await page.focus(input); await page.keyboard.press('Enter');
   await page.waitForFunction(() => window.__envios.length === 2 && !document.querySelector('textarea').disabled);
   const sent = await page.evaluate(() => window.__envios[1]);
-  assert.equal(sent.nome, 'orcamento.pdf'); assert.equal(sent.mime, 'application/pdf'); assert.equal(sent.texto, ''); assert.equal(sent.dados, '%PDF-1.4\nArquivo de teste');
-  assert.equal(await page.$eval(input, el => el.value), draft);
+  assert.equal(sent.nome, 'orcamento.pdf'); assert.equal(sent.mime, 'application/pdf'); assert.equal(sent.texto, draft); assert.equal(sent.dados, '%PDF-1.4\nArquivo de teste');
+  assert.equal(await page.$eval(input, el => el.value), '');
   await page.evaluate(() => { window.__falhar = true; }); await drop(['repetir.pdf']);
-  await page.waitForFunction(() => [...document.querySelectorAll('button')].some(el => el.textContent === 'Tentar enviar arquivo novamente'));
-  await page.evaluate(() => [...document.querySelectorAll('button')].find(el => el.textContent === 'Tentar enviar arquivo novamente').click());
+  assert.equal(await page.evaluate(() => window.__envios.length), 2);
+  await page.click('button[type="submit"]');
+  await page.waitForFunction(() => window.__envios.length === 3 && !document.querySelector('textarea').disabled);
+  await page.click('button[type="submit"]');
   await page.waitForFunction(() => window.__envios.length === 4 && !document.querySelector('textarea').disabled);
   assert.equal(await page.evaluate(() => window.__envios[2].pedidoId), await page.evaluate(() => window.__envios[3].pedidoId));
+  await drop(['cancelar.pdf']);
+  await page.evaluate(() => [...document.querySelectorAll('button')].find(el => el.textContent === 'Remover').click());
+  assert.equal(await page.evaluate(() => window.__envios.length), 4);
   await drop(['a.pdf', 'b.pdf']); await drop(['programa.exe']); await drop(['fora.pdf'], 'aside');
   assert.equal(await page.evaluate(() => window.__envios.length), 4);
   await page.setViewport({ width: 390, height: 844 });
   await page.waitForFunction(() => document.querySelector('textarea').offsetHeight <= 148);
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   assert.equal(await db.mensagemWhatsApp.count({ where: { clienteId } }), 0);
-  console.log('OK: Enter, Shift+Enter, IME, seis linhas/rolagem, envio PDF por drop, rascunho preservado, retry com mesmo ID, rejeições e mobile. Nenhuma mensagem real enviada.');
+  console.log('OK: Enter, Shift+Enter, IME, seis linhas, PDF anexado sem envio automático, legenda, confirmação, cancelamento, retry com mesmo ID e mobile. Nenhuma mensagem real enviada.');
 } finally {
   await browser?.close(); await db.cliente.deleteMany({ where: { id: clienteId } });
   await db.user.deleteMany({ where: { id: userId } }); await db.$disconnect();

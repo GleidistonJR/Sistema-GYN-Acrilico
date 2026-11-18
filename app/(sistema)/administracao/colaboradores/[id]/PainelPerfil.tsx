@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { getCookie } from "cookies-next";
+import { useState } from "react";
 import { LinhaRelatorio } from "./page";
 import BotaoImprimir from "./BotaoImprimir";
 import ModalCriarPonto from "./ModalCriarPonto";
@@ -9,6 +8,7 @@ import ModalAtestado from "./ModalAtestado";
 import TabelaHistoricoPonto from "./TabelaHistoricoPonto";
 
 interface PainelProps {
+  role: string;
   colaborador: any;
   linhasParaImpressao: LinhaRelatorio[];
   diasUteisIniciais: number;
@@ -16,6 +16,7 @@ interface PainelProps {
 }
 
 export default function PainelPerfil({
+  role,
   colaborador,
   linhasParaImpressao,
   diasUteisIniciais,
@@ -23,20 +24,6 @@ export default function PainelPerfil({
 }: PainelProps) {
 
   const [diasConsiderados, setDiasConsiderados] = useState<number>(diasUteisIniciais || 21);
-
-  const [role, setRole] = useState<string>('USER');
-
-  useEffect(() => {
-    const sessaoCookie = getCookie('sessao_admin');
-
-    try {
-      const sessao = JSON.parse(sessaoCookie as string)
-      setRole(sessao.role)
-    } catch {
-      setRole('')
-    }
-
-  },);
 
   const MINUTOS_JORNADA_DIARIA = 8 * 60 + 30; // 510 minutos (8h30m)
   const TOLERANCIA_CLT = 10;

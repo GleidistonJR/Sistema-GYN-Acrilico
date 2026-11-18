@@ -46,7 +46,6 @@ export default function Conversa({ cliente, onVoltar, onDetalhes, onLida }: {
   const envioEmCurso = useRef(false);
   const [arrastando, setArrastando] = useState(false);
   const profundidadeDrag = useRef(0);
-  const [soltoPendente, setSoltoPendente] = useState<{ arquivo: File; pedidoId: string } | null>(null);
   const [podeEnviar, setPodeEnviar] = useState(false);
   const [carregando, setCarregando] = useState(true);
   const [anteriores, setAnteriores] = useState(false);
@@ -206,26 +205,23 @@ export default function Conversa({ cliente, onVoltar, onDetalhes, onLida }: {
     finally { setSincronizando(false); }
   }
 
-  async function enviar(event?: React.FormEvent, solto?: { arquivo: File; pedidoId: string }) {
-    event?.preventDefault();
-    if (envioEmCurso.current || gravando || !podeEnviar || (!solto && !texto.trim() && !arquivo)) return;
+  async function enviar(event: React.FormEvent) {
+    event.preventDefault();
+    if (envioEmCurso.current || gravando || !podeEnviar || (!texto.trim() && !arquivo)) return;
     envioEmCurso.current = true;
     setEnviando(true); setErro(''); setAviso('');
-    if (!solto) pedido.current ??= crypto.randomUUID();
+    pedido.current ??= crypto.randomUUID();
     const form = new FormData();
-    form.set('pedidoId', solto?.pedidoId || pedido.current!); form.set('texto', solto ? '' : texto);
-    if (solto || arquivo) form.set('arquivo', solto?.arquivo || arquivo!);
-    if (!solto && voz && arquivo) form.set('voz', 'true');
-    if (!solto && responder) form.set('responderId', responder.id);
+    form.set('pedidoId', pedido.current); form.set('texto', texto);
+    if (arquivo) form.set('arquivo', arquivo);
+    if (voz && arquivo) form.set('voz', 'true');
+    if (responder) form.set('responderId', responder.id);
     try {
       const resposta = await fetch(`${base}/mensagens`, { method: 'POST', body: form });
       const dados = await resposta.json();
       if (!resposta.ok) throw new Error(dados.erro || 'Falha ao enviar.');
-      if (solto) setSoltoPendente(null);
-      else {
-        setTexto(''); setArquivo(null); setVoz(false); setResponder(null); pedido.current = null;
-        if (upload.current) upload.current.value = '';
-      }
+      setTexto(''); setArquivo(null); setVoz(false); setResponder(null); pedido.current = null;
+      if (upload.current) upload.current.value = '';
       seguirFim.current = true;
       if (emContexto.current) void voltarAoFim();
       else if (dados.mensagem) {
@@ -240,7 +236,7 @@ export default function Conversa({ cliente, onVoltar, onDetalhes, onLida }: {
     if (!event.dataTransfer.types.includes('Files')) return;
     event.preventDefault(); event.stopPropagation(); profundidadeDrag.current = 0; setArrastando(false);
     if (envioEmCurso.current || gravando || !podeEnviar) { setErro('Aguarde o envio ou a gravação terminar antes de soltar um arquivo.'); return; }
-    if (soltoPendente) { setErro('Conclua ou descarte o arquivo pendente antes de enviar outro.'); return; }
+    if (arquivo) { setErro('Remova ou envie o anexo selecionado antes de adicionar outro.'); return; }
     const files = Array.from(event.dataTransfer.files);
     if (files.length !== 1) { setErro('Solte um arquivo por vez.'); return; }
     let file = files[0];
@@ -249,15 +245,16 @@ export default function Conversa({ cliente, onVoltar, onDetalhes, onLida }: {
     const mime = tiposArquivo[file.name.split('.').at(-1)?.toLowerCase() || ''];
     if (!mime || (file.type && file.type !== 'application/octet-stream' && !Object.values(tiposArquivo).includes(file.type))) { setErro('Envie uma imagem, áudio ou PDF compatível.'); return; }
     if (!file.type || file.type === 'application/octet-stream') file = new File([file], file.name, { type: mime, lastModified: file.lastModified });
-    const envio = { arquivo: file, pedidoId: crypto.randomUUID() };
-    setSoltoPendente(envio); void enviar(undefined, envio);
+    setArquivo(file); setVoz(false); pedido.current = null; setErro('');
+    setAviso('Arquivo anexado. Escreva uma legenda se quiser e confirme com Enter ou Enviar.');
+    entradaTexto.current?.focus();
   }
 
   return <section onDragEnter={e => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); profundidadeDrag.current++; setArrastando(true); } }}
-    onDragOver={e => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); e.dataTransfer.dropEffect = enviando || gravando || !podeEnviar || soltoPendente ? 'none' : 'copy'; } }}
+    onDragOver={e => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); e.dataTransfer.dropEffect = enviando || gravando || !podeEnviar || arquivo ? 'none' : 'copy'; } }}
     onDragLeave={e => { if (e.dataTransfer.types.includes('Files')) { profundidadeDrag.current = Math.max(0, profundidadeDrag.current - 1); if (!profundidadeDrag.current) setArrastando(false); } }}
     onDrop={soltarArquivo} className="relative flex h-full min-h-0 flex-1 flex-col bg-[#0b141a] text-[#e9edef]">
-    {arrastando && <div role="status" className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center border-2 border-dashed border-emerald-400 bg-[#0b141a]/95 p-6 text-center"><div><Paperclip size={40} className="mx-auto mb-4 text-emerald-300" /><p className="text-lg font-semibold">{enviando || gravando || !podeEnviar || soltoPendente ? 'Aguarde para enviar um arquivo' : `Solte para enviar a ${cliente.nome}`}</p><p className="mt-2 text-sm text-[#8696a0]">Um arquivo por vez · até 10 MB</p></div></div>}
+    {arrastando && <div role="status" className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center border-2 border-dashed border-emerald-400 bg-[#0b141a]/95 p-6 text-center"><div><Paperclip size={40} className="mx-auto mb-4 text-emerald-300" /><p className="text-lg font-semibold">{enviando || gravando || !podeEnviar || arquivo ? 'Aguarde para enviar um arquivo' : `Solte para anexar na conversa com ${cliente.nome}`}</p><p className="mt-2 text-sm text-[#8696a0]">Um arquivo por vez · até 10 MB</p></div></div>}
     <header className="flex h-[72px] shrink-0 items-center justify-between gap-3 border-b border-white/5 bg-[#202c33] px-3 sm:px-6">
       <div className="flex min-w-0 items-center gap-3"><button onClick={onVoltar} aria-label="Voltar aos clientes" className="rounded-lg p-2 hover:bg-white/5 md:hidden"><ArrowLeft size={20} /></button>
         <span className="hidden size-10 shrink-0 items-center justify-center rounded-full bg-[#3c5154] text-sm font-semibold text-emerald-200 sm:flex">{cliente.nome.slice(0, 1).toUpperCase()}</span>
@@ -295,7 +292,6 @@ export default function Conversa({ cliente, onVoltar, onDetalhes, onLida }: {
       {localizando && <p role="status" className="mb-2 text-xs text-emerald-300">Localizando mensagem…</p>}
       {erro && <p role="alert" className="mb-2 text-sm text-red-300">{erro}</p>}
       {aviso && <p role="status" className="mb-2 text-xs text-[#8696a0]">{aviso}</p>}
-      {soltoPendente && <div className="mb-2 flex flex-wrap items-center gap-3 text-xs"><span className="max-w-full truncate">{enviando ? 'Enviando arquivo: ' : 'Arquivo pendente: '}{soltoPendente.arquivo.name}</span>{!enviando && <><button type="button" onClick={() => void enviar(undefined, soltoPendente)} className="text-emerald-300 underline">Tentar enviar arquivo novamente</button><button type="button" onClick={() => setSoltoPendente(null)} className="text-red-300">Descartar arquivo pendente</button></>}</div>}
       {responder && <div aria-label="Respondendo à mensagem" className="mb-3 flex items-center gap-3 rounded-lg border-l-4 border-emerald-400 bg-[#182229] px-3 py-2">
         <div className="min-w-0 flex-1"><p className="text-xs font-semibold text-emerald-300">Respondendo a {responder.direcao === 'SAIDA' ? 'Empresa' : cliente.nome}</p><p className="mt-1 line-clamp-2 break-words text-xs [overflow-wrap:anywhere]">{resumo(responder)}</p></div>
         <button type="button" disabled={enviando} aria-label="Cancelar resposta" onClick={() => { setResponder(null); pedido.current = null; }} className="shrink-0 rounded p-2 hover:bg-white/10"><X size={18} /></button>
@@ -310,7 +306,7 @@ export default function Conversa({ cliente, onVoltar, onDetalhes, onLida }: {
           }} disabled={enviando || gravando || !podeEnviar} maxLength={6000} rows={1} aria-label="Mensagem" placeholder="Digite sua mensagem…" className="min-w-0 flex-1 resize-none rounded-lg border border-transparent bg-[#2a3942] p-3 text-sm leading-5 text-[#e9edef] outline-none placeholder:text-[#8696a0] focus:border-emerald-600" />
           <GravarAudio disabled={enviando || !podeEnviar || !!arquivo} onArquivo={file => { setArquivo(file); setVoz(true); pedido.current = null; }} onGravando={setGravando} onErro={setErro} />
           <button type="submit" disabled={enviando || gravando || !podeEnviar || (!texto.trim() && !arquivo)} className="flex items-center gap-2 rounded-full bg-[#00a884] px-4 py-3 text-sm font-semibold text-white disabled:opacity-40"><Send size={18} /><span className="hidden sm:inline">{enviando ? 'Salvando…' : 'Enviar'}</span><span className="sr-only sm:hidden">Enviar</span></button>
-        </div><p className="mt-1 text-[10px] text-[#8696a0]">Enter envia · Shift + Enter quebra linha · Solte imagem, áudio ou PDF na conversa para enviar (até 10 MB).</p>
+        </div><p className="mt-1 text-[10px] text-[#8696a0]">Enter envia · Shift + Enter quebra linha · Arraste um arquivo para anexar; confirme o envio quando terminar (até 10 MB).</p>
       </form>}
     </footer>
   </section>;

@@ -52,7 +52,7 @@ export default function PainelAtendimento({ usuario, etiquetas, filaInicial, cli
     const drag = (event: DragEvent) => { if (event.dataTransfer?.types.includes('Files')) event.preventDefault(); };
     const drop = (event: DragEvent) => {
       if (!event.dataTransfer?.types.includes('Files')) return;
-      event.preventDefault(); setErro('Abra uma conversa e solte o arquivo sobre ela para enviar.');
+      event.preventDefault(); setErro('Abra uma conversa e solte o arquivo sobre ela para anexar.');
     };
     window.addEventListener('dragover', drag); window.addEventListener('drop', drop);
     return () => { window.removeEventListener('dragover', drag); window.removeEventListener('drop', drop); };

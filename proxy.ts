@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { obterUsuarioSessao } from '@/lib/sessao';
+import { obterUsuarioSessao, renovarSessaoPersistente } from '@/lib/sessao';
 
 const regrasDeAcesso: { rota: string; rolesPermitidas: string[] }[] = [
   { rota: '/administracao', rolesPermitidas: ['ADMIN'] },
@@ -16,6 +16,15 @@ const regrasDeAcesso: { rota: string; rolesPermitidas: string[] }[] = [
 export async function proxy(request: NextRequest) {
   const sessao = await obterUsuarioSessao();
   if (!sessao) return NextResponse.redirect(new URL('/login', request.url));
+  async function permitir() {
+    const response = NextResponse.next();
+    // Server Actions may be signing out; do not re-set their deleted cookie.
+    if (request.method === 'GET') {
+      const cookie = await renovarSessaoPersistente(sessao!.sessaoExpiraEm);
+      if (cookie) response.cookies.set(cookie);
+    }
+    return response;
+  }
 
   const rotaAtual = request.nextUrl.pathname;
 
@@ -27,12 +36,12 @@ export async function proxy(request: NextRequest) {
 
     // ADMIN sempre pode acessar qualquer perfil
     if (sessao.role === 'ADMIN') {
-      return NextResponse.next();
+      return permitir();
     }
 
     // USER só pode acessar se o id da rota for o dele mesmo
     if (sessao.role === 'USER' && String(sessao.colaborador?.id) === idNaRota) {
-      return NextResponse.next();
+      return permitir();
     }
 
     // Qualquer outro caso, bloqueia
@@ -45,7 +54,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
-  return NextResponse.next();
+  return permitir();
 }
 
 export const config = {

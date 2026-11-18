@@ -28,7 +28,7 @@ export default async function DetalhesColaborador({ params, searchParams }: Deta
 
   const idNumero = Number(id);
   if (!Number.isSafeInteger(idNumero)) return notFound();
-  await exigirPerfil(idNumero);
+  const usuario = await exigirPerfil(idNumero);
 
   let mesInicialValue = "";
   let anoAlvo = 0;
@@ -127,7 +127,7 @@ export default async function DetalhesColaborador({ params, searchParams }: Deta
   return (
     <>
       <AtualizacaoPagina />
-      <PainelPerfil
+      <PainelPerfil role={usuario.role}
         colaborador={colaborador}
         linhasParaImpressao={linhasParaImpressao}
         diasUteisIniciais={diasUteisPadraoContados}

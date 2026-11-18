@@ -10,6 +10,7 @@ import { criarServicoMensagens } from './whatsapp-mensagens.mjs';
 import { criarEventosAtendimento } from './whatsapp-eventos.mjs';
 import { criarFotosContatos } from './whatsapp-fotos.mjs';
 import { publicarEstadoServico } from '../lib/whatsapp/estado-servico.mjs';
+import { sessionPath } from './whatsapp-caminhos.mjs';
 
 const prisma = new PrismaClient();
 let mensagens = null;
@@ -20,7 +21,7 @@ const { LocalAuth } = whatsapp;
 const token = process.env.WHATSAPP_BRIDGE_TOKEN;
 if (!token || token.length < 32) throw new Error('Configure WHATSAPP_BRIDGE_TOKEN com pelo menos 32 caracteres.');
 const port = Number(process.env.WHATSAPP_BRIDGE_PORT || 3001);
-const dataPath = path.resolve('.whatsapp-session');
+const dataPath = sessionPath;
 const executablePath = [
   process.env.WHATSAPP_BROWSER_PATH,
   'C:/Program Files/Google/Chrome/Application/chrome.exe',

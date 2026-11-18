@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { projectPath } from './whatsapp-caminhos.mjs';
 
 const worker = fileURLToPath(new URL('./whatsapp-server.mjs', import.meta.url));
 let child;
@@ -9,7 +10,7 @@ let attempts = 0;
 
 function start() {
   const started = Date.now();
-  child = spawn(process.execPath, [worker], { stdio: 'inherit', windowsHide: true, env: process.env });
+  child = spawn(process.execPath, [worker], { cwd: projectPath, stdio: 'inherit', windowsHide: true, env: process.env });
   child.once('error', () => console.error('Não foi possível iniciar o processo do WhatsApp.'));
   child.once('exit', code => {
     if (stopping) return;
