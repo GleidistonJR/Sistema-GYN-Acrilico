@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Search, Plus, UserRound, MessageCircle, Tags, Settings2, X, ChevronLeft, ChevronRight, SlidersHorizontal } from 'lucide-react';
 import Formulario from './Formulario';
+import { alterarAtendimento } from './actions';
 import AvatarContato from './AvatarContato';
 import { useFotosContatos } from './useFotosContatos';
 
@@ -64,6 +65,20 @@ export default function PainelAtendimento({ usuario, etiquetas, filaInicial, cli
     if (cliente) url.searchParams.set('cliente', cliente.id); else url.searchParams.delete('cliente');
     window.history.replaceState(null, '', url);
   }, []);
+  async function assumirCliente() {
+    const cliente = selecionado;
+    if (!cliente || cliente.responsavelId) return;
+    const form = new FormData(); form.set('acao', 'assumir'); form.set('clienteId', cliente.id);
+    const resultado = await alterarAtendimento({ sucesso: false, mensagem: '' }, form);
+    if (!resultado.sucesso) {
+      window.dispatchEvent(new Event('atendimento:atualizar'));
+      throw new Error(resultado.mensagem);
+    }
+    const atribuido = { ...cliente, responsavelId: usuario.id, responsavelNome: usuario.apelido || 'Você' };
+    setClientes(atuais => atuais.map(c => c.id === cliente.id ? { ...c, responsavelId: atribuido.responsavelId, responsavelNome: atribuido.responsavelNome } : c));
+    setSelecionado(atual => atual?.id === cliente.id ? { ...atual, responsavelId: atribuido.responsavelId, responsavelNome: atribuido.responsavelNome } : atual);
+    window.dispatchEvent(new Event('atendimento:atualizar'));
+  }
   const marcarLida = useCallback((id: string) => setClientes(atuais => atuais.map(c => c.id === id ? { ...c, naoLida: false } : c)), []);
 
   const carregar = useCallback(async () => {
@@ -179,7 +194,7 @@ export default function PainelAtendimento({ usuario, etiquetas, filaInicial, cli
       </div>
     </aside>
     <main className={`${selecionado ? 'flex' : 'hidden md:flex'} min-h-0 min-w-0 flex-1 flex-col`}>
-      {selecionado ? <Conversa key={selecionado.id} cliente={selecionado} onVoltar={() => escolher(null)} onDetalhes={abrirDetalhes} onLida={marcarLida} /> : <div className="flex h-full flex-col items-center justify-center border-b-4 border-[#00a884] bg-[#222e35] p-8 text-center"><div className="mb-6 rounded-full bg-[#2a3942] p-7"><MessageCircle size={56} strokeWidth={1.2} className="text-[#00a884]" /></div><h2 className="text-2xl font-light text-[#e9edef]">Suas conversas, em um só lugar</h2><p className="mt-3 max-w-sm text-sm leading-relaxed text-[#8696a0]">Selecione um cliente à esquerda para conversar.<br />A bolinha verde indica mensagens ainda não visualizadas.</p></div>}
+      {selecionado ? <Conversa key={selecionado.id} cliente={selecionado} onAssumir={!selecionado.responsavelId ? assumirCliente : undefined} onVoltar={() => escolher(null)} onDetalhes={abrirDetalhes} onLida={marcarLida} /> : <div className="flex h-full flex-col items-center justify-center border-b-4 border-[#00a884] bg-[#222e35] p-8 text-center"><div className="mb-6 rounded-full bg-[#2a3942] p-7"><MessageCircle size={56} strokeWidth={1.2} className="text-[#00a884]" /></div><h2 className="text-2xl font-light text-[#e9edef]">Suas conversas, em um só lugar</h2><p className="mt-3 max-w-sm text-sm leading-relaxed text-[#8696a0]">Selecione um cliente à esquerda para conversar.<br />A bolinha verde indica mensagens ainda não visualizadas.</p></div>}
     </main>
     {modal && <Dialogo titulo={modal === 'apelido' ? 'Meu apelido' : modal === 'cliente' ? 'Novo cliente' : modal === 'etiqueta' ? 'Nova etiqueta' : 'Organizar cliente'} fechar={() => setModal(null)}>
       {modal === 'apelido' && <Formulario acao="meuApelido" botao="Salvar apelido">
