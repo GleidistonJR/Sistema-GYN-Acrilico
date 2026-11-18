@@ -25,6 +25,11 @@ Migrações de clientes e mensagens aplicadas em produção em 18/11/2026 com au
   referência quando o WhatsApp não permite citar. Não duplica mídias da citação.
 - Histórico recente já importado recebe citações durante a sincronização quando
   disponíveis; referências antigas indisponíveis aparecem identificadas como tal.
+- Clicar na citação centraliza a mensagem original e a destaca por 3 segundos.
+  Se estiver fora da lista carregada, busca somente um trecho de até 41 mensagens
+  da mesma conversa/conta, com botão para voltar às recentes. Esse trecho não marca
+  novas mensagens como lidas. Se a original não existir no banco, informa sem trocar
+  o histórico. Suporta teclado e preferência de movimento reduzido.
 - Gravação pelo microfone por até 2 minutos, prévia para ouvir, descarte e envio como
   áudio MP3 comum. Exige permissão do navegador e localhost/HTTPS. Anexar áudio
   continua disponível. Respostas inteligentes ainda não implementadas.
@@ -131,6 +136,7 @@ Testes integrados exigem RUN_DATABASE_INTEGRATION=1 e serviços ativos:
     node --env-file=.env tests/whatsapp-mensagens-integracao.mjs
     node --env-file=.env tests/inbox-integracao.mjs
     node --env-file=.env tests/fila-http-integracao.mjs
+    node --env-file=.env tests/citacao-navegacao-integracao.mjs
 
 Registros temporários têm IDs próprios e são removidos em finally. O teste de mensagens
 usa provedor simulado e não envia a clientes reais. Verifica LID, responsável,

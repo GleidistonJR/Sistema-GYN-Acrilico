@@ -19,6 +19,14 @@ export default function Conversa({ cliente, onVoltar, onDetalhes, onLida }: {
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
   const [texto, setTexto] = useState('');
   const [responder, setResponder] = useState<Mensagem | null>(null);
+  const [destacada, setDestacada] = useState<string | null>(null);
+  const [salto, setSalto] = useState(0);
+  const [localizando, setLocalizando] = useState(false);
+  const [contexto, setContexto] = useState(false);
+  const emContexto = useRef(false);
+  const navegacao = useRef<AbortController | null>(null);
+  const destaqueTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const alvoPendente = useRef<string | null>(null);
   const entradaTexto = useRef<HTMLTextAreaElement>(null);
   const [arquivo, setArquivo] = useState<File | null>(null);
   const [voz, setVoz] = useState(false);
@@ -49,7 +57,7 @@ export default function Conversa({ cliente, onVoltar, onDetalhes, onLida }: {
 
   const marcarLida = useCallback(async () => {
     const version = versaoEntrada.current;
-    if (marcando.current || BigInt(version) <= BigInt(lidaAte.current) || !seguirFim.current || document.visibilityState !== 'visible' || !document.hasFocus()) return;
+    if (emContexto.current || marcando.current || BigInt(version) <= BigInt(lidaAte.current) || !seguirFim.current || document.visibilityState !== 'visible' || !document.hasFocus()) return;
     marcando.current = true;
     try {
       const response = await fetch(`${base}/leitura`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ versao: version }) });
@@ -59,6 +67,7 @@ export default function Conversa({ cliente, onVoltar, onDetalhes, onLida }: {
   }, [base, cliente.id, onLida]);
 
   const atualizar = useCallback(async (antes?: string, signal?: AbortSignal) => {
+    if (emContexto.current) return;
     const query = antes ? '?antes=' + encodeURIComponent(antes) : versao.current ? '?versao=' + versao.current : '';
     const resposta = await fetch(`${base}/mensagens${query}`, { cache: 'no-store', signal });
     if (resposta.status === 304) { setPodeEnviar(true); return; }
@@ -67,7 +76,7 @@ export default function Conversa({ cliente, onVoltar, onDetalhes, onLida }: {
       if (resposta.status === 403) { setMensagens([]); setPodeEnviar(false); }
       throw new Error(dados.erro || 'Não foi possível atualizar a conversa.');
     }
-    if (signal?.aborted) return;
+    if (signal?.aborted || emContexto.current) return;
     if (!antes && versao.current && BigInt(dados.versaoMensagens) < BigInt(versao.current)) return;
     if (!antes) { versao.current = dados.versaoMensagens; versaoEntrada.current = dados.versaoEntrada; }
     setPodeEnviar(dados.podeEnviar);
@@ -107,6 +116,49 @@ export default function Conversa({ cliente, onVoltar, onDetalhes, onLida }: {
     return () => { window.removeEventListener('focus', read); document.removeEventListener('visibilitychange', read); };
   }, [marcarLida]);
 
+  useEffect(() => () => { navegacao.current?.abort(); if (destaqueTimer.current) clearTimeout(destaqueTimer.current); }, []);
+  useEffect(() => {
+    const id = alvoPendente.current;
+    if (!id) return;
+    const el = lista.current?.querySelector<HTMLElement>(`[data-mensagem-id="${CSS.escape(id)}"]`);
+    if (!el) return;
+    alvoPendente.current = null;
+    el.scrollIntoView({ block: 'center', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    el.focus({ preventScroll: true });
+    if (destaqueTimer.current) clearTimeout(destaqueTimer.current);
+    destaqueTimer.current = setTimeout(() => setDestacada(null), 3000);
+  }, [mensagens, destacada, localizando, salto]);
+
+  async function irParaCitacao(mensagem: Mensagem) {
+    navegacao.current?.abort();
+    const controller = new AbortController(); navegacao.current = controller;
+    setAviso(''); setLocalizando(true); setDestacada(null);
+    seguirFim.current = false;
+    if (destaqueTimer.current) clearTimeout(destaqueTimer.current);
+    try {
+      const local = mensagens.find(m => mensagem.citacao?.externaId && m.externaId === mensagem.citacao.externaId);
+      let alvo = local?.id;
+      if (!alvo) {
+        const response = await fetch(`${base}/mensagens?citadaPor=${encodeURIComponent(mensagem.id)}`, { cache: 'no-store', signal: controller.signal });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.erro || 'Não foi possível localizar a mensagem.');
+        if (controller.signal.aborted) return;
+        emContexto.current = true; setContexto(true);
+        setMensagens(data.mensagens); alvo = data.alvoId;
+      }
+      alvoPendente.current = alvo!; setDestacada(alvo!); setSalto(n => n + 1);
+    } catch (error) { if (!controller.signal.aborted) setAviso(error instanceof Error ? error.message : 'Não foi possível localizar a mensagem.'); }
+    finally { if (!controller.signal.aborted) setLocalizando(false); }
+  }
+
+  async function voltarAoFim() {
+    navegacao.current?.abort(); setLocalizando(false); alvoPendente.current = null;
+    emContexto.current = false; setContexto(false); setDestacada(null);
+    versao.current = ''; carregouHistorico.current = false; seguirFim.current = true;
+    setMensagens([]); setCarregando(true);
+    try { await atualizar(); } catch { setErro('Não foi possível carregar as mensagens recentes.'); setCarregando(false); }
+  }
+
   async function sincronizar() {
     setSincronizando(true); setErro('');
     try {
@@ -135,7 +187,7 @@ export default function Conversa({ cliente, onVoltar, onDetalhes, onLida }: {
       setTexto(''); setArquivo(null); setVoz(false); setResponder(null); pedido.current = null;
       if (upload.current) upload.current.value = '';
       seguirFim.current = true;
-      await atualizar();
+      if (emContexto.current) await voltarAoFim(); else await atualizar();
     } catch (error) { setErro(error instanceof Error ? error.message : 'Não foi possível confirmar. Tente novamente com a mesma mensagem.'); }
     finally { setEnviando(false); }
   }
@@ -148,15 +200,15 @@ export default function Conversa({ cliente, onVoltar, onDetalhes, onLida }: {
       <div className="flex items-center gap-1"><button onClick={sincronizar} disabled={sincronizando} aria-label="Sincronizar histórico" className="rounded-full p-2 text-[#aebac1] hover:bg-white/5 disabled:opacity-50" title="Buscar histórico recente no WhatsApp"><RefreshCw size={18} className={sincronizando ? 'animate-spin' : ''} /></button><button onClick={onDetalhes} aria-label="Organizar cliente" title="Etiquetas e responsável" className="rounded-full p-2 text-[#aebac1] hover:bg-white/5"><MoreVertical size={20} /></button></div>
     </header>
     <div ref={lista} onScroll={() => { const el = lista.current; if (el) seguirFim.current = el.scrollHeight - el.scrollTop - el.clientHeight < 100; if (seguirFim.current) void marcarLida().catch(() => {}); }} className="min-h-0 flex-1 overflow-y-auto p-4 sm:px-8 lg:px-12 [scrollbar-width:thin] [scrollbar-color:#37474f_transparent]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, #ffffff06 1px, transparent 0)', backgroundSize: '24px 24px' }}>
-      {anteriores && <button onClick={async () => { seguirFim.current = false; try { await atualizar(mensagens[0]?.id); } catch { setErro('Não foi possível carregar mensagens anteriores.'); } }} className="mx-auto mb-5 block rounded-full bg-[#202c33] px-4 py-2 text-xs text-[#aebac1] shadow-sm">Carregar anteriores</button>}
+      {!contexto && anteriores && <button onClick={async () => { seguirFim.current = false; try { await atualizar(mensagens[0]?.id); } catch { setErro('Não foi possível carregar mensagens anteriores.'); } }} className="mx-auto mb-5 block rounded-full bg-[#202c33] px-4 py-2 text-xs text-[#aebac1] shadow-sm">Carregar anteriores</button>}
       {carregando && <p className="p-8 text-center text-sm text-[#8696a0]">Carregando conversa…</p>}
       {!carregando && !mensagens.length && <div className="mx-auto mt-10 max-w-md rounded-2xl border border-white/10 bg-[#202c33] p-6 text-center"><h2 className="font-semibold">Comece a conversa</h2><p className="mt-2 text-sm text-[#8696a0]">Envie uma mensagem abaixo ou use “Sincronizar histórico” para buscar mensagens recentes do WhatsApp.</p></div>}
-      <div className="space-y-3">{mensagens.map(m => <article key={m.id} data-mensagem-id={m.id} className={`flex items-start gap-2 ${m.direcao === 'SAIDA' ? 'justify-end' : 'justify-start'}`}>
-        <div className={`max-w-[90%] rounded-2xl px-4 py-3 shadow-sm sm:max-w-[75%] ${m.direcao === 'SAIDA' ? 'rounded-tr-sm bg-[#005c4b]' : 'rounded-tl-sm bg-[#202c33]'}`}>
-          {m.citacao && <blockquote className="mb-2 max-w-full rounded border-l-4 border-emerald-400 bg-black/20 px-3 py-2 text-xs" aria-label="Mensagem citada">
+      <div className="space-y-3">{mensagens.map(m => <article key={m.id} data-mensagem-id={m.id} data-destacada={destacada === m.id ? "true" : undefined} tabIndex={-1} className={`rounded-lg outline-none flex items-start gap-2 ${m.direcao === 'SAIDA' ? 'justify-end' : 'justify-start'}`}>
+        <div className={`transition-[filter,box-shadow] duration-300 ${destacada === m.id ? "ring-2 ring-emerald-300 brightness-125" : ""} max-w-[90%] rounded-2xl px-4 py-3 shadow-sm sm:max-w-[75%] ${m.direcao === 'SAIDA' ? 'rounded-tr-sm bg-[#005c4b]' : 'rounded-tl-sm bg-[#202c33]'}`}>
+          {m.citacao && <button type="button" onClick={() => void irParaCitacao(m)} title="Ir para a mensagem original" className="mb-2 block w-full max-w-full cursor-pointer text-left hover:bg-black/30 focus-visible:outline-2 focus-visible:outline-emerald-300 rounded border-l-4 border-emerald-400 bg-black/20 px-3 py-2 text-xs" aria-label="Mensagem citada">
             <p className="mb-1 font-semibold text-emerald-300">{m.citacao.direcao === 'SAIDA' ? 'Empresa' : m.citacao.direcao === 'ENTRADA' ? cliente.nome : 'Mensagem original'}</p>
             <p className="line-clamp-3 whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{resumo(m.citacao)}</p>
-          </blockquote>}
+          </button>}
           {m.midia?.mimeType.startsWith('image/') && <a href={`/api/atendimento/midia/${m.id}`} target="_blank" rel="noreferrer">
             {/* Authenticated media must not be sent through a shared image cache. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -173,7 +225,9 @@ export default function Conversa({ cliente, onVoltar, onDetalhes, onLida }: {
         {m.externaId && podeEnviar && <button type="button" disabled={enviando} aria-label="Responder esta mensagem" title="Responder" onClick={() => { setResponder(m); pedido.current = null; entradaTexto.current?.focus(); }} className="shrink-0 rounded-full p-2 text-[#aebac1] hover:bg-white/10 disabled:opacity-40"><Reply size={17} /></button>}
       </article>)}</div>
     </div>
+    {contexto && <div className="flex shrink-0 items-center justify-between gap-2 bg-[#182229] px-4 py-2 text-xs text-[#aebac1]"><span>Trecho da mensagem citada</span><button onClick={() => void voltarAoFim()} className="rounded px-3 py-2 font-semibold text-emerald-300 hover:bg-white/5">Voltar às mensagens recentes</button></div>}
     <footer className="shrink-0 border-t border-white/5 bg-[#202c33] p-3 sm:px-5">
+      {localizando && <p role="status" className="mb-2 text-xs text-emerald-300">Localizando mensagem…</p>}
       {erro && <p role="alert" className="mb-2 text-sm text-red-300">{erro}</p>}
       {aviso && <p role="status" className="mb-2 text-xs text-[#8696a0]">{aviso}</p>}
       {responder && <div aria-label="Respondendo à mensagem" className="mb-3 flex items-center gap-3 rounded-lg border-l-4 border-emerald-400 bg-[#182229] px-3 py-2">

@@ -25,6 +25,7 @@ try {
   assert.equal(status.status, 200); const estado = await status.json(); assert.equal(estado.status, 'conectado');
   await prisma.cliente.create({ data: { id: outroClienteId, nome: 'Teste de citação restrita', responsavelId: ids[1] } });
   await prisma.mensagemWhatsApp.create({ data: { id: outraMensagemId, clienteId: outroClienteId, conta: estado.numero, externaId: randomUUID(), direcao: 'ENTRADA', texto: 'Mensagem de outro cliente', status: 'RECEBIDA' } });
+  assert.equal((await call(`/api/atendimento/${clienteId}/mensagens?citadaPor=${outraMensagemId}`)).status, 404);
   const quote = new FormData(); quote.set('pedidoId', randomUUID()); quote.set('texto', 'Resposta inválida'); quote.set('responderId', outraMensagemId);
   assert.equal((await call(`/api/atendimento/${clienteId}/mensagens`, 0, quote)).status, 400);
   form.set('responderId', outraMensagemId);

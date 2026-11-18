@@ -17,6 +17,18 @@ export async function GET(request: Request, { params }: Contexto) {
   const { id } = await params;
   const acesso = await acessoConversa(id);
   if (!acesso) return json({ erro: 'Conversa não disponível para este usuário.' }, 403);
+  const citadaPor = new URL(request.url).searchParams.get('citadaPor');
+  if (citadaPor) {
+    const resposta = await prisma.mensagemWhatsApp.findFirst({ where: { id: citadaPor, clienteId: id }, select: { conta: true, citacao: true } });
+    const citacao = resposta?.citacao as { externaId?: string } | null;
+    const alvo = citacao?.externaId ? await prisma.mensagemWhatsApp.findFirst({ where: { clienteId: id, conta: resposta!.conta, externaId: citacao.externaId }, select: selecao }) : null;
+    if (!alvo) return json({ erro: 'A mensagem original não está disponível no histórico do sistema.' }, 404);
+    const [anteriores, posteriores] = await Promise.all([
+      prisma.mensagemWhatsApp.findMany({ where: { clienteId: id, OR: [{ enviadoEm: { lt: alvo.enviadoEm } }, { enviadoEm: alvo.enviadoEm, id: { lt: alvo.id } }] }, orderBy: [{ enviadoEm: 'desc' }, { id: 'desc' }], take: 20, select: selecao }),
+      prisma.mensagemWhatsApp.findMany({ where: { clienteId: id, OR: [{ enviadoEm: { gt: alvo.enviadoEm } }, { enviadoEm: alvo.enviadoEm, id: { gt: alvo.id } }] }, orderBy: [{ enviadoEm: 'asc' }, { id: 'asc' }], take: 20, select: selecao }),
+    ]);
+    return json({ alvoId: alvo.id, mensagens: [...anteriores.reverse(), alvo, ...posteriores] });
+  }
   const antes = new URL(request.url).searchParams.get('antes');
   const podeEnviar = true; // Todos os operadores com acesso podem responder, inclusive na fila.
   if (!antes && new URL(request.url).searchParams.get('versao') === acesso.cliente.versaoMensagens.toString()) {
