@@ -181,3 +181,11 @@ Em Atendimento → Meu apelido, ADMIN e USER podem salvar seu próprio apelido (
 Textos e legendas de imagem/PDF são persistidos com `*Apelido:*` e uma quebra de linha antes do corpo. Áudios não recebem cabeçalho nem mensagem extra. O histórico conserva a assinatura usada no momento do envio. O hash de idempotência continua baseado no conteúdo digitado, evitando duplicação se o apelido mudar entre a primeira tentativa e uma repetição. O apelido vem da consulta de sessão já existente, sem outra leitura por envio. A tela exibe esse cabeçalho em negrito sem interpretar HTML.
 
 Validação: `node --test tests/assinatura.test.mjs`; `RUN_DATABASE_INTEGRATION=1 node --env-file=.env tests/apelido-integracao.mjs`. O teste de integração usa dois USER e um cliente temporário sem telefone ou identidade WhatsApp, portanto não possui destinatário real.
+
+## Recuperação de recebimento
+
+O serviço registra uma ponte própria para eventos essenciais (nova mensagem, descriptografia e ACK) depois que as funções do navegador estão disponíveis. A instalação é idempotente, restaura ouvintes removidos e remove os antigos se a coleção de mensagens for substituída. O heartbeat confere a ponte a cada 30 segundos, sem consultas adicionais ao banco. Apenas eventos novos carregados nos últimos cinco minutos são reapresentados ao reparar a ponte; a identidade única mantém a deduplicação.
+
+A gravação de mensagens recebidas usa transação em lote, evitando expiração do limite de cinco segundos das transações interativas durante anexos lentos. Falhas transitórias de persistência são repetidas com espera progressiva fora da fila de envio; a sincronização continua após uma falha individual. Mensagens de texto ao vivo têm prioridade sobre anexos/histórico. Retentativas ficam em memória; após reiniciar, a sincronização recupera o histórico disponível. Envio ambíguo continua sem repetição automática.
+
+Testes: `node --test tests/whatsapp-ponte-mensagens.test.mjs`; `RUN_DATABASE_INTEGRATION=1 node --env-file=.env tests/recebimento-resiliencia-integracao.mjs` (falhas simuladas e transação real superior a seis segundos, sem mensagens reais enviadas).

@@ -4,7 +4,7 @@ import { converterVoz } from './whatsapp-audio.mjs';
 import { obterCitacao } from '../lib/whatsapp/citacao.mjs';
 import { telefoneDoJid, variantesTelefone, nomeArquivo, validarMidia, LIMITE_MIDIA, statusAck } from '../lib/whatsapp/conteudo.mjs';
 
-export function criarServicoMensagens({ prisma, client, conta, ativo }) {
+export function criarServicoMensagens({ prisma, client, conta, ativo, retryDelayMs = 5000 }) {
   const fila = criarFilaPrioritaria();
   let timer;
   let stopped = false;
@@ -14,7 +14,9 @@ export function criarServicoMensagens({ prisma, client, conta, ativo }) {
   let lastClient = '';
   const synchronizing = new Map();
   const destinos = new Map();
-  const log = error => console.error('Falha no histórico WhatsApp:', error?.code || error?.name || 'erro');
+  const recebimentos = new Map();
+  const log = error => console.error('Falha no histórico WhatsApp:', error?.code || error?.name || 'erro',
+    error?.code === 'P2028' ? String(error.meta?.error || '').slice(0, 300) : '');
   const enqueue = (operation, priority = 1) => {
     const work = fila.enqueue(() => stopped || !ativo() ? undefined : operation(), priority);
     void work.catch(log);
@@ -91,10 +93,12 @@ export function criarServicoMensagens({ prisma, client, conta, ativo }) {
         media = { dados, mimeType, nome: nomeArquivo(downloaded.filename || 'arquivo' + extension) };
       } catch { data.erro = 'Anexo indisponível, acima de 10 MB ou em formato não suportado. Consulte o WhatsApp no celular.'; }
     }
-    await prisma.$transaction(async tx => {
-      await tx.mensagemWhatsApp.upsert({ where: { conta_externaId: external }, create: { ...data, ...(media ? { midia: { create: media } } : {}) }, update: {} });
-      await tx.cliente.updateMany({ where: { id: clienteId, OR: [{ ultimaMensagemEm: null }, { ultimaMensagemEm: { lt: enviadoEm } }] }, data: { ultimaMensagemEm: enviadoEm } });
-    });
+    // A batch stays atomic without an interactive transaction's five-second deadline.
+    // Slow attachment uploads must not roll back a successfully received message.
+    await prisma.$transaction([
+      prisma.mensagemWhatsApp.upsert({ where: { conta_externaId: external }, create: { ...data, ...(media ? { midia: { create: media } } : {}) }, update: {} }),
+      prisma.cliente.updateMany({ where: { id: clienteId, OR: [{ ultimaMensagemEm: null }, { ultimaMensagemEm: { lt: enviadoEm } }] }, data: { ultimaMensagemEm: enviadoEm } }),
+    ]);
   }
 
   async function confirmar(message, ack) {
@@ -143,7 +147,8 @@ export function criarServicoMensagens({ prisma, client, conta, ativo }) {
       const previous = known.get(message.id._serialized);
       if (previous && !(message.hasQuotedMsg && !previous.citacao) && (!message.fromMe || (message.ack >= 0 && message.ack <= previous.ack))) continue;
       // Yield between history items so newly arriving messages are never stuck behind the whole import.
-      await enqueue(() => receber(message), 2);
+      try { await enqueue(() => receber(message), 2); }
+      catch { agendarRecebimento(message, 2); }
     }
   }
 
@@ -217,15 +222,22 @@ export function criarServicoMensagens({ prisma, client, conta, ativo }) {
     return pending.length === 5;
   }
 
-  const onMessage = message => { void enqueue(async () => {
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try { await receber(message); return; }
-      catch (error) {
-        if (attempt === 2) throw error;
-        await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
-      }
+  function agendarRecebimento(message, priority = 1) {
+    const key = message.id?._serialized;
+    if (!key || stopped || recebimentos.has(key)) return;
+    const entry = { timer: null, attempts: 0 };
+    recebimentos.set(key, entry);
+    function attempt() {
+      if (stopped) return;
+      void enqueue(() => receber(message), priority).then(() => recebimentos.delete(key)).catch(() => {
+        if (!stopped) entry.timer = setTimeout(attempt, Math.min(60000, retryDelayMs * 2 ** Math.min(entry.attempts++, 4)));
+      });
     }
-  }).catch(() => {}); };
+    attempt();
+  }
+  // Retrying persistence is safe because the account/external ID is unique.
+  // Backoff happens outside the serial queue so it never holds outgoing messages.
+  const onMessage = message => agendarRecebimento(message, message.hasMedia ? 2 : 1);
   const onAck = (message, ack) => { void enqueue(() => confirmar(message, ack)).catch(() => {}); };
   client.on('message_create', onMessage);
   client.on('message_ack', onAck);
@@ -267,6 +279,6 @@ export function criarServicoMensagens({ prisma, client, conta, ativo }) {
         await sincronizar(customer.id).catch(log);
       }
     },
-    async stop() { stopped = true; clearTimeout(timer); client.off('message_create', onMessage); client.off('message_ack', onAck); await Promise.allSettled([...synchronizing.values()]); await fila.drain(); },
+    async stop() { stopped = true; clearTimeout(timer); for (const entry of recebimentos.values()) clearTimeout(entry.timer); recebimentos.clear(); client.off('message_create', onMessage); client.off('message_ack', onAck); await Promise.allSettled([...synchronizing.values()]); await fila.drain(); },
   };
 }

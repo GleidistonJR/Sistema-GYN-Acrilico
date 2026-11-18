@@ -35,6 +35,7 @@ let state = { status: 'desconectado', qr: null, numero: null, mensagem: null, at
 let heartbeatChain = Promise.resolve();
 function heartbeat() {
   void fotos?.acordar();
+  if (state.status === 'conectado') void client?.assegurarEventosMensagens().catch(() => console.error('Não foi possível conferir eventos de recebimento.'));
   heartbeatChain = heartbeatChain.catch(() => {}).then(() => publicarEstadoServico(prisma, state));
   void heartbeatChain.catch(() => console.error('Falha ao atualizar disponibilidade WhatsApp.'));
   return heartbeatChain;
@@ -130,7 +131,11 @@ async function connect() {
         fotos = criarFotosContatos({ prisma, client: instance, ativo: () => active() && state.status === 'conectado' });
         void fotos.acordar();
         mensagens = criarServicoMensagens({ prisma, client: instance, conta: state.numero, ativo: () => active() && state.status === 'conectado' });
-        void mensagens.start().catch(error => console.error('Falha ao iniciar histórico WhatsApp:', error?.code || error?.name));
+        const service = mensagens;
+        void instance.assegurarEventosMensagens().then(() => service.start()).catch(error => {
+          console.error('Falha ao iniciar recebimento WhatsApp:', error?.code || error?.name);
+          void fail('Não foi possível ativar o recebimento. Reconecte o serviço.');
+        });
       }
     });
     instance.on('auth_failure', () => void fail('O WhatsApp recusou a autenticação. Tente conectar novamente.'));

@@ -1,4 +1,5 @@
 import whatsapp from 'whatsapp-web.js';
+import { instalarPonteMensagens } from './whatsapp-ponte-mensagens.mjs';
 
 export function erroDeNavegacao(error) {
   return error instanceof Error && /detached Frame|Execution context was destroyed|Cannot find context with specified id|Target closed|Session closed|TargetCloseError/i.test(error.message);
@@ -8,6 +9,10 @@ export function erroDeNavegacao(error) {
 // Navigation can invalidate an evaluate() while logout/QR renewal is in progress.
 // Keep the workaround outside node_modules and covered by regression tests.
 export class WhatsAppClient extends whatsapp.Client {
+  async assegurarEventosMensagens() {
+    return this.pupPage.evaluate(instalarPonteMensagens);
+  }
+
   async sendMessage(chatId, content, options = {}) {
     if (options.quotedMessageId) {
       const canQuote = await this.pupPage.evaluate(async id => {
