@@ -37,6 +37,14 @@ export async function alterarAtendimento(_anterior: Resultado, form: FormData): 
     } else {
       const id = validarTexto(form.get('clienteId'), 100);
       await prisma.$transaction(async tx => {
+        if (acao === 'desatribuir') {
+          const resultado = await tx.cliente.updateMany({
+            where: { id, responsavelId: usuario.id }, data: { responsavelId: null },
+          });
+          if (resultado.count !== 1) throw new Error('Este cliente não está mais sob sua responsabilidade. Atualize a conversa.');
+          await tx.atribuicaoCliente.create({ data: { clienteId: id, atorId: usuario.id, anteriorId: usuario.id, novoId: null } });
+          return;
+        }
         if (acao === 'assumir') {
           // A single conditional UPDATE prevents two sellers from claiming the same customer.
           const resultado = await tx.cliente.updateMany({

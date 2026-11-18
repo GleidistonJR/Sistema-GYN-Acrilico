@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { ArrowLeft, UserPlus, Paperclip, Send, RefreshCw, MoreVertical, Reply, X } from 'lucide-react';
+import { ArrowLeft, UserPlus, UserMinus, Paperclip, Send, RefreshCw, MoreVertical, Reply, X } from 'lucide-react';
 import GravarAudio from './GravarAudio';
 import AnexoMensagem from './AnexoMensagem';
 
@@ -18,9 +18,10 @@ function TextoMensagem({ texto }: { texto: string }) {
   return assinatura ? <><strong>{assinatura[1]}</strong>{texto.length > assinatura[0].length && <><br />{texto.slice(assinatura[0].length)}</>}</> : <>{texto}</>;
 }
 
-export default function Conversa({ cliente, onVoltar, onDetalhes, onLida, onAssumir }: {
+export default function Conversa({ cliente, onVoltar, onDetalhes, onLida, onAssumir, onDesatribuir }: {
   cliente: { id: string; nome: string; telefone: string | null };
   onAssumir?: () => Promise<void>;
+  onDesatribuir?: () => Promise<void>;
   onVoltar: () => void; onDetalhes: () => void; onLida: (id: string) => void;
 }) {
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
@@ -287,13 +288,13 @@ export default function Conversa({ cliente, onVoltar, onDetalhes, onLida, onAssu
       <div className="flex min-w-0 items-center gap-3"><button onClick={onVoltar} aria-label="Voltar aos clientes" className="rounded-lg p-2 hover:bg-white/5 md:hidden"><ArrowLeft size={20} /></button>
         <span className="hidden size-10 shrink-0 items-center justify-center rounded-full bg-[#3c5154] text-sm font-semibold text-emerald-200 sm:flex">{cliente.nome.slice(0, 1).toUpperCase()}</span>
         <div className="min-w-0"><h2 className="truncate font-semibold">{cliente.nome}</h2><p className="mt-0.5 truncate text-xs text-[#8696a0]">{cliente.telefone || 'Contato do WhatsApp'}</p></div></div>
-      <div className="flex shrink-0 items-center gap-1">{onAssumir && <button type="button" disabled={assumindo} aria-label="Assumir cliente" title="Atribuir este cliente a mim" onClick={async () => {
+      <div className="flex shrink-0 items-center gap-1">{(onAssumir || onDesatribuir) && <button type="button" disabled={assumindo} aria-label={onDesatribuir ? "Desatribuir cliente" : "Assumir cliente"} title={onDesatribuir ? "Remover minha responsabilidade por este cliente" : "Atribuir este cliente a mim"} onClick={async () => {
         if (assumindoRef.current) return;
         assumindoRef.current = true; setAssumindo(true); setErro('');
-        try { await onAssumir(); setAviso('Cliente atribuído a você. Ele está em Meus clientes.'); }
-        catch (error) { setErro(error instanceof Error ? error.message : 'Não foi possível assumir o cliente. Tente novamente.'); }
+        try { await (onDesatribuir || onAssumir)?.(); setAviso(onDesatribuir ? 'Cliente sem responsável. Ele continua em Todos os clientes.' : 'Cliente atribuído a você. Ele está em Meus clientes.'); }
+        catch (error) { setErro(error instanceof Error ? error.message : 'Não foi possível alterar o responsável. Tente novamente.'); }
         finally { assumindoRef.current = false; setAssumindo(false); }
-      }} className="mr-1 flex items-center gap-1.5 rounded-lg bg-[#00a884] px-2.5 py-2 text-xs font-semibold text-white hover:bg-emerald-600 disabled:opacity-50"><UserPlus size={17} /><span>{assumindo ? 'Atribuindo…' : <>Assumir<span className="hidden lg:inline"> cliente</span></>}</span></button>}<button onClick={sincronizar} disabled={sincronizando} aria-label="Sincronizar histórico" className="rounded-full p-2 text-[#aebac1] hover:bg-white/5 disabled:opacity-50" title="Buscar histórico recente no WhatsApp"><RefreshCw size={18} className={sincronizando ? 'animate-spin' : ''} /></button><button onClick={onDetalhes} aria-label="Organizar cliente" title="Etiquetas e responsável" className="rounded-full p-2 text-[#aebac1] hover:bg-white/5"><MoreVertical size={20} /></button></div>
+      }} className={`mr-1 flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-semibold text-white disabled:opacity-50 ${onDesatribuir ? 'bg-[#37474f] hover:bg-[#455a64]' : 'bg-[#00a884] hover:bg-emerald-600'}`}>{onDesatribuir ? <UserMinus size={17} /> : <UserPlus size={17} />}<span>{assumindo ? 'Salvando…' : onDesatribuir ? 'Desatribuir' : <>Assumir<span className="hidden lg:inline"> cliente</span></>}</span></button>}<button onClick={sincronizar} disabled={sincronizando} aria-label="Sincronizar histórico" className="rounded-full p-2 text-[#aebac1] hover:bg-white/5 disabled:opacity-50" title="Buscar histórico recente no WhatsApp"><RefreshCw size={18} className={sincronizando ? 'animate-spin' : ''} /></button><button onClick={onDetalhes} aria-label="Organizar cliente" title="Etiquetas e responsável" className="rounded-full p-2 text-[#aebac1] hover:bg-white/5"><MoreVertical size={20} /></button></div>
     </header>
     <div ref={lista} onScroll={() => { const el = lista.current; if (el) seguirFim.current = el.scrollHeight - el.scrollTop - el.clientHeight < 100; if (seguirFim.current) void marcarLida().catch(() => {}); }} className="min-h-0 flex-1 overflow-y-auto p-4 sm:px-8 lg:px-12 [scrollbar-width:thin] [scrollbar-color:#37474f_transparent]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, #ffffff06 1px, transparent 0)', backgroundSize: '24px 24px' }}>
       {!contexto && anteriores && <button onClick={async () => { seguirFim.current = false; try { await atualizar(mensagens[0]?.id); } catch { setErro('Não foi possível carregar mensagens anteriores.'); } }} className="mx-auto mb-5 block rounded-full bg-[#202c33] px-4 py-2 text-xs text-[#aebac1] shadow-sm">Carregar anteriores</button>}
