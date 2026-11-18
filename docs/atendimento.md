@@ -189,3 +189,11 @@ O serviço registra uma ponte própria para eventos essenciais (nova mensagem, d
 A gravação de mensagens recebidas usa transação em lote, evitando expiração do limite de cinco segundos das transações interativas durante anexos lentos. Falhas transitórias de persistência são repetidas com espera progressiva fora da fila de envio; a sincronização continua após uma falha individual. Mensagens de texto ao vivo têm prioridade sobre anexos/histórico. Retentativas ficam em memória; após reiniciar, a sincronização recupera o histórico disponível. Envio ambíguo continua sem repetição automática.
 
 Testes: `node --test tests/whatsapp-ponte-mensagens.test.mjs`; `RUN_DATABASE_INTEGRATION=1 node --env-file=.env tests/recebimento-resiliencia-integracao.mjs` (falhas simuladas e transação real superior a seis segundos, sem mensagens reais enviadas).
+
+## Atalhos e arquivos arrastados
+
+Enter envia a mensagem; Shift + Enter insere uma quebra de linha. Composição IME e teclas mantidas pressionadas não provocam envios adicionais. O campo cresce automaticamente até seis linhas, depois usa rolagem interna, recalculando a altura em mudanças de largura.
+
+Soltar um arquivo sobre a conversa aberta envia imediatamente esse arquivo ao contato indicado na sobreposição. Aceita um arquivo compatível por vez, até o limite existente de 10 MB; o servidor continua validando os bytes e as permissões. O rascunho de texto, anexo previamente selecionado e citação permanecem preservados. Falhas deixam o arquivo disponível para repetir com o mesmo pedidoId. Soltar fora da conversa não envia e não navega para o arquivo.
+
+Validação: `RUN_DATABASE_INTEGRATION=1 node --env-file=.env tests/compositor-integracao.mjs`. O teste intercepta todos os envios, cobre atalhos, crescimento, IME, PDF, falha/retry, destinos de drop e viewport móvel; nenhuma mensagem real é enviada.

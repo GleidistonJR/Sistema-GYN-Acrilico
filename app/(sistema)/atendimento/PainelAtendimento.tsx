@@ -48,6 +48,16 @@ export default function PainelAtendimento({ usuario, etiquetas, filaInicial, cli
   const pending = useRef(false);
   const selectedId = selecionado?.id;
 
+  useEffect(() => {
+    const drag = (event: DragEvent) => { if (event.dataTransfer?.types.includes('Files')) event.preventDefault(); };
+    const drop = (event: DragEvent) => {
+      if (!event.dataTransfer?.types.includes('Files')) return;
+      event.preventDefault(); setErro('Abra uma conversa e solte o arquivo sobre ela para enviar.');
+    };
+    window.addEventListener('dragover', drag); window.addEventListener('drop', drop);
+    return () => { window.removeEventListener('dragover', drag); window.removeEventListener('drop', drop); };
+  }, []);
+
   const escolher = useCallback((cliente: Cliente | null) => {
     setSelecionado(cliente);
     const url = new URL(window.location.href);
