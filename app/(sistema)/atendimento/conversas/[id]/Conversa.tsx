@@ -261,22 +261,46 @@ export default function Conversa({ cliente, onVoltar, onDetalhes, onLida, onAssu
     finally { setProgressoAnexo(''); envioEmCurso.current = false; setEnviando(false); requestAnimationFrame(() => entradaTexto.current?.focus()); }
   }
 
-  function soltarArquivo(event: React.DragEvent) {
-    if (!event.dataTransfer.types.includes('Files')) return;
-    event.preventDefault(); event.stopPropagation(); profundidadeDrag.current = 0; setArrastando(false);
-    if (envioEmCurso.current || gravando || !podeEnviar) { setErro('Aguarde o envio ou a gravação terminar antes de soltar um arquivo.'); return; }
+  const anexarArquivos = useCallback((files: File[]) => {
+    if (envioEmCurso.current || gravando || !podeEnviar) { setErro('Aguarde o envio ou a gravação terminar antes de anexar um arquivo.'); return; }
     if (arquivo) { setErro('Remova ou envie o anexo selecionado antes de adicionar outro.'); return; }
-    const files = Array.from(event.dataTransfer.files);
-    if (files.length !== 1) { setErro('Solte um arquivo por vez.'); return; }
+    if (files.length !== 1) { setErro('Anexe um arquivo por vez.'); return; }
     let file = files[0];
     if (!file.size || file.size > 90 * 1024 * 1024) { setErro('O arquivo deve conter dados e ter até 90 MB.'); return; }
     const tiposArquivo: Record<string, string> = { pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', gif: 'image/gif', ogg: 'audio/ogg', mp3: 'audio/mpeg', m4a: 'audio/mp4', mp4: 'video/mp4', mov: 'video/quicktime', wav: 'audio/wav', webm: 'video/webm' };
-    const mime = tiposArquivo[file.name.split('.').at(-1)?.toLowerCase() || ''];
-    if (!mime || (file.type && file.type !== 'application/octet-stream' && !Object.values(tiposArquivo).includes(file.type) && file.type !== 'audio/webm')) { setErro('Envie uma imagem, vídeo, áudio ou PDF compatível.'); return; }
-    if (!file.type || file.type === 'application/octet-stream') file = new File([file], file.name, { type: mime, lastModified: file.lastModified });
+    const tipoInformado = file.type.split(';')[0];
+    const mime = tipoInformado && tipoInformado !== 'application/octet-stream' ? tipoInformado : tiposArquivo[file.name.split('.').at(-1)?.toLowerCase() || ''];
+    if (!mime || (!Object.values(tiposArquivo).includes(mime) && mime !== 'audio/webm')) { setErro('Envie uma imagem, vídeo, áudio ou PDF compatível.'); return; }
+    const extensao = Object.keys(tiposArquivo).find(ext => tiposArquivo[ext] === mime) || 'webm';
+    const nome = file.name && file.name.includes('.') ? file.name : 'arquivo-colado.' + extensao;
+    if (file.type !== mime || file.name !== nome) file = new File([file], nome, { type: mime, lastModified: file.lastModified });
+    anexoEnviado.current = null;
     setArquivo(file); setVoz(false); pedido.current = null; setErro('');
     setAviso('Arquivo anexado. Escreva uma legenda se quiser e confirme com Enter ou Enviar.');
     entradaTexto.current?.focus();
+  }, [arquivo, gravando, podeEnviar]);
+
+  useEffect(() => {
+    const colar = (event: ClipboardEvent) => {
+      if (event.defaultPrevented || document.querySelector('dialog[open]')) return;
+      const target = event.target;
+      if (target instanceof HTMLElement && target !== entradaTexto.current && target.closest('input, textarea, [contenteditable]')) return;
+      const clipboard = event.clipboardData;
+      if (!clipboard) return;
+      const files = clipboard.files.length ? Array.from(clipboard.files) : Array.from(clipboard.items)
+        .filter(item => item.kind === 'file').map(item => item.getAsFile()).filter((file): file is File => file !== null);
+      if (!files.length) return; // Plain text keeps the browser's normal paste behavior.
+      event.preventDefault();
+      anexarArquivos(files);
+    };
+    window.addEventListener('paste', colar);
+    return () => window.removeEventListener('paste', colar);
+  }, [anexarArquivos]);
+
+  function soltarArquivo(event: React.DragEvent) {
+    if (!event.dataTransfer.types.includes('Files')) return;
+    event.preventDefault(); event.stopPropagation(); profundidadeDrag.current = 0; setArrastando(false);
+    anexarArquivos(Array.from(event.dataTransfer.files));
   }
 
   return <section onDragEnter={e => { if (e.dataTransfer.types.includes('Files')) { e.preventDefault(); profundidadeDrag.current++; setArrastando(true); } }}
@@ -336,7 +360,7 @@ export default function Conversa({ cliente, onVoltar, onDetalhes, onLida, onAssu
           }} disabled={enviando || gravando || !podeEnviar} maxLength={6000} rows={1} aria-label="Mensagem" placeholder="Digite sua mensagem…" className="min-w-0 flex-1 resize-none rounded-lg border border-transparent bg-[#2a3942] p-3 text-sm leading-5 text-[#e9edef] outline-none placeholder:text-[#8696a0] focus:border-emerald-600" />
           <GravarAudio disabled={enviando || !podeEnviar || !!arquivo} onArquivo={file => { setArquivo(file); setVoz(true); pedido.current = null; }} onGravando={setGravando} onErro={setErro} />
           <button type="submit" disabled={enviando || gravando || !podeEnviar || (!texto.trim() && !arquivo)} className="flex items-center gap-2 rounded-full bg-[#00a884] px-4 py-3 text-sm font-semibold text-white disabled:opacity-40"><Send size={18} /><span className="hidden sm:inline">{enviando ? 'Salvando…' : 'Enviar'}</span><span className="sr-only sm:hidden">Enviar</span></button>
-        </div><p className="mt-1 text-[10px] text-[#8696a0]">Enter envia · Shift + Enter quebra linha · Arraste um arquivo para anexar; confirme o envio quando terminar (até 90 MB).</p>
+        </div><p className="mt-1 text-[10px] text-[#8696a0]">Enter envia · Shift + Enter quebra linha · Ctrl + V ou arraste para anexar; confirme o envio quando terminar (até 90 MB).</p>
       </form>}
     </footer>
   </section>;

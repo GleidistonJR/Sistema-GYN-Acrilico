@@ -84,11 +84,43 @@ try {
   assert.equal(await page.evaluate(() => window.__envios.length), 4);
   await drop(['a.pdf', 'b.pdf']); await drop(['programa.exe']); await drop(['fora.pdf'], 'aside');
   assert.equal(await page.evaluate(() => window.__envios.length), 4);
+  async function paste(name, type, target = 'textarea', textOnly = false) {
+    return page.evaluate(({ name, type, target, textOnly }) => {
+      const data = new DataTransfer();
+      if (textOnly) data.setData('text/plain', 'Texto normal');
+      else data.items.add(new File(['arquivo de teste'], name, { type }));
+      const event = new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true });
+      document.querySelector(target).dispatchEvent(event);
+      return event.defaultPrevented;
+    }, { name, type, target, textOnly });
+  }
+  assert.equal(await paste('', '', 'textarea', true), false, 'texto mantém colagem nativa');
+  assert.equal(await paste('imagem.png', 'image/png', '[aria-label="Buscar cliente"]'), false);
+  await page.click('[aria-label="Meu apelido"]');
+  await page.waitForSelector('dialog[open]');
+  assert.equal(await paste('imagem.png', 'image/png', 'dialog input'), false);
+  await page.click('dialog [aria-label="Fechar"]');
+  await page.type(input, 'Legenda da imagem');
+  assert.equal(await paste('imagem', 'image/png'), true);
+  assert.equal(await page.evaluate(() => window.__envios.length), 4);
+  assert.equal(await page.$eval(input, el => el.value), 'Legenda da imagem');
+  await paste('outro.mp4', 'video/mp4'); // Must keep the already selected image.
+  await page.focus(input); await page.keyboard.press('Enter');
+  await page.waitForFunction(() => window.__envios.length === 5 && !document.querySelector('textarea').disabled);
+  assert.equal(await page.evaluate(() => window.__envios[4].nome), 'arquivo-colado.png');
+  assert.equal(await page.evaluate(() => window.__envios[4].mime), 'image/png');
+  assert.equal(await page.evaluate(() => window.__envios[4].texto), 'Legenda da imagem');
+  assert.equal(await paste('video.mp4', 'video/mp4', 'section'), true);
+  assert.equal(await page.evaluate(() => window.__envios.length), 5);
+  await page.click('button[type="submit"]');
+  await page.waitForFunction(() => window.__envios.length === 6 && !document.querySelector('textarea').disabled);
+  assert.equal(await page.evaluate(() => window.__envios[5].nome), 'video.mp4');
+  assert.equal(await page.evaluate(() => window.__envios[5].mime), 'video/mp4');
   await page.setViewport({ width: 390, height: 844 });
   await page.waitForFunction(() => document.querySelector('textarea').offsetHeight <= 148);
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   assert.equal(await db.mensagemWhatsApp.count({ where: { clienteId } }), 0);
-  console.log('OK: Enter, Shift+Enter, IME, seis linhas, PDF anexado sem envio automático, legenda, confirmação, cancelamento, retry com mesmo ID e mobile. Nenhuma mensagem real enviada.');
+  console.log('OK: Enter, Shift+Enter, PDF por drop, colagem de imagem/vídeo com confirmação, texto normal preservado, busca/modal ignorados, anexo existente protegido, retry e mobile. Nenhuma mensagem real enviada.');
 } finally {
   await browser?.close(); await db.cliente.deleteMany({ where: { id: clienteId } });
   await db.user.deleteMany({ where: { id: userId } }); await db.$disconnect();
