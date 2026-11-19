@@ -18,8 +18,7 @@ export default function LoginPage() {
     if (dadosUser.sucesso) {
 
       router.refresh();
-      window.location.href = dadosUser.role === 'OUTRO' ? '/baterPonto'
-        : dadosUser.userId ? '/administracao/colaboradores/' + dadosUser.userId : '/atendimento';
+      window.location.href = dadosUser.destino || '/';
     } else {
       setErro(dadosUser.erro ?? 'Usuário ou senha incorretos!');
     }

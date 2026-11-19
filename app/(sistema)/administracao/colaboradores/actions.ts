@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache"; // Importante para atualizar a tela
 import bcrypt from 'bcryptjs';
 import { Prisma } from '@prisma/client';
+import { bloquearAlteracoesDeAcesso } from '@/lib/gestao-acessos';
 
 interface Pontos {
   id: number;
@@ -27,15 +28,6 @@ export type DadosColaborador = {
 
 const caminhoColaboradores = '/administracao/colaboradores';
 const camposColaborador = { id: true, nome: true, cargo: true, cpf: true, inativadoEm: true } as const;
-const perfis = ['ADMIN', 'USER', 'OUTRO'];
-
-async function bloquearAlteracoes(tx: Prisma.TransactionClient, adminId: string) {
-  await tx.$queryRaw`SELECT pg_advisory_xact_lock(20261119, 5)::text AS bloqueio`;
-  const admin = await tx.user.findFirst({
-    where: { id: adminId, role: 'ADMIN', colaborador: { is: { inativadoEm: null } } }, select: { id: true },
-  });
-  if (!admin) throw new Error('Acesso não autorizado.');
-}
 
 async function protegerUltimoAdmin(tx: Prisma.TransactionClient, id: string) {
   const outroAdmin = await tx.user.findFirst({
@@ -62,17 +54,20 @@ export async function salvarColaborador(dados: DadosColaborador) {
     const senha = dados.senha || '';
     const role = dados.role ?? 'USER';
     if (!nome || !cargo || !/^\d{11}$/.test(cpf)) return { sucesso: false, erro: 'Informe nome, cargo e CPF com 11 dígitos.' };
-    if (!perfis.includes(role) || (email && !/^[^@\s]+@[^@\s]+$/.test(email)) || Buffer.byteLength(senha) > 72) {
+    if ((email && !/^[^@\s]+@[^@\s]+$/.test(email)) || Buffer.byteLength(senha) > 72) {
       return { sucesso: false, erro: 'Confira o e-mail, o perfil de acesso e o limite de 72 bytes da senha.' };
     }
     const password = senha ? await bcrypt.hash(senha, 10) : undefined;
     const cadastro = { nome, cargo, cpf };
     await prisma.$transaction(async tx => {
-      await bloquearAlteracoes(tx, admin.id);
+      await bloquearAlteracoesDeAcesso(tx, admin.id);
       const existente = dados.id ? await tx.colaborador.findUnique({
         where: { id: dados.id }, select: { inativadoEm: true, user: { select: { id: true, role: true } } },
       }) : null;
       if (dados.id && !existente) throw new Error('Colaborador não encontrado.');
+      if (role !== 'ADMIN' && role !== 'USER' && !(role === 'OUTRO' && existente?.user?.role === 'OUTRO')) {
+        throw new Error('Selecione o perfil Administrador ou Vendedor.');
+      }
       if (existente?.inativadoEm && (email || password)) throw new Error('Colaboradores inativos não podem receber acesso.');
       if ((email || password || existente?.user) && (!email || (!existente?.user && !password))) {
         throw new Error('Informe e-mail e senha para criar o acesso.');
@@ -125,21 +120,29 @@ export async function buscarColaboradorPorId(id: number) {
 }
 
 export async function inativarColaborador(id: number) {
+  return alterarSituacaoColaborador(id, false);
+}
+
+export async function reativarColaborador(id: number) {
+  return alterarSituacaoColaborador(id, true);
+}
+
+async function alterarSituacaoColaborador(id: number, ativo: boolean) {
   const admin = await exigirUsuario(['ADMIN']);
   try {
     await prisma.$transaction(async tx => {
-      await bloquearAlteracoes(tx, admin.id);
+      await bloquearAlteracoesDeAcesso(tx, admin.id);
       const colaborador = await tx.colaborador.findUnique({
         where: { id }, select: { inativadoEm: true, user: { select: { id: true, role: true } } },
       });
-      if (!colaborador || colaborador.inativadoEm) throw new Error('Colaborador ativo não encontrado.');
-      if (colaborador.user?.role === 'ADMIN') await protegerUltimoAdmin(tx, colaborador.user.id);
-      await tx.colaborador.update({ where: { id }, data: { inativadoEm: new Date() } });
+      if (!colaborador || Boolean(colaborador.inativadoEm) !== ativo) throw new Error('A situação do colaborador já mudou. Atualize a lista.');
+      if (!ativo && colaborador.user?.role === 'ADMIN') await protegerUltimoAdmin(tx, colaborador.user.id);
+      await tx.colaborador.update({ where: { id }, data: { inativadoEm: ativo ? null : new Date() } });
     }, { timeout: 15000 });
     revalidatePath(`${caminhoColaboradores}/${id}`);
     return { sucesso: true };
   } catch (erro) {
-    return { sucesso: false, erro: erroColaborador(erro, 'Não foi possível inativar o colaborador.') };
+    return { sucesso: false, erro: erroColaborador(erro, 'Não foi possível atualizar a situação do colaborador.') };
   }
 }
 

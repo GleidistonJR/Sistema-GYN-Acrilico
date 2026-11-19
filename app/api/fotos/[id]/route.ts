@@ -1,3 +1,4 @@
+import { permite, PERFIS_COMERCIAIS } from '@/lib/permissoes';
 import { prisma } from '@/lib/prisma';
 import { obterUsuarioSessao } from '@/lib/sessao';
 
@@ -5,7 +6,7 @@ export const runtime = 'nodejs';
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const usuario = await obterUsuarioSessao();
-  if (!usuario || !['ADMIN', 'USER'].includes(usuario.role)) {
+  if (!usuario || !permite(PERFIS_COMERCIAIS, usuario.role)) {
     return new Response(null, { status: 401, headers: { 'Cache-Control': 'no-store' } });
   }
   const { id } = await params;

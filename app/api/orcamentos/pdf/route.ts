@@ -1,3 +1,4 @@
+import { permite, PERFIS_COMERCIAIS } from '@/lib/permissoes';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { obterUsuarioSessao } from '@/lib/sessao';
@@ -8,7 +9,7 @@ export const runtime = 'nodejs';
 
 export async function POST(request: Request) {
   const usuario = await obterUsuarioSessao();
-  if (!usuario || !['ADMIN', 'USER'].includes(usuario.role)) return Response.json({ erro: 'Faça login novamente para gerar o PDF.' }, { status: 401 });
+  if (!usuario || !permite(PERFIS_COMERCIAIS, usuario.role)) return Response.json({ erro: 'Faça login novamente para gerar o PDF.' }, { status: 401 });
   if (Number(request.headers.get('content-length')) > 300_000) return Response.json({ erro: 'Orçamento muito grande.' }, { status: 413 });
   let dados;
   try {

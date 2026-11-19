@@ -9,6 +9,7 @@ const db = new PrismaClient();
 const base = process.env.TEST_BASE_URL || 'http://localhost:3000';
 const adminId = randomUUID();
 const exclusaoId = randomUUID();
+const pontoId = randomUUID();
 const adminToken = randomBytes(32).toString('hex');
 const nome = 'Teste de inativação ' + randomUUID();
 const email = randomUUID() + '@example.invalid';
@@ -43,7 +44,11 @@ try {
   await admin.waitForSelector(modal, { hidden: true });
   const colaborador = await db.colaborador.findUnique({ where: { cpf }, select: { id: true, userId: true } });
   assert.ok(colaborador?.userId);
-  const ponto = await browser.newPage();
+  const tokenPonto = randomBytes(32).toString('hex');
+  await db.user.create({ data: { id: pontoId, email: pontoId + '@example.invalid', password: '!teste', role: 'PONTO', sessoes: sessao(tokenPonto) } });
+  const contextoPonto = await browser.createBrowserContext();
+  await contextoPonto.setCookie({ name: 'sessao_segura', value: tokenPonto, url: base, httpOnly: true });
+  const ponto = await contextoPonto.newPage();
   async function baterPonto() {
     await ponto.bringToFront();
     await ponto.goto(base + '/baterPonto', { waitUntil: 'networkidle0' });
@@ -92,6 +97,18 @@ try {
   await entrar();
   await usuario.waitForFunction(() => document.body.innerText.includes('Usuário ou senha incorretos'));
 
+  await admin.bringToFront();
+  await admin.goto(endereco, { waitUntil: 'domcontentloaded' });
+  await admin.waitForFunction(() => !document.body.innerText.includes('Carregando colaboradores'));
+  await admin.select(filtro, 'inativos');
+  await admin.waitForSelector(`button[aria-label="Reativar ${nome}"]`);
+  admin.once('dialog', dialog => void dialog.accept());
+  await admin.click(`button[aria-label="Reativar ${nome}"]`);
+  await admin.waitForFunction(() => document.body.innerText.includes('Colaborador reativado.'));
+  const reativado = await db.colaborador.findUnique({ where: { cpf }, select: { inativadoEm: true, userId: true } });
+  assert.deepEqual(reativado, { inativadoEm: null, userId: null });
+  assert.equal(await db.ponto.count({ where: { cpf } }), 1);
+
   await assert.rejects(db.user.create({ data: { email: exclusaoId + '@example.invalid', password: '!teste' } }));
   await db.user.create({ data: {
     id: exclusaoId, email: exclusaoId + '@example.invalid', password: '!teste',
@@ -100,9 +117,10 @@ try {
   await db.colaborador.delete({ where: { userId: exclusaoId } });
   assert.equal(await db.user.count({ where: { id: exclusaoId } }), 0);
   assert.equal(await db.sessao.count({ where: { userId: exclusaoId } }), 0);
-  console.log('Cadastro com login vinculado, inativação, filtros, histórico, ponto, revogação e exclusão verificados.');
+  console.log('Cadastro, inativação, reativação sem credenciais antigas, histórico, ponto e revogação verificados.');
 } finally {
   await browser?.close();
   await db.colaborador.deleteMany({ where: { OR: [{ cpf }, { userId: { in: [adminId, exclusaoId] } }] } });
+  await db.user.deleteMany({ where: { id: pontoId } });
   await db.$disconnect();
 }

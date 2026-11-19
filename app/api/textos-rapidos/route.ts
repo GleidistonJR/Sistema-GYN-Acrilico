@@ -1,3 +1,4 @@
+import { permite, PERFIS_COMERCIAIS } from '@/lib/permissoes';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { obterUsuarioSessao } from '@/lib/sessao';
@@ -8,7 +9,7 @@ const json = (dados: unknown, status = 200) => Response.json(dados, { status, he
 
 export async function GET() {
   const usuario = await obterUsuarioSessao();
-  if (!usuario || !['ADMIN', 'USER'].includes(usuario.role)) return json({ erro: 'Acesso não autorizado.' }, 403);
+  if (!usuario || !permite(PERFIS_COMERCIAIS, usuario.role)) return json({ erro: 'Acesso não autorizado.' }, 403);
   const textos = await prisma.textoRapido.findMany({ orderBy: [{ ordem: 'asc' }, { id: 'asc' }], select: selecao });
   return json({ textos, podeGerenciar: usuario.role === 'ADMIN' });
 }

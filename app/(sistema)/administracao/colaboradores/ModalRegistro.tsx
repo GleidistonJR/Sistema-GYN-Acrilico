@@ -81,7 +81,7 @@ export default function ModalRegistro({ dadosEdicao, fechar, aoSalvar }: {
             <select name="role" defaultValue={dadosEdicao?.user?.role ?? 'USER'} className={campo}>
               <option value="USER">Vendedor</option>
               <option value="ADMIN">Administrador</option>
-              <option value="OUTRO">Ponto e relatórios</option>
+              {dadosEdicao?.user?.role === 'OUTRO' && <option value="OUTRO">Ponto e relatórios (acesso existente)</option>}
             </select>
           </label>
         </div> : <p className="text-sm text-muted">Colaborador inativo, sem acesso ao sistema.</p>}

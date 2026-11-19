@@ -12,6 +12,7 @@ export default function RegistroPonto() {
       <nav className="col-span-1 bg-surface-hover flex flex-wrap md:flex-col p-2 gap-2 md:min-h-screen  overflow-x-auto">
 
         <Link href="/administracao/colaboradores" className={buttonEstilo +" min-h-11 flex items-center p-2 sm:pl-5 rounded font-semibold text-sm"}>Colaboradores</Link>
+        <Link href="/administracao/acessos" className={buttonEstilo +" min-h-11 flex items-center p-2 sm:pl-5 rounded font-semibold text-sm"}>Acessos avulsos</Link>
         <Link href="/administracao/relatorioPontosAdmin" className={buttonEstilo +" min-h-11 flex items-center p-2 sm:pl-5 rounded font-semibold text-sm"}>Pontos</Link>
         <Link href="/administracao/produtos" className={buttonEstilo +" min-h-11 flex items-center p-2 sm:pl-5 rounded font-semibold text-sm"}>Produtos</Link>
       

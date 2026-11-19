@@ -1,4 +1,5 @@
 "use server";
+import { permite, PERFIS_COMERCIAIS } from '@/lib/permissoes';
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { exigirUsuario } from '@/lib/autorizacao';
@@ -8,14 +9,14 @@ import { prepararFoto, selecaoFoto } from '@/lib/fotos';
 
 
 async function exigirAdministrador() {
-    const usuario = await exigirUsuario();
+    const usuario = await exigirUsuario(['ADMIN']);
     if (usuario.role !== 'ADMIN') throw new Error('Apenas administradores podem alterar materiais e categorias.');
     return usuario;
 }
 
 export async function getPermissoesMateriais() {
     const usuario = await obterUsuarioSessao();
-    return usuario && ['ADMIN', 'USER'].includes(usuario.role) ? usuario.role : null;
+    return usuario && permite(PERFIS_COMERCIAIS, usuario.role) ? usuario.role : null;
 }
 
 function validarEstoquePadrao(valor: unknown) {
@@ -89,12 +90,12 @@ async function salvarCategoria(nome: string, id?: string) {
 }
 
 export async function getCategorias() {
-    await exigirUsuario();
+    await exigirUsuario(PERFIS_COMERCIAIS);
     return await prisma.materialCatogoria.findMany({ orderBy: { nome: 'asc' } });
 }
 
 export async function getMateriais() {
-    await exigirUsuario();
+    await exigirUsuario(PERFIS_COMERCIAIS);
     return await prisma.material.findMany({
         include: { categoria: true, foto: selecaoFoto },
     });
@@ -135,7 +136,7 @@ export async function atualizarMaterial(id: string, dados: any) {
 }
 
 export async function atualizarEstoque(id: string, estoque: number, estoquePadrao?: number) {
-    const usuario = await exigirUsuario();
+    const usuario = await exigirUsuario(PERFIS_COMERCIAIS);
     if (!Number.isFinite(estoque) || estoque < 0) throw new Error('Informe um estoque válido.');
     return await prisma.material.update({
         where: { id },

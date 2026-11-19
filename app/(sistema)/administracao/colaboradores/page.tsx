@@ -2,11 +2,11 @@
 
 import Link from 'next/link';
 import { useCallback, useState } from 'react';
-import { Eye, Pencil, Plus, Search, UserMinus } from 'lucide-react';
+import { Eye, KeyRound, Pencil, Plus, Search, UserMinus, UserPlus } from 'lucide-react';
 import { PatternFormat } from 'react-number-format';
 import { useDadosAtualizados } from '@/lib/useDadosAtualizados';
 import ModalRegistro from './ModalRegistro';
-import { buscarColaboradores, buscarColaboradorPorId, inativarColaborador, type FiltroColaboradores } from './actions';
+import { buscarColaboradores, buscarColaboradorPorId, inativarColaborador, reativarColaborador, type FiltroColaboradores } from './actions';
 
 type Colaborador = Awaited<ReturnType<typeof buscarColaboradores>>[number];
 type Edicao = NonNullable<Awaited<ReturnType<typeof buscarColaboradorPorId>>>;
@@ -36,22 +36,26 @@ export default function Colaboradores() {
     }
   }
 
-  async function inativar(colaborador: Colaborador) {
-    if (!window.confirm(`Inativar ${colaborador.nome}? O login e as sessões serão removidos. O histórico de ponto será preservado.`)) return;
+  async function alterarSituacao(colaborador: Colaborador) {
+    const reativando = !!colaborador.inativadoEm;
+    const confirmacao = reativando
+      ? `Reativar ${colaborador.nome}? Você poderá criar um novo login na edição do cadastro.`
+      : `Inativar ${colaborador.nome}? O login e as sessões serão removidos. O histórico de ponto será preservado.`;
+    if (!window.confirm(confirmacao)) return;
     setOcupado(true);
     setErroAcao('');
     setAviso('');
     try {
-      const resultado = await inativarColaborador(colaborador.id);
+      const resultado = await (reativando ? reativarColaborador : inativarColaborador)(colaborador.id);
       if (!resultado.sucesso) {
-        setErroAcao(resultado.erro || 'Não foi possível inativar o colaborador.');
+        setErroAcao(resultado.erro || 'Não foi possível alterar a situação.');
         return;
       }
-      setDados(atuais => atuais.map(c => c.id === colaborador.id ? { ...c, inativadoEm: new Date(), userId: null } : c));
-      setAviso('Colaborador inativado e acesso revogado.');
+      setDados(atuais => atuais.map(c => c.id === colaborador.id ? { ...c, inativadoEm: reativando ? null : new Date(), userId: null } : c));
+      setAviso(reativando ? 'Colaborador reativado. Crie um novo login em Editar, se precisar.' : 'Colaborador inativado e acesso revogado.');
       await atualizar();
     } catch {
-      setErroAcao('Não foi possível confirmar a inativação. Atualize a lista e tente novamente.');
+      setErroAcao('Não foi possível confirmar a alteração. Atualize a lista e tente novamente.');
     } finally {
       setOcupado(false);
     }
@@ -62,10 +66,15 @@ export default function Colaboradores() {
   return <section className="mx-auto max-w-6xl px-4 pb-8 sm:px-6">
     <div className="flex flex-wrap items-center justify-between gap-3 py-6">
       <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Colaboradores</h1>
+      <div className="flex flex-wrap gap-2">
+      <Link href="/administracao/acessos" className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-line-strong bg-surface px-3 text-sm font-semibold text-primary-ink hover:bg-surface-muted">
+        <KeyRound size={17} /> Acessos avulsos
+      </Link>
       <button type="button" disabled={ocupado} onClick={() => { setErroAcao(''); setModal('novo'); }}
         className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-50">
         <Plus size={18} /> Adicionar colaborador
       </button>
+      </div>
     </div>
     <div className="rounded-xl border border-line bg-surface">
       <div className="flex flex-wrap gap-3 border-b border-line p-3 sm:p-4">
@@ -101,8 +110,10 @@ export default function Colaboradores() {
             <div className="col-start-2 row-span-2 row-start-1 flex items-center gap-1 sm:col-start-3 sm:row-span-1">
               <Link href={`/administracao/colaboradores/${c.id}`} aria-label={`Histórico de ${c.nome}`} title="Ver histórico" className={acao + ' text-primary-ink'}><Eye size={18} /></Link>
               <button type="button" disabled={ocupado} onClick={() => void editar(c.id)} aria-label={`Editar ${c.nome}`} title="Editar" className={acao + ' text-primary-ink'}><Pencil size={18} /></button>
-              {!c.inativadoEm && <button type="button" disabled={ocupado} onClick={() => void inativar(c)}
-                aria-label={`Inativar ${c.nome}`} title="Inativar" className={acao + ' text-danger-ink'}><UserMinus size={18} /></button>}
+              {c.inativadoEm ? <button type="button" disabled={ocupado} onClick={() => void alterarSituacao(c)}
+                aria-label={`Reativar ${c.nome}`} title="Reativar" className={acao + ' text-success-ink'}><UserPlus size={18} /></button>
+                : <button type="button" disabled={ocupado} onClick={() => void alterarSituacao(c)}
+                  aria-label={`Inativar ${c.nome}`} title="Inativar" className={acao + ' text-danger-ink'}><UserMinus size={18} /></button>}
             </div>
           </li>)}
         </ul>}

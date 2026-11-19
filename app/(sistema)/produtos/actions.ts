@@ -1,4 +1,5 @@
 "use server";
+import { permite, PERFIS_COMERCIAIS } from '@/lib/permissoes';
 import { prisma } from "@/lib/prisma";
 import { exigirUsuario } from '@/lib/autorizacao';
 import { obterUsuarioSessao } from '@/lib/sessao';
@@ -41,16 +42,16 @@ function validarDescricao(valor: unknown) {
 
 export async function getPermissoesProdutos() {
     const usuario = await obterUsuarioSessao();
-    return usuario && ['ADMIN', 'USER'].includes(usuario.role) ? usuario.role : null;
+    return usuario && permite(PERFIS_COMERCIAIS, usuario.role) ? usuario.role : null;
 }
 
 export async function getProdutos() {
-    await exigirUsuario();
+    await exigirUsuario(PERFIS_COMERCIAIS);
     return prisma.produto.findMany({ orderBy: { nome: "asc" }, include: { foto: selecaoFoto } });
 }
 
 export async function criarProduto(dados: DadosProduto) {
-    const usuario = await exigirUsuario();
+    const usuario = await exigirUsuario(PERFIS_COMERCIAIS);
     const admin = usuario.role === 'ADMIN';
     const foto = await prepararFoto(dados.foto);
     return prisma.produto.create({
@@ -68,7 +69,7 @@ export async function criarProduto(dados: DadosProduto) {
 }
 
 export async function atualizarProduto(id: string, dados: DadosProduto) {
-    const usuario = await exigirUsuario();
+    const usuario = await exigirUsuario(PERFIS_COMERCIAIS);
     const admin = usuario.role === 'ADMIN';
     const foto = admin ? await prepararFoto(dados.foto) : undefined;
     // Explicit field lists prevent protected values from being overwritten by USER requests.
@@ -93,13 +94,13 @@ export async function atualizarProduto(id: string, dados: DadosProduto) {
 }
 
 export async function deleteProduto(id: string) {
-    const usuario = await exigirUsuario();
+    const usuario = await exigirUsuario(PERFIS_COMERCIAIS);
     if (usuario.role !== 'ADMIN') throw new Error('Apenas administradores podem excluir produtos.');
     return prisma.produto.delete({ where: { id } });
 }
 
 export async function atualizarEstoqueProduto(id: string, estoque: number, estoquePadrao?: number) {
-    const usuario = await exigirUsuario();
+    const usuario = await exigirUsuario(PERFIS_COMERCIAIS);
     return prisma.produto.update({
         where: { id },
         data: {

@@ -2,15 +2,16 @@
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
 import { criarSessao, removerSessao } from '@/lib/sessao';
+import { ehPerfilAvulso, permite, PERFIS_REGISTRO_PONTO } from '@/lib/permissoes';
 
 export async function verificarLogin(email: string, senha: string) {
   try {
     const usuario = await prisma.user.findUnique({
-      where: { email, colaborador: { is: { inativadoEm: null } } },
-      select: { id: true, password: true, role: true, colaborador: { select: { id: true, nome: true } } },
+      where: { email },
+      select: { id: true, password: true, role: true, colaborador: { select: { id: true, inativadoEm: true } } },
     });
 
-    if (!usuario) {
+    if (!usuario || (ehPerfilAvulso(usuario.role) ? usuario.colaborador : !usuario.colaborador || usuario.colaborador.inativadoEm)) {
       return { sucesso: false, erro: "Usuário ou senha incorretos!" };
     }
 
@@ -23,10 +24,8 @@ export async function verificarLogin(email: string, senha: string) {
     await criarSessao(usuario.id);
     return {
       sucesso: true,
-      role: usuario.role,
-      userId: usuario.colaborador?.id,
-      userNome: usuario.colaborador?.nome,
-
+      destino: permite(PERFIS_REGISTRO_PONTO, usuario.role) ? '/baterPonto'
+        : usuario.role === 'COMERCIAL' ? '/orcamentos' : '/administracao/colaboradores/' + usuario.colaborador?.id,
     };
   } catch (error) {
     console.error("Erro no login:", error);
