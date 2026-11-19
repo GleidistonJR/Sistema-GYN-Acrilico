@@ -10,8 +10,8 @@ export default function Formulario({ acao, clienteId, children, botao, aoSalvar 
   const [estado, action, pendente] = useActionState(alterarAtendimento, { sucesso: false, mensagem: '' });
   useEffect(() => {
     if (!estado.sucesso) return;
-    aoSalvar?.(estado);
-    window.dispatchEvent(new Event('atendimento:atualizar'));
+    if (aoSalvar) aoSalvar(estado);
+    else window.dispatchEvent(new Event('atendimento:atualizar'));
   }, [estado, aoSalvar]);
   return <form action={action} className="space-y-3">
     <input type="hidden" name="acao" value={acao} />

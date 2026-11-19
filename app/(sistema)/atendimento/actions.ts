@@ -7,8 +7,7 @@ import { prisma } from '@/lib/prisma';
 import { validarApelido } from '@/lib/whatsapp/assinatura.mjs';
 import { normalizarTelefone, podeEditarCliente, validarTexto } from '@/lib/atendimento/regras';
 
-type ClienteCriado = { id: string; nome: string; telefone: string | null; responsavelId: string | null };
-type Resultado = { sucesso: boolean; mensagem: string; clienteCriado?: ClienteCriado };
+type Resultado = { sucesso: boolean; mensagem: string; clienteCriadoId?: string };
 
 export async function alterarAtendimento(_anterior: Resultado, form: FormData): Promise<Resultado> {
   // Every mutation validates the server session, including direct action requests.
@@ -27,10 +26,9 @@ export async function alterarAtendimento(_anterior: Resultado, form: FormData): 
           responsavelId: usuario.id,
           atribuicoes: { create: { atorId: usuario.id, novoId: usuario.id } },
         },
-        select: { id: true, nome: true, telefone: true, responsavelId: true },
+        select: { id: true },
       });
-      revalidatePath('/atendimento');
-      return { sucesso: true, mensagem: 'Cliente adicionado.', clienteCriado };
+      return { sucesso: true, mensagem: 'Cliente adicionado.', clienteCriadoId: clienteCriado.id };
     } else if (acao === 'criarEtiqueta') {
       if (usuario.role !== 'ADMIN') throw new Error('Somente administradores podem criar etiquetas.');
       await prisma.etiqueta.create({ data: { nome: validarTexto(form.get('nome'), 40).toLocaleLowerCase('pt-BR') } });

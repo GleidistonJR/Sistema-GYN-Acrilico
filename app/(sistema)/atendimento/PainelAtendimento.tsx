@@ -66,11 +66,12 @@ export default function PainelAtendimento({ usuario, etiquetas, filaInicial, cli
     if (cliente) url.searchParams.set('cliente', cliente.id); else url.searchParams.delete('cliente');
     window.history.replaceState(null, '', url);
   }, []);
-  const abrirClienteCriado = useCallback(({ clienteCriado }: Awaited<ReturnType<typeof alterarAtendimento>>) => {
-    if (!clienteCriado) return;
-    escolher({ ...clienteCriado, naoLida: false, responsavelNome: usuario.apelido || 'Você' });
-    setModal(null);
-  }, [escolher, usuario.apelido]);
+  const abrirClienteCriado = useCallback(({ clienteCriadoId }: Awaited<ReturnType<typeof alterarAtendimento>>) => {
+    if (!clienteCriadoId) return;
+    const url = new URL(window.location.href);
+    url.searchParams.set('cliente', clienteCriadoId);
+    window.location.replace(url);
+  }, []);
   async function alterarResponsabilidade(acao: 'assumir' | 'desatribuir') {
     const cliente = selecionado;
     if (!cliente || (acao === 'assumir' ? !!cliente.responsavelId : cliente.responsavelId !== usuario.id)) return;
