@@ -5,12 +5,13 @@ import PainelAtendimento from './PainelAtendimento';
 import { apelidoEfetivo } from '@/lib/whatsapp/assinatura.mjs';
 
 export default async function Atendimento({ searchParams }: {
-  searchParams: Promise<{ fila?: string; cliente?: string }>;
+  searchParams: Promise<{ fila?: string; cliente?: string; etiqueta?: string }>;
 }) {
   const usuario = await exigirUsuario(PERFIS_ATENDIMENTO);
   const params = await searchParams;
   const fila = params.fila === 'todos' || params.fila === 'fila' || (!params.fila && usuario.role === 'RECEPCAO')
     ? 'todos' : 'meus';
   const etiquetas = await prisma.etiqueta.findMany({ orderBy: { nome: 'asc' } });
-  return <PainelAtendimento usuario={{ id: usuario.id, role: usuario.role, apelido: apelidoEfetivo(usuario) }} etiquetas={etiquetas} filaInicial={fila} clienteInicial={params.cliente?.slice(0, 100)} />;
+  const etiquetaInicial = etiquetas.find(e => e.id === params.etiqueta)?.id;
+  return <PainelAtendimento usuario={{ id: usuario.id, role: usuario.role, apelido: apelidoEfetivo(usuario) }} etiquetas={etiquetas} filaInicial={fila} clienteInicial={params.cliente?.slice(0, 100)} etiquetaInicial={etiquetaInicial} />;
 }

@@ -6,7 +6,7 @@ import { exigirUsuario } from '@/lib/autorizacao';
 import { prisma } from '@/lib/prisma';
 import { PERFIS_ATENDIMENTO } from '@/lib/permissoes';
 import { validarApelido } from '@/lib/whatsapp/assinatura.mjs';
-import { normalizarTelefone, podeEditarCliente, validarTexto } from '@/lib/atendimento/regras';
+import { normalizarTelefone, validarTexto } from '@/lib/atendimento/regras';
 
 type Resultado = { sucesso: boolean; mensagem: string; clienteCriadoId?: string };
 
@@ -65,49 +65,54 @@ export async function alterarAtendimento(_anterior: Resultado, form: FormData): 
         data: { nome },
       });
       if (resultado.count !== 1) throw new Error('Cliente não disponível para alteração. Atualize a conversa.');
-    } else {
-      const id = validarTexto(form.get('clienteId'), 100);
+    } else if (acao === 'etiquetar' || acao === 'removerEtiqueta') {
+      const clienteId = validarTexto(form.get('clienteId'), 100);
+      const etiquetaId = validarTexto(form.get('etiquetaId'), 100);
       await prisma.$transaction(async tx => {
-        if (acao === 'desatribuir') {
-          const resultado = await tx.cliente.updateMany({
-            where: { id, responsavelId: usuario.id }, data: { responsavelId: null },
+        const cliente = await tx.cliente.findFirst({
+          where: { id: clienteId, OR: [{ conversaExcluidaEm: null }, { ultimaMensagemEm: { not: null } }] },
+          select: { id: true },
+        });
+        if (!cliente) throw new Error('Conversa indisponível.');
+        if (acao === 'etiquetar') {
+          await tx.clienteEtiqueta.upsert({
+            where: { clienteId_etiquetaId: { clienteId, etiquetaId } },
+            create: { clienteId, etiquetaId }, update: {},
           });
-          if (resultado.count !== 1) throw new Error('Este cliente não está mais sob sua responsabilidade. Atualize a conversa.');
-          await tx.atribuicaoCliente.create({ data: { clienteId: id, atorId: usuario.id, anteriorId: usuario.id, novoId: null } });
-          return;
+        } else {
+          await tx.clienteEtiqueta.deleteMany({ where: { clienteId, etiquetaId } });
         }
-        if (acao === 'assumir') {
-          // A single conditional UPDATE prevents two sellers from claiming the same customer.
-          const resultado = await tx.cliente.updateMany({
-            where: { id, responsavelId: null }, data: { responsavelId: usuario.id },
-          });
-          if (resultado.count !== 1) throw new Error('Este cliente já foi assumido. Atualize a lista.');
-          await tx.atribuicaoCliente.create({ data: { clienteId: id, atorId: usuario.id, novoId: usuario.id } });
-          return;
-        }
-        const cliente = await tx.cliente.findUnique({ where: { id }, select: { responsavelId: true } });
-        if (!cliente || !podeEditarCliente(usuario, cliente.responsavelId)) throw new Error('Cliente não disponível para alteração.');
-        if (acao === 'transferir') {
-          if (usuario.role !== 'ADMIN') throw new Error('Somente administradores podem transferir clientes.');
-          const novoId = form.get('responsavelId') ? validarTexto(form.get('responsavelId'), 100) : null;
-          if (novoId && !await tx.user.findFirst({ where: { id: novoId, role: { in: [...PERFIS_ATENDIMENTO] } }, select: { id: true } })) {
-            throw new Error('Vendedor indisponível.');
-          }
-          const alterado = await tx.cliente.updateMany({ where: { id, responsavelId: cliente.responsavelId }, data: { responsavelId: novoId } });
-          if (alterado.count !== 1) throw new Error('O responsável mudou. Atualize a lista.');
-          await tx.atribuicaoCliente.create({ data: { clienteId: id, atorId: usuario.id, anteriorId: cliente.responsavelId, novoId } });
-        } else if (acao === 'etiquetar' || acao === 'removerEtiqueta') {
-          // Lock the customer row using a guarded update; ownership cannot change during this transaction.
-          const alterado = await tx.cliente.updateMany({ where: { id, responsavelId: cliente.responsavelId }, data: { updatedAt: new Date() } });
-          if (alterado.count !== 1) throw new Error('O responsável mudou. Atualize a lista.');
-          const etiquetaId = validarTexto(form.get('etiquetaId'), 100);
-          if (acao === 'etiquetar') {
-            await tx.clienteEtiqueta.upsert({ where: { clienteId_etiquetaId: { clienteId: id, etiquetaId } }, create: { clienteId: id, etiquetaId }, update: {} });
-          } else {
-            await tx.clienteEtiqueta.deleteMany({ where: { clienteId: id, etiquetaId } });
-          }
-        } else throw new Error('Operação inválida.');
-      });
+      }, { timeout: 15000 });
+      return { sucesso: true, mensagem: acao === 'etiquetar' ? 'Etiqueta adicionada.' : 'Etiqueta removida.' };
+    } else if (acao === 'assumir' || acao === 'desatribuir' || acao === 'transferir') {
+      const clienteId = validarTexto(form.get('clienteId'), 100);
+      const anterior = form.get('responsavelAtualId');
+      const anteriorId = anterior === '' ? null : validarTexto(anterior, 100);
+      const destino = form.get('responsavelId');
+      const novoId = acao === 'assumir' ? usuario.id
+        : acao === 'transferir' && destino !== '' ? validarTexto(destino, 100) : null;
+
+      await prisma.$transaction(async tx => {
+        const cliente = await tx.cliente.findFirst({
+          where: { id: clienteId, OR: [{ conversaExcluidaEm: null }, { ultimaMensagemEm: { not: null } }] },
+          select: { responsavelId: true },
+        });
+        if (!cliente) throw new Error('Conversa indisponível.');
+        if (cliente.responsavelId !== anteriorId) throw new Error('O responsável mudou. Atualize a conversa e tente novamente.');
+        if (anteriorId === novoId) return;
+        if (acao === 'transferir' && novoId && !await tx.user.findFirst({
+          where: { id: novoId, role: { in: [...PERFIS_ATENDIMENTO] } }, select: { id: true },
+        })) throw new Error('Operador indisponível.');
+        const alterado = await tx.cliente.updateMany({
+          where: { id: clienteId, responsavelId: anteriorId, OR: [{ conversaExcluidaEm: null }, { ultimaMensagemEm: { not: null } }] },
+          data: { responsavelId: novoId },
+        });
+        if (alterado.count !== 1) throw new Error('A conversa mudou. Atualize e tente novamente.');
+        await tx.atribuicaoCliente.create({ data: { clienteId, atorId: usuario.id, anteriorId, novoId } });
+      }, { timeout: 15000 });
+      return { sucesso: true, mensagem: 'Responsável atualizado.' };
+    } else {
+      throw new Error('Operação inválida.');
     }
     revalidatePath('/atendimento');
     return { sucesso: true, mensagem: 'Alteração salva.' };

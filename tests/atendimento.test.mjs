@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizarTelefone, podeEditarCliente, filtroClientes, validarTexto } from '../lib/atendimento/regras.ts';
+import { normalizarTelefone, filtroClientes, validarTexto } from '../lib/atendimento/regras.ts';
 
 test('normaliza WhatsApp brasileiro com DDD e aceita o +55 ao colar', () => {
   assert.equal(normalizarTelefone('(62) 99999-1234'), '+5562999991234');
@@ -11,15 +11,6 @@ test('normaliza WhatsApp brasileiro com DDD e aceita o +55 ao colar', () => {
   for (const entrada of ['', 'abc5562999991234', '+012345678', '999991234', '+1 202 555 0123', '+62999991234', '1234567890123456', null]) {
     assert.throws(() => normalizarTelefone(entrada));
   }
-});
-
-test('um vendedor não pode editar clientes de outro vendedor nem da fila', () => {
-  const vendedor = { id: 'vendedor-a', role: 'USER' };
-  assert.equal(podeEditarCliente(vendedor, 'vendedor-a'), true);
-  assert.equal(podeEditarCliente(vendedor, 'vendedor-b'), false);
-  assert.equal(podeEditarCliente(vendedor, null), false);
-  assert.equal(podeEditarCliente({ ...vendedor, role: 'OUTRO' }, vendedor.id), false);
-  assert.equal(podeEditarCliente({ id: 'admin', role: 'ADMIN' }, 'vendedor-b'), true);
 });
 
 test('todos mostra a equipe e meus mantém apenas a carteira do vendedor', () => {

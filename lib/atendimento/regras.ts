@@ -1,9 +1,5 @@
 export type Operador = { id: string; role: string };
 
-export function podeEditarCliente(usuario: Operador, responsavelId: string | null) {
-  return usuario.role === 'ADMIN' || (['USER', 'RECEPCAO'].includes(usuario.role) && usuario.id === responsavelId);
-}
-
 export function normalizarTelefone(valor: unknown) {
   const mensagem = 'Informe o DDD e o número do WhatsApp (10 ou 11 dígitos).';
   const telefone = typeof valor === 'string' ? valor.trim() : '';

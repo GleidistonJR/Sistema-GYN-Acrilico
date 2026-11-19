@@ -12,7 +12,7 @@ import { useFotosContatos } from './useFotosContatos';
 const Conversa = dynamic(() => import('./conversas/[id]/Conversa'), { loading: () => <div className="flex h-full items-center justify-center text-sm text-subtle">Abrindo conversa…</div> });
 type Cliente = { id: string; nome: string; telefone: string | null; responsavelId: string | null; naoLida: boolean; responsavelNome?: string | null };
 type Etiqueta = { id: string; nome: string };
-type Detalhes = { cliente: Cliente; etiquetas: Etiqueta[]; selecionadas: string[]; vendedores: { id: string; email: string; colaborador: { nome: string } | null }[] };
+type Detalhes = { cliente: Omit<Cliente, 'naoLida'>; etiquetas: Etiqueta[]; selecionadas: string[]; operadores: { id: string; nome: string }[] };
 const campo = 'mt-1 block w-full rounded-lg border border-line-strong bg-surface p-2.5 text-sm text-foreground';
 
 function Dialogo({ titulo, fechar, children }: { titulo: string; fechar: () => void; children: React.ReactNode }) {
@@ -24,16 +24,16 @@ function Dialogo({ titulo, fechar, children }: { titulo: string; fechar: () => v
   </dialog>;
 }
 
-export default function PainelAtendimento({ usuario, etiquetas, filaInicial, clienteInicial }: {
-  usuario: { id: string; role: string; apelido?: string }; etiquetas: Etiqueta[]; filaInicial: string; clienteInicial?: string;
+export default function PainelAtendimento({ usuario, etiquetas, filaInicial, clienteInicial, etiquetaInicial }: {
+  usuario: { id: string; role: string; apelido?: string }; etiquetas: Etiqueta[]; filaInicial: string; clienteInicial?: string; etiquetaInicial?: string;
 }) {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const fotos = useFotosContatos(clientes.map(c => c.id));
   const [selecionado, setSelecionado] = useState<Cliente | null>(null);
   const [fila, setFila] = useState(filaInicial);
   const [busca, setBusca] = useState('');
-  const [etiqueta, setEtiqueta] = useState('');
-  const [filtros, setFiltros] = useState(false);
+  const [etiqueta, setEtiqueta] = useState(etiquetaInicial ?? '');
+  const [filtros, setFiltros] = useState(Boolean(etiquetaInicial));
   const [pagina, setPagina] = useState(1);
   const [mais, setMais] = useState(false);
   const [carregando, setCarregando] = useState(true);
@@ -84,8 +84,9 @@ export default function PainelAtendimento({ usuario, etiquetas, filaInicial, cli
   }, [clienteParaExcluir, selectedId, escolher]);
   async function alterarResponsabilidade(acao: 'assumir' | 'desatribuir') {
     const cliente = selecionado;
-    if (!cliente || (acao === 'assumir' ? !!cliente.responsavelId : cliente.responsavelId !== usuario.id)) return;
+    if (!cliente) return;
     const form = new FormData(); form.set('acao', acao); form.set('clienteId', cliente.id);
+    form.set('responsavelAtualId', cliente.responsavelId ?? '');
     const resultado = await alterarAtendimento({ sucesso: false, mensagem: '' }, form);
     if (!resultado.sucesso) {
       window.dispatchEvent(new Event('atendimento:atualizar'));
@@ -112,23 +113,26 @@ export default function PainelAtendimento({ usuario, etiquetas, filaInicial, cli
       if (!response.ok) { if (response.status === 401) { setClientes([]); setSelecionado(null); } throw new Error(data.erro || 'Não foi possível carregar os clientes.'); }
       if (version !== requestId.current) return;
       setClientes(data.clientes); setMais(data.temMais); setErro('');
-      setSelecionado(atual => atual ? data.clientes.find((c: Cliente) => c.id === atual.id) || atual : atual);
-      if (entrada.current) {
-        const id = entrada.current;
-        const local = data.clientes.find((c: Cliente) => c.id === id);
-        if (local) escolher(local);
-        else {
-          const details = await fetch(`/api/atendimento/${encodeURIComponent(id)}/detalhes`, { signal: controller.signal });
-          const dados = details.ok ? await details.json() : null;
-          if (version === requestId.current && entrada.current === id) {
-            entrada.current = undefined;
-            if (dados) escolher({ ...dados.cliente, naoLida: false });
-          }
-        }
+      const id = entrada.current ?? selectedId;
+      if (!id) return;
+      const local = data.clientes.find((c: Cliente) => c.id === id);
+      if (local) {
+        if (entrada.current === id) escolher(local);
+        else setSelecionado(atual => atual?.id === id ? local : atual);
+        return;
+      }
+      const resposta = await fetch(`/api/atendimento/${encodeURIComponent(id)}/detalhes?resumo=1`, { signal: controller.signal });
+      const resumo = resposta.ok ? await resposta.json() : null;
+      if (version !== requestId.current) return;
+      if (entrada.current === id) {
+        entrada.current = undefined;
+        if (resumo) escolher({ ...resumo.cliente, naoLida: false });
+      } else if (resumo) {
+        setSelecionado(atual => atual?.id === id ? { ...atual, ...resumo.cliente } : atual);
       }
     } catch (error) { if (!controller.signal.aborted) setErro(error instanceof Error ? error.message : 'Falha na atualização.'); }
     finally { if (version === requestId.current) { busy.current = null; setCarregando(false); if (pending.current) { pending.current = false; void carregar(); } } }
-  }, [fila, busca, etiqueta, pagina, escolher]);
+  }, [fila, busca, etiqueta, pagina, escolher, selectedId]);
 
   useEffect(() => {
     const requests = requestId;
@@ -178,7 +182,8 @@ export default function PainelAtendimento({ usuario, etiquetas, filaInicial, cli
   }, [modal, selectedId]);
 
   function abrirDetalhes() { setDetalhes(null); setErroDetalhes(''); setModal('detalhes'); }
-  const editar = detalhes && (usuario.role === 'ADMIN' || detalhes.cliente.responsavelId === usuario.id);
+  const disponiveis = detalhes?.etiquetas.filter(item => !detalhes.selecionadas.includes(item.id)) ?? [];
+  const aplicadas = detalhes?.etiquetas.filter(item => detalhes.selecionadas.includes(item.id)) ?? [];
 
   return <div className="flex h-[calc(100dvh-4rem)] min-h-0 overflow-hidden bg-background text-foreground">
     <aside aria-label="Lista de clientes" className={`${selecionado ? 'hidden md:flex' : 'flex'} w-full shrink-0 flex-col border-r border-line bg-background md:w-[320px] lg:w-[360px] xl:w-[390px]`}>
@@ -195,7 +200,15 @@ export default function PainelAtendimento({ usuario, etiquetas, filaInicial, cli
           </select>
           <button onClick={() => setFiltros(!filtros)} aria-label="Filtrar por etiqueta" aria-expanded={filtros} className={`rounded-lg p-2.5 ${etiqueta ? 'bg-success-soft text-success-ink' : 'bg-surface text-muted'}`}><SlidersHorizontal size={18} /></button>
         </div>
-        {filtros && <select aria-label="Etiqueta" value={etiqueta} onChange={e => { setEtiqueta(e.target.value); setPagina(1); }} className="w-full rounded-lg bg-surface p-2 text-sm"><option value="">Todas as etiquetas</option>{etiquetas.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}</select>}
+        {filtros && <select aria-label="Etiqueta" value={etiqueta} onChange={e => {
+          const id = e.target.value;
+          setEtiqueta(id);
+          setPagina(1);
+          const url = new URL(window.location.href);
+          if (id) url.searchParams.set('etiqueta', id);
+          else url.searchParams.delete('etiqueta');
+          window.history.replaceState(null, '', url);
+        }} className="w-full rounded-lg bg-surface p-2 text-sm"><option value="">Todas as etiquetas</option>{etiquetas.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}</select>}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:thin] [scrollbar-color:var(--line-strong)_transparent]">
         {erro && <p role="alert" className="px-5 py-3 text-xs text-warning-ink">{erro}</p>}
@@ -233,7 +246,7 @@ export default function PainelAtendimento({ usuario, etiquetas, filaInicial, cli
       </div>
     </aside>
     <main className={`${selecionado ? 'flex' : 'hidden md:flex'} min-h-0 min-w-0 flex-1 flex-col`}>
-      {selecionado ? <Conversa key={selecionado.id} cliente={selecionado} onAssumir={!selecionado.responsavelId ? () => alterarResponsabilidade('assumir') : undefined} onDesatribuir={selecionado.responsavelId === usuario.id ? () => alterarResponsabilidade('desatribuir') : undefined} onVoltar={() => escolher(null)} onDetalhes={abrirDetalhes} onLida={marcarLida} /> : <div className="flex h-full flex-col items-center justify-center border-b-4 border-chat-action bg-surface-soft p-8 text-center"><div className="mb-6 rounded-full bg-surface-muted p-7"><MessageCircle size={56} strokeWidth={1.2} className="text-chat-action" /></div><h2 className="text-2xl font-light text-foreground">Suas conversas, em um só lugar</h2><p className="mt-3 max-w-sm text-sm leading-relaxed text-muted">Selecione um cliente à esquerda para conversar.<br />A bolinha verde indica mensagens ainda não visualizadas.</p></div>}
+      {selecionado ? <Conversa key={selecionado.id} cliente={selecionado} onAssumir={selecionado.responsavelId !== usuario.id ? () => alterarResponsabilidade('assumir') : undefined} onDesatribuir={selecionado.responsavelId === usuario.id ? () => alterarResponsabilidade('desatribuir') : undefined} onVoltar={() => escolher(null)} onDetalhes={abrirDetalhes} onLida={marcarLida} /> : <div className="flex h-full flex-col items-center justify-center border-b-4 border-chat-action bg-surface-soft p-8 text-center"><div className="mb-6 rounded-full bg-surface-muted p-7"><MessageCircle size={56} strokeWidth={1.2} className="text-chat-action" /></div><h2 className="text-2xl font-light text-foreground">Suas conversas, em um só lugar</h2><p className="mt-3 max-w-sm text-sm leading-relaxed text-muted">Selecione um cliente à esquerda para conversar.<br />A bolinha verde indica mensagens ainda não visualizadas.</p></div>}
     </main>
     {modal && <Dialogo titulo={modal === 'apelido' ? 'Meu apelido' : modal === 'cliente' ? 'Novo cliente' : modal === 'etiqueta' ? 'Nova etiqueta' : modal === 'excluir' ? 'Excluir conversa' : 'Organizar cliente'} fechar={() => setModal(null)}>
       {modal === 'excluir' && clienteParaExcluir && <Formulario acao="excluirConversa" clienteId={clienteParaExcluir.id}
@@ -255,12 +268,25 @@ export default function PainelAtendimento({ usuario, etiquetas, filaInicial, cli
           <label className="block text-sm">Nome do contato<input name="nome" required maxLength={120} defaultValue={detalhes.cliente.nome} className={campo} autoComplete="off" /></label>
           <p className="text-xs text-muted">Este nome será exibido para todos os usuários com acesso ao contato.</p>
         </Formulario>
-        {!detalhes.cliente.responsavelId && <Formulario acao="assumir" clienteId={detalhes.cliente.id} botao="Assumir cliente" />}
-        {editar && <>
-          {!!detalhes.etiquetas.length && <Formulario acao="etiquetar" clienteId={detalhes.cliente.id} botao="Adicionar etiqueta"><label className="block text-sm">Etiqueta<select name="etiquetaId" className={campo}>{detalhes.etiquetas.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}</select></label></Formulario>}
-          {!!detalhes.selecionadas.length && <Formulario acao="removerEtiqueta" clienteId={detalhes.cliente.id} botao="Remover etiqueta"><label className="block text-sm">Etiqueta atual<select name="etiquetaId" className={campo}>{detalhes.etiquetas.filter(e => detalhes.selecionadas.includes(e.id)).map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}</select></label></Formulario>}
-          {usuario.role === 'ADMIN' && <Formulario acao="transferir" clienteId={detalhes.cliente.id} botao="Alterar responsável"><label className="block text-sm">Responsável<select name="responsavelId" defaultValue={detalhes.cliente.responsavelId ?? ''} className={campo}><option value="">Sem responsável</option>{detalhes.vendedores.map(v => <option key={v.id} value={v.id}>{v.colaborador?.nome || v.email}</option>)}</select></label></Formulario>}
-        </>}
+        {!!disponiveis.length && <Formulario acao="etiquetar" clienteId={detalhes.cliente.id} botao="Adicionar etiqueta">
+          <label className="block text-sm">Etiqueta<select name="etiquetaId" className={campo}>
+            {disponiveis.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}
+          </select></label>
+        </Formulario>}
+        {!!aplicadas.length && <Formulario acao="removerEtiqueta" clienteId={detalhes.cliente.id} botao="Remover etiqueta">
+          <label className="block text-sm">Etiqueta atual<select name="etiquetaId" className={campo}>
+            {aplicadas.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}
+          </select></label>
+        </Formulario>}
+        <Formulario acao="transferir" clienteId={detalhes.cliente.id} botao="Alterar responsável">
+          <input type="hidden" name="responsavelAtualId" value={detalhes.cliente.responsavelId ?? ''} />
+          <label className="block text-sm">Responsável
+            <select key={detalhes.cliente.responsavelId ?? ''} name="responsavelId" defaultValue={detalhes.cliente.responsavelId ?? ''} className={campo}>
+              <option value="">Sem responsável</option>
+              {detalhes.operadores.map(operador => <option key={operador.id} value={operador.id}>{operador.nome}</option>)}
+            </select>
+          </label>
+        </Formulario>
       </>}</div>}
     </Dialogo>}
   </div>;
