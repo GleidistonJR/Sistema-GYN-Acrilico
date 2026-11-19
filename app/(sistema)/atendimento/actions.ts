@@ -54,9 +54,21 @@ export async function alterarAtendimento(_anterior: Resultado, form: FormData): 
         await tx.mensagemWhatsApp.deleteMany({ where: { clienteId: id } });
       }, { timeout: 15000 });
       return { sucesso: true, mensagem: 'Conversa excluída.' };
-    } else if (acao === 'criarEtiqueta') {
-      if (usuario.role !== 'ADMIN') throw new Error('Somente administradores podem criar etiquetas.');
-      await prisma.etiqueta.create({ data: { nome: validarTexto(form.get('nome'), 40).toLocaleLowerCase('pt-BR') } });
+    } else if (acao === 'criarEtiqueta' || acao === 'renomearEtiqueta' || acao === 'excluirEtiqueta') {
+      if (usuario.role !== 'ADMIN') throw new Error('Somente administradores podem gerenciar etiquetas.');
+      if (acao === 'excluirEtiqueta') {
+        const id = validarTexto(form.get('etiquetaId'), 100);
+        await prisma.etiqueta.delete({ where: { id } });
+        return { sucesso: true, mensagem: 'Etiqueta excluída.' };
+      }
+      const nome = validarTexto(form.get('nome'), 40).toLocaleLowerCase('pt-BR');
+      if (acao === 'criarEtiqueta') {
+        await prisma.etiqueta.create({ data: { nome } });
+        return { sucesso: true, mensagem: 'Etiqueta criada.' };
+      }
+      const id = validarTexto(form.get('etiquetaId'), 100);
+      await prisma.etiqueta.update({ where: { id }, data: { nome } });
+      return { sucesso: true, mensagem: 'Etiqueta renomeada.' };
     } else if (acao === 'renomear') {
       const id = validarTexto(form.get('clienteId'), 100);
       const nome = validarTexto(form.get('nome'), 120);
@@ -118,6 +130,7 @@ export async function alterarAtendimento(_anterior: Resultado, form: FormData): 
     return { sucesso: true, mensagem: 'Alteração salva.' };
   } catch (erro) {
     if (erro instanceof Prisma.PrismaClientKnownRequestError) {
+      if (erro.code === 'P2025') return { sucesso: false, mensagem: 'Etiqueta indisponível. Atualize a lista e tente novamente.' };
       return { sucesso: false, mensagem: erro.code === 'P2002' ? 'Telefone ou etiqueta já cadastrado.' : 'Não foi possível salvar. Atualize a página e tente novamente.' };
     }
     if (erro instanceof Prisma.PrismaClientInitializationError || erro instanceof Prisma.PrismaClientValidationError) {

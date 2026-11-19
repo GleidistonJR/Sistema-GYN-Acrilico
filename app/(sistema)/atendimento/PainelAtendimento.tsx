@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Search, Plus, UserRound, MessageCircle, Tags, Settings2, X, ChevronLeft, ChevronRight, SlidersHorizontal, MoreVertical } from 'lucide-react';
 import Formulario from './Formulario';
+import GerenciarEtiquetas from './GerenciarEtiquetas';
 import { alterarAtendimento } from './actions';
 import AvatarContato from './AvatarContato';
 import { useFotosContatos } from './useFotosContatos';
@@ -24,10 +25,11 @@ function Dialogo({ titulo, fechar, children }: { titulo: string; fechar: () => v
   </dialog>;
 }
 
-export default function PainelAtendimento({ usuario, etiquetas, filaInicial, clienteInicial, etiquetaInicial }: {
+export default function PainelAtendimento({ usuario, etiquetas: etiquetasIniciais, filaInicial, clienteInicial, etiquetaInicial }: {
   usuario: { id: string; role: string; apelido?: string }; etiquetas: Etiqueta[]; filaInicial: string; clienteInicial?: string; etiquetaInicial?: string;
 }) {
   const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [etiquetas, setEtiquetas] = useState(etiquetasIniciais);
   const fotos = useFotosContatos(clientes.map(c => c.id));
   const [selecionado, setSelecionado] = useState<Cliente | null>(null);
   const [fila, setFila] = useState(filaInicial);
@@ -98,6 +100,14 @@ export default function PainelAtendimento({ usuario, etiquetas, filaInicial, cli
     window.dispatchEvent(new Event('atendimento:atualizar'));
   }
   const marcarLida = useCallback((id: string) => setClientes(atuais => atuais.map(c => c.id === id ? { ...c, naoLida: false } : c)), []);
+  const mudarEtiqueta = useCallback((id: string) => {
+    setEtiqueta(id);
+    setPagina(1);
+    const url = new URL(window.location.href);
+    if (id) url.searchParams.set('etiqueta', id);
+    else url.searchParams.delete('etiqueta');
+    window.history.replaceState(null, '', url);
+  }, []);
 
   const carregar = useCallback(async () => {
     const key = JSON.stringify([fila, busca, etiqueta, pagina]);
@@ -112,6 +122,12 @@ export default function PainelAtendimento({ usuario, etiquetas, filaInicial, cli
       const data = await response.json();
       if (!response.ok) { if (response.status === 401) { setClientes([]); setSelecionado(null); } throw new Error(data.erro || 'Não foi possível carregar os clientes.'); }
       if (version !== requestId.current) return;
+      const catalogo: Etiqueta[] = data.etiquetas;
+      setEtiquetas(catalogo);
+      if (etiqueta && !catalogo.some(item => item.id === etiqueta)) {
+        mudarEtiqueta('');
+        return;
+      }
       setClientes(data.clientes); setMais(data.temMais); setErro('');
       const id = entrada.current ?? selectedId;
       if (!id) return;
@@ -132,7 +148,7 @@ export default function PainelAtendimento({ usuario, etiquetas, filaInicial, cli
       }
     } catch (error) { if (!controller.signal.aborted) setErro(error instanceof Error ? error.message : 'Falha na atualização.'); }
     finally { if (version === requestId.current) { busy.current = null; setCarregando(false); if (pending.current) { pending.current = false; void carregar(); } } }
-  }, [fila, busca, etiqueta, pagina, escolher, selectedId]);
+  }, [fila, busca, etiqueta, pagina, escolher, selectedId, mudarEtiqueta]);
 
   useEffect(() => {
     const requests = requestId;
@@ -200,15 +216,8 @@ export default function PainelAtendimento({ usuario, etiquetas, filaInicial, cli
           </select>
           <button onClick={() => setFiltros(!filtros)} aria-label="Filtrar por etiqueta" aria-expanded={filtros} className={`rounded-lg p-2.5 ${etiqueta ? 'bg-success-soft text-success-ink' : 'bg-surface text-muted'}`}><SlidersHorizontal size={18} /></button>
         </div>
-        {filtros && <select aria-label="Etiqueta" value={etiqueta} onChange={e => {
-          const id = e.target.value;
-          setEtiqueta(id);
-          setPagina(1);
-          const url = new URL(window.location.href);
-          if (id) url.searchParams.set('etiqueta', id);
-          else url.searchParams.delete('etiqueta');
-          window.history.replaceState(null, '', url);
-        }} className="w-full rounded-lg bg-surface p-2 text-sm"><option value="">Todas as etiquetas</option>{etiquetas.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}</select>}
+        {filtros && <select aria-label="Etiqueta" value={etiqueta} onChange={e => mudarEtiqueta(e.target.value)}
+          className="w-full rounded-lg bg-surface p-2 text-sm"><option value="">Todas as etiquetas</option>{etiquetas.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}</select>}
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:thin] [scrollbar-color:var(--line-strong)_transparent]">
         {erro && <p role="alert" className="px-5 py-3 text-xs text-warning-ink">{erro}</p>}
@@ -242,13 +251,13 @@ export default function PainelAtendimento({ usuario, etiquetas, filaInicial, cli
       </div>
       <div className="flex h-14 shrink-0 items-center justify-between border-t border-line px-4 text-muted">
         <div className="flex items-center gap-3"><button disabled={pagina === 1} onClick={() => setPagina(p => p - 1)} aria-label="Página anterior" className="rounded p-1 disabled:opacity-25"><ChevronLeft size={18} /></button><span className="text-xs">{pagina}</span><button disabled={!mais} onClick={() => setPagina(p => p + 1)} aria-label="Próxima página" className="rounded p-1 disabled:opacity-25"><ChevronRight size={18} /></button></div>
-        {usuario.role === 'ADMIN' && <div className="flex gap-2"><button onClick={() => setModal('etiqueta')} aria-label="Criar etiqueta" title="Criar etiqueta" className="rounded p-2 hover:bg-foreground/5"><Tags size={18} /></button><Link href="/atendimento/conexao" aria-label="Conexão WhatsApp" title="Conexão WhatsApp" className="rounded p-2 hover:bg-foreground/5"><Settings2 size={18} /></Link></div>}
+        {usuario.role === 'ADMIN' && <div className="flex gap-2"><button onClick={() => setModal('etiqueta')} aria-label="Gerenciar etiquetas" title="Gerenciar etiquetas" className="rounded p-2 hover:bg-foreground/5"><Tags size={18} /></button><Link href="/atendimento/conexao" aria-label="Conexão WhatsApp" title="Conexão WhatsApp" className="rounded p-2 hover:bg-foreground/5"><Settings2 size={18} /></Link></div>}
       </div>
     </aside>
     <main className={`${selecionado ? 'flex' : 'hidden md:flex'} min-h-0 min-w-0 flex-1 flex-col`}>
       {selecionado ? <Conversa key={selecionado.id} cliente={selecionado} onAssumir={selecionado.responsavelId !== usuario.id ? () => alterarResponsabilidade('assumir') : undefined} onDesatribuir={selecionado.responsavelId === usuario.id ? () => alterarResponsabilidade('desatribuir') : undefined} onVoltar={() => escolher(null)} onDetalhes={abrirDetalhes} onLida={marcarLida} /> : <div className="flex h-full flex-col items-center justify-center border-b-4 border-chat-action bg-surface-soft p-8 text-center"><div className="mb-6 rounded-full bg-surface-muted p-7"><MessageCircle size={56} strokeWidth={1.2} className="text-chat-action" /></div><h2 className="text-2xl font-light text-foreground">Suas conversas, em um só lugar</h2><p className="mt-3 max-w-sm text-sm leading-relaxed text-muted">Selecione um cliente à esquerda para conversar.<br />A bolinha verde indica mensagens ainda não visualizadas.</p></div>}
     </main>
-    {modal && <Dialogo titulo={modal === 'apelido' ? 'Meu apelido' : modal === 'cliente' ? 'Novo cliente' : modal === 'etiqueta' ? 'Nova etiqueta' : modal === 'excluir' ? 'Excluir conversa' : 'Organizar cliente'} fechar={() => setModal(null)}>
+    {modal && <Dialogo titulo={modal === 'apelido' ? 'Meu apelido' : modal === 'cliente' ? 'Novo cliente' : modal === 'etiqueta' ? 'Gerenciar etiquetas' : modal === 'excluir' ? 'Excluir conversa' : 'Organizar cliente'} fechar={() => setModal(null)}>
       {modal === 'excluir' && clienteParaExcluir && <Formulario acao="excluirConversa" clienteId={clienteParaExcluir.id}
         botao="Excluir conversa" aoSalvar={concluirExclusao}>
         <p className="text-sm">Excluir o histórico de <strong>{clienteParaExcluir.nome}</strong> para todos os operadores? Essa ação é permanente no sistema.</p>
@@ -261,7 +270,7 @@ export default function PainelAtendimento({ usuario, etiquetas, filaInicial, cli
         <p className="text-xs text-muted">Esta configuração pertence ao seu login e funciona em todos os computadores.</p>
       </Formulario>}
       {modal === 'cliente' && <Formulario acao="criarCliente" botao="Adicionar cliente" aoSalvar={abrirClienteCriado}><label className="block text-sm">Nome<input name="nome" required maxLength={120} className={campo} autoFocus /></label><label className="block text-sm">WhatsApp com DDD<input name="telefone" required type="tel" className={campo} placeholder="(62) 99999-9999" /></label></Formulario>}
-      {modal === 'etiqueta' && <Formulario acao="criarEtiqueta" botao="Criar etiqueta"><label className="block text-sm">Nome<input name="nome" required maxLength={40} className={campo} autoFocus /></label></Formulario>}
+      {modal === 'etiqueta' && <GerenciarEtiquetas etiquetas={etiquetas} />}
       {modal === 'detalhes' && <div className="space-y-6">{erroDetalhes ? <p role="alert" className="text-sm text-danger-ink">{erroDetalhes}</p> : !detalhes ? <p className="text-sm text-muted">Carregando…</p> : <>
         <div><h3 className="font-semibold">{detalhes.cliente.nome}</h3><p className="text-sm text-muted">{detalhes.cliente.telefone}</p></div>
         <Formulario acao="renomear" clienteId={detalhes.cliente.id} botao="Salvar nome">
