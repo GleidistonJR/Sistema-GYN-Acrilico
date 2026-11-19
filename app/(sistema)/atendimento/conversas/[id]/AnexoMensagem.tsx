@@ -17,6 +17,8 @@ export default function AnexoMensagem({ id, midia }: { id: string; midia: Midia 
   const previa = (imagem || video) && versaoPrevia && previaIndisponivel !== versaoPrevia
     ? `${base}?previa=1&v=${encodeURIComponent(versaoPrevia)}`
     : '';
+  const mostrarBotaoAbrir = (imagem && !previa)
+    || ((audio || video) && (!aberto || erroOriginal) && (!previa || erroOriginal));
 
   function abrir() {
     setErroOriginal(false);
@@ -37,20 +39,20 @@ export default function AnexoMensagem({ id, midia }: { id: string; midia: Midia 
           className="max-h-80 max-w-full object-contain" />
         {video && <span className="absolute bottom-2 left-2 rounded bg-black/75 px-2 py-1 text-xs text-white">Reproduzir vídeo</span>}
       </button>
-    ) : <p className="break-all text-sm font-semibold">{midia.nome}</p>}
+    ) : !video && <p className="break-all text-sm font-semibold">{midia.nome}</p>}
 
-    {aberto && video && !erroOriginal && <video controls playsInline preload="metadata" src={base} poster={previa || undefined}
+    {aberto && video && !erroOriginal && <video controls controlsList="nodownload" playsInline preload="metadata" src={base} poster={previa || undefined}
       onError={() => setErroOriginal(true)} className="max-h-96 max-w-full rounded" />}
     {aberto && audio && !erroOriginal && <audio controls preload="metadata" src={base}
       onError={() => setErroOriginal(true)} className="max-w-full" />}
 
-    <div className="mt-1 flex flex-wrap gap-3">
-      {((imagem && !previa) || ((audio || video) && (!aberto || erroOriginal) && (!previa || erroOriginal))) &&
+    {(mostrarBotaoAbrir || !video) && <div className="mt-1 flex flex-wrap gap-3">
+      {mostrarBotaoAbrir &&
         <button type="button" onClick={abrir} className="text-xs font-semibold underline">
           {erroOriginal && !imagem ? 'Tentar novamente' : imagem ? 'Abrir imagem' : 'Reproduzir'}
         </button>}
-      {baixar}
-    </div>
+      {!video && baixar}
+    </div>}
     {erroOriginal && !imagem && <p role="alert" className="mt-2 text-xs text-amber-300">
       Arquivo indisponível. Se o anexo expirou, peça para reenviá-lo.
     </p>}
