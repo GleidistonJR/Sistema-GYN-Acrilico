@@ -29,6 +29,30 @@ export async function alterarAtendimento(_anterior: Resultado, form: FormData): 
         select: { id: true },
       });
       return { sucesso: true, mensagem: 'Cliente adicionado.', clienteCriadoId: clienteCriado.id };
+    } else if (acao === 'excluirConversa') {
+      if (usuario.role !== 'ADMIN') throw new Error('Somente administradores podem excluir conversas.');
+      const id = validarTexto(form.get('clienteId'), 100);
+      await prisma.$transaction(async tx => {
+        const [cliente] = await tx.$queryRaw<Array<{ versaoEntrada: bigint }>>`
+          SELECT "versaoEntrada" FROM "Cliente"
+          WHERE id = ${id} AND ("conversaExcluidaEm" IS NULL OR "ultimaMensagemEm" IS NOT NULL)
+          FOR UPDATE
+        `;
+        if (!cliente) throw new Error('Conversa indisponível para exclusão.');
+        const enviando = await tx.mensagemWhatsApp.findFirst({
+          where: { clienteId: id, status: 'ENVIANDO' }, select: { id: true },
+        });
+        if (enviando) throw new Error('Aguarde o envio em andamento e tente novamente.');
+        await tx.cliente.update({
+          where: { id },
+          data: {
+            conversaExcluidaEm: new Date(), ultimaMensagemEm: null, versaoEntradaExcluida: cliente.versaoEntrada,
+            versaoMensagens: { increment: 1 },
+          },
+        });
+        await tx.mensagemWhatsApp.deleteMany({ where: { clienteId: id } });
+      }, { timeout: 15000 });
+      return { sucesso: true, mensagem: 'Conversa excluída.' };
     } else if (acao === 'criarEtiqueta') {
       if (usuario.role !== 'ADMIN') throw new Error('Somente administradores podem criar etiquetas.');
       await prisma.etiqueta.create({ data: { nome: validarTexto(form.get('nome'), 40).toLocaleLowerCase('pt-BR') } });

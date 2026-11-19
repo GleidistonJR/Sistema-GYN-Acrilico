@@ -18,11 +18,11 @@ export async function GET(request: Request) {
   const tag = etiqueta ? Prisma.sql`AND EXISTS (SELECT 1 FROM "ClienteEtiqueta" e WHERE e."clienteId" = c.id AND e."etiquetaId" = ${etiqueta})` : Prisma.empty;
   const clientes = await prisma.$queryRaw<Array<{ id: string; nome: string; telefone: string | null; responsavelId: string | null; naoLida: boolean; responsavelNome: string | null }>>(Prisma.sql`
     SELECT c.id, c.nome, c.telefone, c."responsavelId", COALESCE(NULLIF(u.apelido, ''), co.nome, u.email) AS "responsavelNome",
-      (c."versaoEntrada" > COALESCE(l.versao, 0)) AS "naoLida"
+      (c."versaoEntrada" > GREATEST(COALESCE(l.versao, 0), c."versaoEntradaExcluida")) AS "naoLida"
     FROM "Cliente" c LEFT JOIN "LeituraConversa" l ON l."clienteId" = c.id AND l."userId" = ${usuario.id}
     LEFT JOIN "User" u ON u.id = c."responsavelId"
     LEFT JOIN "Colaborador" co ON co."userId" = u.id
-    WHERE ${scope} ${search} ${tag}
+    WHERE (c."conversaExcluidaEm" IS NULL OR c."ultimaMensagemEm" IS NOT NULL) AND ${scope} ${search} ${tag}
     ORDER BY c."ultimaMensagemEm" DESC NULLS LAST, c.nome, c.id LIMIT 51 OFFSET ${(pagina - 1) * 50}
   `);
   return Response.json({ clientes: clientes.slice(0, 50), temMais: clientes.length > 50 }, { headers: privado });

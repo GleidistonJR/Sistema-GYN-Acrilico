@@ -3,7 +3,7 @@
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Search, Plus, UserRound, MessageCircle, Tags, Settings2, X, ChevronLeft, ChevronRight, SlidersHorizontal } from 'lucide-react';
+import { Search, Plus, UserRound, MessageCircle, Tags, Settings2, X, ChevronLeft, ChevronRight, SlidersHorizontal, MoreVertical } from 'lucide-react';
 import Formulario from './Formulario';
 import { alterarAtendimento } from './actions';
 import AvatarContato from './AvatarContato';
@@ -39,7 +39,9 @@ export default function PainelAtendimento({ usuario, etiquetas, filaInicial, cli
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState('');
   const [online, setOnline] = useState(false);
-  const [modal, setModal] = useState<'cliente' | 'etiqueta' | 'detalhes' | 'apelido' | null>(null);
+  const [modal, setModal] = useState<'cliente' | 'etiqueta' | 'detalhes' | 'apelido' | 'excluir' | null>(null);
+  const [menuConversa, setMenuConversa] = useState<string | null>(null);
+  const [clienteParaExcluir, setClienteParaExcluir] = useState<Cliente | null>(null);
   const [detalhes, setDetalhes] = useState<Detalhes | null>(null);
   const [erroDetalhes, setErroDetalhes] = useState('');
   const entrada = useRef(clienteInicial);
@@ -72,6 +74,14 @@ export default function PainelAtendimento({ usuario, etiquetas, filaInicial, cli
     url.searchParams.set('cliente', clienteCriadoId);
     window.location.replace(url);
   }, []);
+  const concluirExclusao = useCallback(() => {
+    if (!clienteParaExcluir) return;
+    setClientes(atuais => atuais.filter(c => c.id !== clienteParaExcluir.id));
+    if (selectedId === clienteParaExcluir.id) escolher(null);
+    setModal(null);
+    setClienteParaExcluir(null);
+    window.dispatchEvent(new Event('atendimento:atualizar'));
+  }, [clienteParaExcluir, selectedId, escolher]);
   async function alterarResponsabilidade(acao: 'assumir' | 'desatribuir') {
     const cliente = selecionado;
     if (!cliente || (acao === 'assumir' ? !!cliente.responsavelId : cliente.responsavelId !== usuario.id)) return;
@@ -191,13 +201,31 @@ export default function PainelAtendimento({ usuario, etiquetas, filaInicial, cli
         {erro && <p role="alert" className="px-5 py-3 text-xs text-amber-300">{erro}</p>}
         {carregando && <p className="p-8 text-center text-sm text-[#8696a0]">Carregando clientes…</p>}
         {!carregando && !clientes.length && <p className="p-8 text-center text-sm text-[#8696a0]">Nenhum cliente nesta lista.</p>}
-        {clientes.map(c => <button key={c.id} data-cliente-id={c.id} onClick={() => escolher(c)} aria-label={`Conversar com ${c.nome}${c.naoLida ? ', mensagens não lidas' : ''}`} aria-current={selecionado?.id === c.id ? 'true' : undefined}
-          className={`flex w-full items-center gap-3 px-4 py-4 text-left transition-colors focus-visible:outline-2 focus-visible:outline-emerald-400 ${selecionado?.id === c.id ? 'bg-[#2a3942]' : 'hover:bg-[#202c33]'}`}>
+        {clientes.map(c => <div key={c.id} className={selecionado?.id === c.id ? 'bg-[#2a3942]' : 'hover:bg-[#202c33]'}>
+          <div className="flex items-center">
+          <button data-cliente-id={c.id} onClick={() => { setMenuConversa(null); escolher(c); }} aria-label={`Conversar com ${c.nome}${c.naoLida ? ', mensagens não lidas' : ''}`} aria-current={selecionado?.id === c.id ? 'true' : undefined}
+          className="flex min-w-0 flex-1 items-center gap-3 px-4 py-4 text-left focus-visible:outline-2 focus-visible:outline-emerald-400">
           <AvatarContato nome={c.nome} url={fotos[c.id]} />
           <span className="min-w-0 flex-1"><span className={`block truncate text-[15px] ${c.naoLida ? 'font-semibold text-white' : 'text-[#e9edef]'}`}>{c.nome}</span><span className="mt-1 block truncate text-xs text-[#8696a0]">{c.telefone || 'Contato do WhatsApp'}</span></span>
           {c.responsavelId && <span role="img" title={`Responsável: ${c.responsavelNome || 'Atribuído'}`} aria-label={`Responsável: ${c.responsavelNome || 'Atribuído'}`} className={`shrink-0 ${c.responsavelId === usuario.id ? 'text-emerald-400' : 'text-red-400'}`}><UserRound size={17} /></span>}
           {c.naoLida && <span role="img" aria-label="Mensagens não lidas" className="size-2.5 shrink-0 rounded-full bg-[#00d084]" />}
-        </button>)}
+          </button>
+          {usuario.role === 'ADMIN' && <button type="button" aria-label={`Opções da conversa com ${c.nome}`}
+            aria-expanded={menuConversa === c.id} onClick={() => setMenuConversa(atual => atual === c.id ? null : c.id)}
+            className="mr-2 shrink-0 rounded-md p-2 text-[#aebac1] hover:bg-white/10">
+            <MoreVertical size={18} />
+          </button>}
+          </div>
+          {usuario.role === 'ADMIN' && menuConversa === c.id && <div className="flex justify-end px-3 pb-2">
+            <button type="button" onClick={() => {
+              setMenuConversa(null);
+              setClienteParaExcluir(c);
+              setModal('excluir');
+            }} className="rounded-md bg-[#202c33] px-3 py-2 text-sm text-red-300 hover:bg-white/10">
+              Excluir conversa
+            </button>
+          </div>}
+        </div>)}
       </div>
       <div className="flex h-14 shrink-0 items-center justify-between border-t border-white/10 px-4 text-[#8696a0]">
         <div className="flex items-center gap-3"><button disabled={pagina === 1} onClick={() => setPagina(p => p - 1)} aria-label="Página anterior" className="rounded p-1 disabled:opacity-25"><ChevronLeft size={18} /></button><span className="text-xs">{pagina}</span><button disabled={!mais} onClick={() => setPagina(p => p + 1)} aria-label="Próxima página" className="rounded p-1 disabled:opacity-25"><ChevronRight size={18} /></button></div>
@@ -207,7 +235,12 @@ export default function PainelAtendimento({ usuario, etiquetas, filaInicial, cli
     <main className={`${selecionado ? 'flex' : 'hidden md:flex'} min-h-0 min-w-0 flex-1 flex-col`}>
       {selecionado ? <Conversa key={selecionado.id} cliente={selecionado} onAssumir={!selecionado.responsavelId ? () => alterarResponsabilidade('assumir') : undefined} onDesatribuir={selecionado.responsavelId === usuario.id ? () => alterarResponsabilidade('desatribuir') : undefined} onVoltar={() => escolher(null)} onDetalhes={abrirDetalhes} onLida={marcarLida} /> : <div className="flex h-full flex-col items-center justify-center border-b-4 border-[#00a884] bg-[#222e35] p-8 text-center"><div className="mb-6 rounded-full bg-[#2a3942] p-7"><MessageCircle size={56} strokeWidth={1.2} className="text-[#00a884]" /></div><h2 className="text-2xl font-light text-[#e9edef]">Suas conversas, em um só lugar</h2><p className="mt-3 max-w-sm text-sm leading-relaxed text-[#8696a0]">Selecione um cliente à esquerda para conversar.<br />A bolinha verde indica mensagens ainda não visualizadas.</p></div>}
     </main>
-    {modal && <Dialogo titulo={modal === 'apelido' ? 'Meu apelido' : modal === 'cliente' ? 'Novo cliente' : modal === 'etiqueta' ? 'Nova etiqueta' : 'Organizar cliente'} fechar={() => setModal(null)}>
+    {modal && <Dialogo titulo={modal === 'apelido' ? 'Meu apelido' : modal === 'cliente' ? 'Novo cliente' : modal === 'etiqueta' ? 'Nova etiqueta' : modal === 'excluir' ? 'Excluir conversa' : 'Organizar cliente'} fechar={() => setModal(null)}>
+      {modal === 'excluir' && clienteParaExcluir && <Formulario acao="excluirConversa" clienteId={clienteParaExcluir.id}
+        botao="Excluir conversa" aoSalvar={concluirExclusao}>
+        <p className="text-sm">Excluir o histórico de <strong>{clienteParaExcluir.nome}</strong> para todos os operadores? Essa ação é permanente no sistema.</p>
+        <p className="text-sm text-slate-600">O contato permanece cadastrado. Uma nova mensagem do WhatsApp reabre a conversa.</p>
+      </Formulario>}
       {modal === 'apelido' && <Formulario acao="meuApelido" botao="Salvar apelido">
         <label className="block text-sm">Apelido para o cliente<input name="apelido" required maxLength={40} defaultValue={usuario.apelido || 'Atendimento'} className={campo} autoFocus autoComplete="nickname" placeholder="Ex.: Junior" /></label>
         <p className="text-xs text-slate-500">Nas próximas mensagens, seu apelido aparecerá em negrito acima do texto. Vale para textos e legendas de imagens/PDFs; áudios não recebem cabeçalho.</p>

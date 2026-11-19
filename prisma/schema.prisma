@@ -123,6 +123,8 @@ model Cliente {
   identidades IdentidadeWhatsApp[]
   foto FotoContato?
   ultimaMensagemEm DateTime?
+  conversaExcluidaEm DateTime?
+  versaoEntradaExcluida BigInt @default(0)
   versaoEntrada BigInt @default(0)
   versaoMensagens BigInt @default(0)
   leituras LeituraConversa[]

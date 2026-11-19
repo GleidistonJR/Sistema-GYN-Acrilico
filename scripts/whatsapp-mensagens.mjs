@@ -99,12 +99,12 @@ export function criarServicoMensagens({ prisma, client, conta, ativo, retryDelay
       ...(message.hasQuotedMsg ? { citacao: await obterCitacao(message) } : {}),
     };
     const media = metadadosMidia(message);
-    // A batch stays atomic without an interactive transaction's five-second deadline.
-    // Slow attachment uploads must not roll back a successfully received message.
-    await prisma.$transaction([
-      prisma.mensagemWhatsApp.upsert({ where: { conta_externaId: external }, create: { ...data, ...(media ? { midia: { create: media } } : {}) }, update: {} }),
-      prisma.cliente.updateMany({ where: { id: clienteId, OR: [{ ultimaMensagemEm: null }, { ultimaMensagemEm: { lt: enviadoEm } }] }, data: { ultimaMensagemEm: enviadoEm } }),
-    ]);
+    await prisma.$transaction(async tx => {
+      const [cliente] = await tx.$queryRaw`SELECT "conversaExcluidaEm" FROM "Cliente" WHERE id = ${clienteId} FOR UPDATE`;
+      if (!cliente || (cliente.conversaExcluidaEm && enviadoEm <= cliente.conversaExcluidaEm)) return;
+      await tx.mensagemWhatsApp.upsert({ where: { conta_externaId: external }, create: { ...data, ...(media ? { midia: { create: media } } : {}) }, update: {} });
+      await tx.cliente.updateMany({ where: { id: clienteId, OR: [{ ultimaMensagemEm: null }, { ultimaMensagemEm: { lt: enviadoEm } }] }, data: { ultimaMensagemEm: enviadoEm } });
+    }, { timeout: 15000 });
   }
 
   async function confirmar(message, ack) {
@@ -150,6 +150,7 @@ export function criarServicoMensagens({ prisma, client, conta, ativo, retryDelay
     const known = new Map(existing.map(m => [m.externaId, m]));
     for (const message of messages) {
       if (stopped) return;
+      if (cliente.conversaExcluidaEm && message.timestamp * 1000 <= +cliente.conversaExcluidaEm) continue;
       const previous = known.get(message.id._serialized);
       if (previous && !(metadadosMidia(message) && !previous.midia) && !(message.hasQuotedMsg && !previous.citacao) && (!message.fromMe || (message.ack >= 0 && message.ack <= previous.ack))) continue;
       // Yield between history items so newly arriving messages are never stuck behind the whole import.

@@ -6,7 +6,7 @@ export async function acessoConversa(clienteId: string) {
   const usuario = await obterUsuarioSessao();
   if (!usuario || !['ADMIN', 'USER'].includes(usuario.role)) return null;
   const cliente = await prisma.cliente.findUnique({ where: { id: clienteId } });
-  return cliente ? { usuario, cliente } : null;
+  return cliente && (!cliente.conversaExcluidaEm || cliente.ultimaMensagemEm) ? { usuario, cliente } : null;
 }
 
 export const privado = { 'Cache-Control': 'private, no-store', Vary: 'Cookie' };

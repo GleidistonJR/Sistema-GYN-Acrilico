@@ -89,7 +89,10 @@ export async function POST(request: Request, { params }: Contexto) {
     const original = responderId ? await prisma.mensagemWhatsApp.findFirst({ where: { id: responderId, clienteId: id, conta: estado.numero, externaId: { not: null } }, select: { externaId: true, texto: true, tipo: true, direcao: true } }) : null;
     if (responderId && !original) return json({ erro: 'A mensagem citada não está disponível nesta conversa ou ainda não foi enviada.' }, 400);
     const mensagem = await prisma.$transaction(async tx => {
-      const allowed = await tx.cliente.updateMany({ where: { id }, data: { ultimaMensagemEm: new Date() } });
+      const allowed = await tx.cliente.updateMany({
+        where: { id, conversaExcluidaEm: acesso.cliente.conversaExcluidaEm },
+        data: { ultimaMensagemEm: new Date() },
+      });
       if (!allowed.count) throw new Error('Cliente não disponível. Atualize a conversa.');
       const criada = await tx.mensagemWhatsApp.create({ data: {
         clienteId: id, conta: estado.numero!, pedidoId, conteudoHash, autorId: acesso.usuario.id,
