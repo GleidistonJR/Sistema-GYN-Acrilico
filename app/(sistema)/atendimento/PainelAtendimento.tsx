@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Search, Plus, UserRound, MessageCircle, Tags, Settings2, X, ChevronLeft, ChevronRight, SlidersHorizontal, MoreVertical } from 'lucide-react';
 import Formulario from './Formulario';
 import GerenciarEtiquetas from './GerenciarEtiquetas';
+import EtiquetasCliente from './EtiquetasCliente';
 import { alterarAtendimento } from './actions';
 import AvatarContato from './AvatarContato';
 import { useFotosContatos } from './useFotosContatos';
@@ -45,6 +46,7 @@ export default function PainelAtendimento({ usuario, etiquetas: etiquetasIniciai
   const [menuConversa, setMenuConversa] = useState<string | null>(null);
   const [clienteParaExcluir, setClienteParaExcluir] = useState<Cliente | null>(null);
   const [detalhes, setDetalhes] = useState<Detalhes | null>(null);
+  const [clienteDetalhesId, setClienteDetalhesId] = useState<string | null>(null);
   const [erroDetalhes, setErroDetalhes] = useState('');
   const entrada = useRef(clienteInicial);
   const requestId = useRef(0);
@@ -180,13 +182,17 @@ export default function PainelAtendimento({ usuario, etiquetas: etiquetasIniciai
   }, []);
 
   useEffect(() => {
-    if (modal !== 'detalhes' || !selectedId) return;
-    const controller = new AbortController();
+    if (modal !== 'detalhes' || !clienteDetalhesId) return;
+    let requisicao: AbortController;
     const load = async () => {
+      requisicao?.abort();
+      const controller = new AbortController();
+      requisicao = controller;
       try {
-        const r = await fetch(`/api/atendimento/${selectedId}/detalhes`, { signal: controller.signal, cache: 'no-store' });
+        const r = await fetch(`/api/atendimento/${clienteDetalhesId}/detalhes`, { signal: controller.signal, cache: 'no-store' });
         if (!r.ok) throw new Error('Não foi possível carregar este cliente.');
         const data = await r.json();
+        if (controller.signal.aborted) return;
         setDetalhes(data); setErroDetalhes('');
         setSelecionado(atual => atual?.id === data.cliente.id ? { ...atual, ...data.cliente } : atual);
       } catch { if (!controller.signal.aborted) setErroDetalhes('Não foi possível carregar este cliente.'); }
@@ -194,12 +200,16 @@ export default function PainelAtendimento({ usuario, etiquetas: etiquetasIniciai
     void load();
     const refresh = () => { void load(); };
     window.addEventListener('atendimento:atualizar', refresh);
-    return () => { controller.abort(); window.removeEventListener('atendimento:atualizar', refresh); };
-  }, [modal, selectedId]);
+    return () => { requisicao?.abort(); window.removeEventListener('atendimento:atualizar', refresh); };
+  }, [modal, clienteDetalhesId]);
 
-  function abrirDetalhes() { setDetalhes(null); setErroDetalhes(''); setModal('detalhes'); }
-  const disponiveis = detalhes?.etiquetas.filter(item => !detalhes.selecionadas.includes(item.id)) ?? [];
-  const aplicadas = detalhes?.etiquetas.filter(item => detalhes.selecionadas.includes(item.id)) ?? [];
+  function abrirDetalhes(clienteId: string) {
+    setMenuConversa(null);
+    setClienteDetalhesId(clienteId);
+    setDetalhes(null);
+    setErroDetalhes('');
+    setModal('detalhes');
+  }
 
   return <div className="flex h-[calc(100dvh-4rem)] min-h-0 overflow-hidden bg-background text-foreground">
     <aside aria-label="Lista de clientes" className={`${selecionado ? 'hidden md:flex' : 'flex'} w-full shrink-0 flex-col border-r border-line bg-background md:w-[320px] lg:w-[360px] xl:w-[390px]`}>
@@ -232,20 +242,24 @@ export default function PainelAtendimento({ usuario, etiquetas: etiquetasIniciai
           {c.responsavelId && <span role="img" title={`Responsável: ${c.responsavelNome || 'Atribuído'}`} aria-label={`Responsável: ${c.responsavelNome || 'Atribuído'}`} className={`shrink-0 ${c.responsavelId === usuario.id ? 'text-success-ink' : 'text-danger-ink'}`}><UserRound size={17} /></span>}
           {c.naoLida && <span role="img" aria-label="Mensagens não lidas" className="size-2.5 shrink-0 rounded-full bg-success-ink" />}
           </button>
-          {usuario.role === 'ADMIN' && <button type="button" aria-label={`Opções da conversa com ${c.nome}`}
+          <button type="button" aria-label={`Opções da conversa com ${c.nome}`}
             aria-expanded={menuConversa === c.id} onClick={() => setMenuConversa(atual => atual === c.id ? null : c.id)}
             className="mr-2 shrink-0 rounded-md p-2 text-secondary hover:bg-foreground/10">
             <MoreVertical size={18} />
-          </button>}
+          </button>
           </div>
-          {usuario.role === 'ADMIN' && menuConversa === c.id && <div className="flex justify-end px-3 pb-2">
-            <button type="button" onClick={() => {
+          {menuConversa === c.id && <div className="flex flex-wrap justify-end gap-2 px-3 pb-2">
+            <button type="button" onClick={() => abrirDetalhes(c.id)}
+              className="rounded-md bg-surface px-3 py-2 text-sm text-primary-ink hover:bg-foreground/10">
+              Organizar cliente
+            </button>
+            {usuario.role === 'ADMIN' && <button type="button" onClick={() => {
               setMenuConversa(null);
               setClienteParaExcluir(c);
               setModal('excluir');
             }} className="rounded-md bg-surface px-3 py-2 text-sm text-danger-ink hover:bg-foreground/10">
               Excluir conversa
-            </button>
+            </button>}
           </div>}
         </div>)}
       </div>
@@ -255,7 +269,7 @@ export default function PainelAtendimento({ usuario, etiquetas: etiquetasIniciai
       </div>
     </aside>
     <main className={`${selecionado ? 'flex' : 'hidden md:flex'} min-h-0 min-w-0 flex-1 flex-col`}>
-      {selecionado ? <Conversa key={selecionado.id} cliente={selecionado} onAssumir={selecionado.responsavelId !== usuario.id ? () => alterarResponsabilidade('assumir') : undefined} onDesatribuir={selecionado.responsavelId === usuario.id ? () => alterarResponsabilidade('desatribuir') : undefined} onVoltar={() => escolher(null)} onDetalhes={abrirDetalhes} onLida={marcarLida} /> : <div className="flex h-full flex-col items-center justify-center border-b-4 border-chat-action bg-surface-soft p-8 text-center"><div className="mb-6 rounded-full bg-surface-muted p-7"><MessageCircle size={56} strokeWidth={1.2} className="text-chat-action" /></div><h2 className="text-2xl font-light text-foreground">Suas conversas, em um só lugar</h2><p className="mt-3 max-w-sm text-sm leading-relaxed text-muted">Selecione um cliente à esquerda para conversar.<br />A bolinha verde indica mensagens ainda não visualizadas.</p></div>}
+      {selecionado ? <Conversa key={selecionado.id} cliente={selecionado} onAssumir={selecionado.responsavelId !== usuario.id ? () => alterarResponsabilidade('assumir') : undefined} onDesatribuir={selecionado.responsavelId === usuario.id ? () => alterarResponsabilidade('desatribuir') : undefined} onVoltar={() => escolher(null)} onDetalhes={() => abrirDetalhes(selecionado.id)} onLida={marcarLida} /> : <div className="flex h-full flex-col items-center justify-center border-b-4 border-chat-action bg-surface-soft p-8 text-center"><div className="mb-6 rounded-full bg-surface-muted p-7"><MessageCircle size={56} strokeWidth={1.2} className="text-chat-action" /></div><h2 className="text-2xl font-light text-foreground">Suas conversas, em um só lugar</h2><p className="mt-3 max-w-sm text-sm leading-relaxed text-muted">Selecione um cliente à esquerda para conversar.<br />A bolinha verde indica mensagens ainda não visualizadas.</p></div>}
     </main>
     {modal && <Dialogo titulo={modal === 'apelido' ? 'Meu apelido' : modal === 'cliente' ? 'Novo cliente' : modal === 'etiqueta' ? 'Gerenciar etiquetas' : modal === 'excluir' ? 'Excluir conversa' : 'Organizar cliente'} fechar={() => setModal(null)}>
       {modal === 'excluir' && clienteParaExcluir && <Formulario acao="excluirConversa" clienteId={clienteParaExcluir.id}
@@ -277,16 +291,15 @@ export default function PainelAtendimento({ usuario, etiquetas: etiquetasIniciai
           <label className="block text-sm">Nome do contato<input name="nome" required maxLength={120} defaultValue={detalhes.cliente.nome} className={campo} autoComplete="off" /></label>
           <p className="text-xs text-muted">Este nome será exibido para todos os usuários com acesso ao contato.</p>
         </Formulario>
-        {!!disponiveis.length && <Formulario acao="etiquetar" clienteId={detalhes.cliente.id} botao="Adicionar etiqueta">
-          <label className="block text-sm">Etiqueta<select name="etiquetaId" className={campo}>
-            {disponiveis.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}
-          </select></label>
-        </Formulario>}
-        {!!aplicadas.length && <Formulario acao="removerEtiqueta" clienteId={detalhes.cliente.id} botao="Remover etiqueta">
-          <label className="block text-sm">Etiqueta atual<select name="etiquetaId" className={campo}>
-            {aplicadas.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}
-          </select></label>
-        </Formulario>}
+        <EtiquetasCliente key={detalhes.cliente.id} clienteId={detalhes.cliente.id}
+          etiquetas={detalhes.etiquetas} selecionadas={detalhes.selecionadas}
+          aoSalvar={(etiquetaId, marcada) => setDetalhes(atual => {
+            if (atual?.cliente.id !== detalhes.cliente.id) return atual;
+            const selecionadas = new Set(atual.selecionadas);
+            if (marcada) selecionadas.add(etiquetaId);
+            else selecionadas.delete(etiquetaId);
+            return { ...atual, selecionadas: [...selecionadas] };
+          })} />
         <Formulario acao="transferir" clienteId={detalhes.cliente.id} botao="Alterar responsável">
           <input type="hidden" name="responsavelAtualId" value={detalhes.cliente.responsavelId ?? ''} />
           <label className="block text-sm">Responsável

@@ -9,6 +9,7 @@ const base = process.env.TEST_BASE_URL || 'http://localhost:3000';
 const db = new PrismaClient();
 const [ana, maria, recepcao, clienteId, etiquetaId] = Array.from({ length: 5 }, () => randomUUID());
 const nome = 'Conversa de teste ' + clienteId;
+const nomeEtiqueta = 'Retirada na Recepção ' + etiquetaId.slice(0, 8);
 const conta = 'fluxo-etiqueta-' + randomUUID();
 const tokens = [ana, maria, recepcao].map(() => randomBytes(32).toString('hex'));
 const linha = `[data-cliente-id="${clienteId}"]`;
@@ -26,6 +27,14 @@ async function abrirPainel(indice, params) {
 async function detalhes(page) {
   await page.bringToFront();
   await page.locator('button[aria-label="Organizar cliente"]').click();
+  await page.waitForSelector(modal + ' select[name="responsavelId"]');
+}
+
+async function detalhesPelaLista(page) {
+  await page.bringToFront();
+  await page.locator(`button[aria-label="Opções da conversa com ${nome}"]`).click();
+  assert.equal(await page.$('::-p-text(Excluir conversa)'), null);
+  await page.locator('::-p-text(Organizar cliente)').click();
   await page.waitForSelector(modal + ' select[name="responsavelId"]');
 }
 
@@ -49,27 +58,29 @@ try {
     } });
   }
   await db.cliente.create({ data: { id: clienteId, nome, responsavelId: ana, ultimaMensagemEm: new Date() } });
-  await db.etiqueta.create({ data: { id: etiquetaId, nome: 'etiqueta teste ' + etiquetaId.slice(0, 16) } });
+  await db.etiqueta.create({ data: { id: etiquetaId, nome: nomeEtiqueta } });
   browser = await puppeteer.launch({ headless: true, executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe' });
   const painelRecepcao = await abrirPainel(2, { fila: 'todos', etiqueta: etiquetaId });
   await painelRecepcao.waitForFunction(() => document.querySelector('select[aria-label="Etiqueta"]')?.value !== '');
   assert.equal(await painelRecepcao.$(linha), null);
 
-  const painelMaria = await abrirPainel(1, { fila: 'todos', cliente: clienteId });
-  await detalhes(painelMaria);
-  await painelMaria.select(modal + ' form:has(input[value="etiquetar"]) select', etiquetaId);
-  await painelMaria.locator('::-p-text(Adicionar etiqueta)').click();
-  await painelMaria.waitForSelector(modal + ' form:has(input[value="removerEtiqueta"])');
+  const painelMaria = await abrirPainel(1, { fila: 'todos' });
+  await detalhesPelaLista(painelMaria);
+  assert.equal(new URL(painelMaria.url()).searchParams.has('cliente'), false);
+  const checkbox = modal + ' label::-p-text(' + nomeEtiqueta + ')';
+  const campo = modal + ' label:has(span) input[type="checkbox"]';
+  await painelMaria.locator(checkbox).click();
+  await painelMaria.waitForFunction((selector, nome) => [...document.querySelectorAll(selector)].some(el =>
+    el.labels[0]?.textContent.trim() === nome && el.checked && !el.disabled), {}, campo, nomeEtiqueta);
+  await painelMaria.keyboard.press('Escape');
   assert.equal((await db.cliente.findUniqueOrThrow({ where: { id: clienteId } })).responsavelId, ana);
 
   await painelRecepcao.bringToFront();
   await painelRecepcao.waitForSelector(linha);
   await painelRecepcao.reload({ waitUntil: 'domcontentloaded' });
   await painelRecepcao.waitForSelector(linha);
-  await painelRecepcao.locator(linha).click();
-  await detalhes(painelRecepcao);
-  await painelRecepcao.select(modal + ' form:has(input[value="removerEtiqueta"]) select', etiquetaId);
-  await painelRecepcao.locator('::-p-text(Remover etiqueta)').click();
+  await detalhesPelaLista(painelRecepcao);
+  await painelRecepcao.locator(checkbox).click();
   await painelRecepcao.waitForSelector(linha, { hidden: true });
   assert.equal((await db.cliente.findUniqueOrThrow({ where: { id: clienteId } })).responsavelId, ana);
 
@@ -91,7 +102,7 @@ try {
   await painelAna.locator('button[aria-label="Assumir cliente"]').click();
   await painelAna.waitForSelector('button[aria-label="Desatribuir cliente"]');
   await painelMaria.bringToFront();
-  await painelMaria.keyboard.press('Escape');
+  await painelMaria.locator(linha).click();
   await repassar(painelMaria, null);
   const historico = await db.atribuicaoCliente.findMany({ where: { clienteId }, orderBy: { createdAt: 'asc' } });
   assert.deepEqual(historico.map(item => [item.atorId, item.anteriorId, item.novoId]), [

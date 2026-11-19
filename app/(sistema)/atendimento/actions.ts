@@ -61,7 +61,8 @@ export async function alterarAtendimento(_anterior: Resultado, form: FormData): 
         await prisma.etiqueta.delete({ where: { id } });
         return { sucesso: true, mensagem: 'Etiqueta excluída.' };
       }
-      const nome = validarTexto(form.get('nome'), 40).toLocaleLowerCase('pt-BR');
+      const valor = form.get('nome');
+      const nome = validarTexto(typeof valor === 'string' ? valor.normalize('NFC') : valor, 40);
       if (acao === 'criarEtiqueta') {
         await prisma.etiqueta.create({ data: { nome } });
         return { sucesso: true, mensagem: 'Etiqueta criada.' };
