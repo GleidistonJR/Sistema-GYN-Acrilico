@@ -27,11 +27,11 @@ export default function RegistroPonto() {
     }
   }
 
-  const buttonEstilo = "bg-[#0A2540] text-white hover:bg-[#0f3a6b] hover:cursor-pointer"
+  const buttonEstilo = "bg-primary text-white hover:bg-primary-hover hover:cursor-pointer"
 
   return (
     <section className="px-4 py-6 sm:py-10">
-      <h1 className='text-3xl sm:text-5xl py-5 text-center text-gray-700 font-bold'>Registrar Ponto</h1>
+      <h1 className='text-3xl sm:text-5xl py-5 text-center text-secondary font-bold'>Registrar Ponto</h1>
 
       <div className='text-center text-2xl sm:text-3xl w-full max-w-100 mx-auto'>
 
@@ -39,7 +39,7 @@ export default function RegistroPonto() {
           format="###.###.###-##"
           mask="_"
           placeholder="000.000.000-00"
-          className='border rounded mb-5 text-black p-2 w-full'
+          className='border rounded mb-5 text-foreground p-2 w-full'
           value={cpf}
           // values é um objeto que contém 'value' (apenas números) e 'formattedValue' (com máscara)
           onValueChange={(values) => {
@@ -57,7 +57,7 @@ export default function RegistroPonto() {
         </button>
 
         {mensagem && (
-          <p className="mt-4 text-gray-700 font-bold">{mensagem}</p>
+          <p className="mt-4 text-secondary font-bold">{mensagem}</p>
         )}
       </div>
     </section>

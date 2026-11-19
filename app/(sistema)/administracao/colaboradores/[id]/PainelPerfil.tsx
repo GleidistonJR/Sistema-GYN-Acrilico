@@ -123,25 +123,25 @@ export default function PainelPerfil({
   return (
     <>
       {/* ---------------- INTERFACE DO SISTEMA ---------------- */}
-      <div className="bg-gray-200">
-        <section className="bg-white p-4 sm:p-10 w-full max-w-5xl xl:max-w-3/4 mx-auto text-gray-700 print:hidden">
+      <div className="bg-surface-hover">
+        <section className="bg-surface p-4 sm:p-10 w-full max-w-5xl xl:max-w-3/4 mx-auto text-secondary print:hidden">
           <div className="flex flex-col lg:flex-row justify-between items-center mb-6 gap-4 border-b pb-4">
             <div className="text-center lg:text-left">
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Relatorio de Pontos</h1>
-              <p className="text-sm text-gray-500 mt-1">Gestão de assiduidade, abonos médicos e banco de horas</p>
+              <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Relatorio de Pontos</h1>
+              <p className="text-sm text-muted mt-1">Gestão de assiduidade, abonos médicos e banco de horas</p>
             </div>
             <div className="flex flex-wrap items-center justify-center gap-3 w-full lg:w-auto">
               {role === "ADMIN" &&
                 <BotaoImprimir />
               }
-              <form method="GET" className="flex flex-wrap items-center gap-2 bg-white p-2 rounded-lg border shadow-sm w-full sm:w-auto justify-center">
-                <label htmlFor="mes" className="text-xs font-semibold uppercase text-gray-500 tracking-wider pl-1">Período:</label>
+              <form method="GET" className="flex flex-wrap items-center gap-2 bg-surface p-2 rounded-lg border shadow-sm w-full sm:w-auto justify-center">
+                <label htmlFor="mes" className="text-xs font-semibold uppercase text-muted tracking-wider pl-1">Período:</label>
                 <input
                   type="month"
                   id="mes"
                   name="mes"
                   defaultValue={mesInicialValue}
-                  className="min-w-0 max-w-full border rounded px-2 py-2 sm:py-1 text-sm bg-gray-50 focus:outline-blue-500"
+                  className="min-w-0 max-w-full border rounded px-2 py-2 sm:py-1 text-sm bg-surface-soft focus:outline-blue-500"
                 />
                 <button type="submit" className="min-h-11 sm:min-h-0 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-3 py-2 sm:py-1 rounded transition-colors">
                   Buscar
@@ -149,23 +149,23 @@ export default function PainelPerfil({
               </form>
             </div>
           </div>
-          <p className="text-xl sm:text-2xl break-words font-bold text-gray-800 text-center mb-5">{colaborador.nome}</p>
+          <p className="text-xl sm:text-2xl break-words font-bold text-foreground text-center mb-5">{colaborador.nome}</p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mb-8">
-            <div className="min-w-0 break-words bg-white p-4 sm:p-6 rounded-xl shadow-sm border md:col-span-1">
-              <h2 className="text-xs font-bold mb-3 border-b pb-2 text-gray-400 uppercase tracking-wider">Dados do Contrato</h2>
+            <div className="min-w-0 break-words bg-surface p-4 sm:p-6 rounded-xl shadow-sm border md:col-span-1">
+              <h2 className="text-xs font-bold mb-3 border-b pb-2 text-subtle uppercase tracking-wider">Dados do Contrato</h2>
               <p className="mb-1.5 text-sm"><strong>Nome:</strong> {colaborador.nome}</p>
               <p className="mb-1.5 text-sm"><strong>Cargo:</strong> {colaborador.cargo}</p>
               <p className="mb-1.5 text-sm"><strong>CPF:</strong> {colaborador.cpf}</p>
               <p className="text-sm"><strong>Salário Base:</strong> {colaborador.salario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
             </div>
-            <div className="bg-white p-4 sm:p-6 rounded-xl shadow-sm border md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="bg-blue-50/50 p-4 rounded-lg flex flex-col justify-center items-center border border-blue-100">
-                <span className="text-xs font-bold uppercase text-blue-700 tracking-wider text-center">Horas Esperadas no Período</span>
-                <span className="text-2xl sm:text-3xl font-extrabold text-blue-600 mt-2">{formatarMinutos(totalMinutosEsperadosNoMes)}</span>
-                <span className="text-[11px] text-blue-500 text-center mt-1">Carga calculada para {diasConsiderados} dias úteis</span>
+            <div className="bg-surface p-4 sm:p-6 rounded-xl shadow-sm border md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="bg-info-soft/50 p-4 rounded-lg flex flex-col justify-center items-center border border-info-line">
+                <span className="text-xs font-bold uppercase text-info-ink tracking-wider text-center">Horas Esperadas no Período</span>
+                <span className="text-2xl sm:text-3xl font-extrabold text-info-ink mt-2">{formatarMinutos(totalMinutosEsperadosNoMes)}</span>
+                <span className="text-[11px] text-info-ink text-center mt-1">Carga calculada para {diasConsiderados} dias úteis</span>
               </div>
-              <div className={`p-4 rounded-lg flex flex-col justify-center items-center border transition-colors ${saldoMinutosCompleto === 0 ? 'bg-blue-50 border-blue-200 text-blue-800' :
-                isPositivo ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'
+              <div className={`p-4 rounded-lg flex flex-col justify-center items-center border transition-colors ${saldoMinutosCompleto === 0 ? 'bg-info-soft border-info-line text-info-ink' :
+                isPositivo ? 'bg-success-soft border-success-line text-success-ink' : 'bg-danger-soft border-danger-line text-danger-ink'
                 }`}>
                 <span className="text-xs font-bold uppercase tracking-wider text-center">Saldo Real do Banco de Horas</span>
                 <span className="text-2xl sm:text-3xl font-extrabold mt-2">
@@ -177,22 +177,22 @@ export default function PainelPerfil({
               </div>
             </div>
           </div>
-          <h2 className="text-lg sm:text-xl font-bold mb-3 text-gray-800">Indicadores de Frequência do Mês</h2>
+          <h2 className="text-lg sm:text-xl font-bold mb-3 text-foreground">Indicadores de Frequência do Mês</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-8">
-            <div className="bg-white p-4 rounded-xl border shadow-sm border-l-4 border-l-red-500">
-              <span className="text-xs font-bold text-red-700 uppercase block">Dias de Faltas</span>
-              <span className="text-2xl font-extrabold text-red-600 block mt-1">{qtdDiasFaltas} falta(s)</span>
-              <span className="text-[13px] text-gray-500 block mt-1 leading-tight">Dias úteis sem ponto ou atestado médico</span>
+            <div className="bg-surface p-4 rounded-xl border shadow-sm border-l-4 border-l-red-500">
+              <span className="text-xs font-bold text-danger-ink uppercase block">Dias de Faltas</span>
+              <span className="text-2xl font-extrabold text-danger-ink block mt-1">{qtdDiasFaltas} falta(s)</span>
+              <span className="text-[13px] text-muted block mt-1 leading-tight">Dias úteis sem ponto ou atestado médico</span>
             </div>
-            <div className="bg-white p-4 rounded-xl border shadow-sm border-l-4 border-l-purple-500">
-              <span className="text-xs font-bold text-purple-700 uppercase block">Horas Abonadas</span>
-              <span className="text-2xl font-extrabold text-purple-600 block mt-1">{formatarMinutos(totalMinutosAtestado)}</span>
-              <span className="text-[13px] text-gray-500 block mt-1 leading-tight">Tempo justificado por atestados médicos</span>
+            <div className="bg-surface p-4 rounded-xl border shadow-sm border-l-4 border-l-purple-500">
+              <span className="text-xs font-bold text-violet-ink uppercase block">Horas Abonadas</span>
+              <span className="text-2xl font-extrabold text-violet-ink block mt-1">{formatarMinutos(totalMinutosAtestado)}</span>
+              <span className="text-[13px] text-muted block mt-1 leading-tight">Tempo justificado por atestados médicos</span>
             </div>
-            <div className="bg-white p-4 rounded-xl border shadow-sm border-l-4 border-l-emerald-500">
-              <span className="text-xs font-bold text-emerald-700 uppercase block">Dias Justificados</span>
-              <span className="text-2xl font-extrabold text-emerald-600 block mt-1">{qtdDiasJustificados} dia(s)</span>
-              <span className="text-[13px] text-gray-500 block mt-1 leading-tight">Soma de dias trabalhados + dias com atestado</span>
+            <div className="bg-surface p-4 rounded-xl border shadow-sm border-l-4 border-l-emerald-500">
+              <span className="text-xs font-bold text-success-ink uppercase block">Dias Justificados</span>
+              <span className="text-2xl font-extrabold text-success-ink block mt-1">{qtdDiasJustificados} dia(s)</span>
+              <span className="text-[13px] text-muted block mt-1 leading-tight">Soma de dias trabalhados + dias com atestado</span>
             </div>
           </div>
           <TabelaHistoricoPonto
@@ -211,8 +211,8 @@ export default function PainelPerfil({
       <div className="hidden print:block w-full text-black bg-white font-sans p-4 text-[11px]">
         <div className="border border-black p-3 text-center mb-4">
           <h1 className="text-base font-bold uppercase tracking-wide">Goiânia Acrílico Ltda</h1>
-          <p className="text-[9px] font-mono text-gray-600">CNPJ: 23.650.001/0001-87 — Goiânia - GO</p>
-          <div className="mt-2 bg-gray-100 border-t border-b border-black py-1 font-bold text-xs">
+          <p className="text-[9px] font-mono text-secondary">CNPJ: 23.650.001/0001-87 — Goiânia - GO</p>
+          <div className="mt-2 bg-surface-muted border-t border-b border-black py-1 font-bold text-xs">
             ESPELHO DO REGISTRO DE PONTO — PERÍODO: {formatarMesAnoCabecalho(mesInicialValue)}
           </div>
         </div>
@@ -228,7 +228,7 @@ export default function PainelPerfil({
 
         <table className="w-full border-collapse border border-black text-[10px] mb-4">
           <thead>
-            <tr className="bg-gray-100 font-bold border-b border-black">
+            <tr className="bg-surface-muted font-bold border-b border-black">
               <th className="border-r border-black p-1 text-center w-20">Data / Dia</th>
               <th className="border-r border-black p-1 text-left pl-2">Pontos Registrados</th>
               <th className="border-r border-black p-1 text-center w-20">Trabalhado</th>
@@ -244,11 +244,11 @@ export default function PainelPerfil({
                 </td>
                 <td className="border-r border-black p-1 pl-2 font-mono tracking-wider text-[9px]">
                   {j.statusDia === "FERIADO" ? (
-                    <span className="font-sans font-bold text-gray-700">FERIADO / RECESSO OFICIAL</span>
+                    <span className="font-sans font-bold text-secondary">FERIADO / RECESSO OFICIAL</span>
                   ) : j.statusDia === "FALTA" ? (
-                    <span className="font-sans font-bold text-red-600">FALTA NÃO JUSTIFICADA</span>
+                    <span className="font-sans font-bold text-danger-ink">FALTA NÃO JUSTIFICADA</span>
                   ) : j.statusDia === "FOLGA" && j.batidas.length === 0 ? (
-                    <span className="font-sans text-gray-400">SÁBADO / DOMINGO</span>
+                    <span className="font-sans text-subtle">SÁBADO / DOMINGO</span>
                   ) : j.batidas.length > 0 ? (
                     j.batidas.join('   |   ')
                   ) : j.abono > 0 ? (
@@ -269,23 +269,23 @@ export default function PainelPerfil({
           </tbody>
         </table>
 
-        <div className="border border-black p-2 bg-gray-50/50 mb-8 text-[10px]">
-          <h3 className="font-bold uppercase border-b border-black pb-0.5 mb-1.5 text-gray-700">Resumo Acumulado do Período</h3>
+        <div className="border border-black p-2 bg-surface-soft/50 mb-8 text-[10px]">
+          <h3 className="font-bold uppercase border-b border-black pb-0.5 mb-1.5 text-secondary">Resumo Acumulado do Período</h3>
           <div className="grid grid-cols-4 gap-2 text-center font-mono">
             <div>
-              <span className="text-[9px] font-sans block text-gray-500">Dias de Faltas:</span>
+              <span className="text-[9px] font-sans block text-muted">Dias de Faltas:</span>
               <strong className="text-sm">{qtdDiasFaltas} dia(s)</strong>
             </div>
             <div>
-              <span className="text-[9px] font-sans block text-gray-500">Dias Justificados:</span>
+              <span className="text-[9px] font-sans block text-muted">Dias Justificados:</span>
               <strong className="text-sm">{qtdDiasJustificados} dia(s)</strong>
             </div>
             <div>
-              <span className="text-[9px] font-sans block text-gray-500">Total de Horas Abonadas:</span>
+              <span className="text-[9px] font-sans block text-muted">Total de Horas Abonadas:</span>
               <strong className="text-sm">{formatarMinutos(totalMinutosAtestado)}</strong>
             </div>
             <div>
-              <span className="text-[9px] font-sans block text-gray-500">Saldo Líquido do Banco:</span>
+              <span className="text-[9px] font-sans block text-muted">Saldo Líquido do Banco:</span>
               <strong className="text-sm">
                 {saldoMinutosCompleto === 0 ? '0h 00m' : isPositivo ? `+ ${saldoFormatado}` : `- ${saldoFormatado}`}
               </strong>
@@ -297,14 +297,14 @@ export default function PainelPerfil({
           <div className="flex flex-col items-center">
             <div className="w-full border-t border-black my-1"></div>
             <span className="font-bold">{colaborador.nome}</span>
-            <span className="text-[9px] text-gray-500">Assinatura do Funcionário</span>
-            <span className="text-[9px] text-gray-400 mt-1">Data: ____/____/_______</span>
+            <span className="text-[9px] text-muted">Assinatura do Funcionário</span>
+            <span className="text-[9px] text-subtle mt-1">Data: ____/____/_______</span>
           </div>
           <div className="flex flex-col items-center">
             <div className="w-full border-t border-black my-1"></div>
             <span className="font-bold">Goiânia Acrílico Ltda</span>
-            <span className="text-[9px] text-gray-500">Assinatura do Empregador / RH</span>
-            <span className="text-[9px] text-gray-400 mt-1">Data: ____/____/_______</span>
+            <span className="text-[9px] text-muted">Assinatura do Empregador / RH</span>
+            <span className="text-[9px] text-subtle mt-1">Data: ____/____/_______</span>
           </div>
         </div>
       </div>

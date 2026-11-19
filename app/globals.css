@@ -1,22 +1,146 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light;
+  --background: #f4f6f9;
+  --foreground: #142235;
+  --surface: #ffffff;
+  --surface-soft: #f8fafc;
+  --surface-muted: #eef2f6;
+  --surface-hover: #e2e8f0;
+  --surface-strong: #d5dee9;
+  --line: #dbe3ed;
+  --line-strong: #bbc8d8;
+  --secondary: #35465c;
+  --muted: #4b5d73;
+  --subtle: #5a6a7f;
+  --primary: #0a2540;
+  --primary-hover: #0f3a6b;
+  --primary-ink: #0a2540;
+  --info-ink: #174b8d;
+  --info-soft: #e9f2ff;
+  --info-line: #a9c8eb;
+  --success-ink: #146448;
+  --success-soft: #e5f6ed;
+  --success-line: #a3cfb8;
+  --warning-ink: #85410a;
+  --warning-soft: #fff4d9;
+  --warning-line: #e4c57b;
+  --danger-ink: #a12637;
+  --danger-soft: #fdebed;
+  --danger-line: #e3afb6;
+  --violet-ink: #64359a;
+  --violet-soft: #f3ebfc;
+  --violet-line: #cfb7e9;
+  --chat-canvas: #f0ebe3;
+  --chat-outgoing: #d9f2e5;
+  --chat-avatar: #deeee9;
+  --chat-action: #08745e;
+  --chat-dot: #35465c17;
+}
+
+@media screen {
+  :root[data-tema="escuro"] {
+    color-scheme: dark;
+    --background: #101722;
+    --foreground: #edf2f8;
+    --surface: #192331;
+    --surface-soft: #1e2939;
+    --surface-muted: #253244;
+    --surface-hover: #2c3b50;
+    --surface-strong: #3a4c65;
+    --line: #37475c;
+    --line-strong: #54667e;
+    --secondary: #c3cfdf;
+    --muted: #aab9cc;
+    --subtle: #a0b0c4;
+    --primary: #255585;
+    --primary-hover: #31699d;
+    --primary-ink: #bfdbfe;
+    --info-ink: #abd2ff;
+    --info-soft: #182f49;
+    --info-line: #3c6189;
+    --success-ink: #9de1bb;
+    --success-soft: #19372e;
+    --success-line: #3b6857;
+    --warning-ink: #f4cc89;
+    --warning-soft: #3c2d1d;
+    --warning-line: #7d633c;
+    --danger-ink: #ffb2bc;
+    --danger-soft: #422630;
+    --danger-line: #84515e;
+    --violet-ink: #dfc0ff;
+    --violet-soft: #352644;
+    --violet-line: #674b82;
+    --chat-canvas: #0e1822;
+    --chat-outgoing: #154438;
+    --chat-avatar: #264840;
+    --chat-action: #08745e;
+    --chat-dot: #ffffff0c;
+  }
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-soft: var(--surface-soft);
+  --color-surface-muted: var(--surface-muted);
+  --color-surface-hover: var(--surface-hover);
+  --color-surface-strong: var(--surface-strong);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-secondary: var(--secondary);
+  --color-muted: var(--muted);
+  --color-subtle: var(--subtle);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-ink: var(--primary-ink);
+  --color-info-ink: var(--info-ink);
+  --color-info-soft: var(--info-soft);
+  --color-info-line: var(--info-line);
+  --color-success-ink: var(--success-ink);
+  --color-success-soft: var(--success-soft);
+  --color-success-line: var(--success-line);
+  --color-warning-ink: var(--warning-ink);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-line: var(--warning-line);
+  --color-danger-ink: var(--danger-ink);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-line: var(--danger-line);
+  --color-violet-ink: var(--violet-ink);
+  --color-violet-soft: var(--violet-soft);
+  --color-violet-line: var(--violet-line);
+  --color-chat-canvas: var(--chat-canvas);
+  --color-chat-outgoing: var(--chat-outgoing);
+  --color-chat-avatar: var(--chat-avatar);
+  --color-chat-action: var(--chat-action);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
+@layer base {
+  *, ::before, ::after {
+    border-color: var(--line);
+  }
+
+  :where(button, a, input, select, textarea):focus-visible {
+    outline: 2px solid var(--primary-ink);
+    outline-offset: 2px;
+  }
+}
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+@media print {
+  body {
+    background: white;
+    color: black;
+  }
 }
 
 /* Keep long forms usable when the mobile keyboard reduces the viewport. */

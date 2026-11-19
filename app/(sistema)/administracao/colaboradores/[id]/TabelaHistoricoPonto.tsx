@@ -201,34 +201,34 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
     const temRegistroValido = dia.batidasFisicas.length > 0 || dia.atestados.length > 0 || dia.feriados.length > 0;
     const ehDiaFuturo = dia.dataStr > hojeStr;
 
-    let tagStatus = { texto: "Fim de Semana", classe: "bg-gray-100 text-gray-600 border border-gray-200" };
+    let tagStatus = { texto: "Fim de Semana", classe: "bg-surface-muted text-secondary border border-line" };
 
     if (ehDiaFuturo) {
-      tagStatus = { texto: "Não Iniciado", classe: "bg-gray-50 text-gray-400 border border-gray-200 italic font-normal" };
+      tagStatus = { texto: "Não Iniciado", classe: "bg-surface-soft text-subtle border border-line italic font-normal" };
     } else if (ehDiaUtil) {
       if (!temRegistroValido) {
-        tagStatus = { texto: "Falta Sem Justificativa", classe: "bg-red-100 text-red-700 border border-red-300 font-bold" };
+        tagStatus = { texto: "Falta Sem Justificativa", classe: "bg-danger-soft text-danger-ink border border-danger-line font-bold" };
       } else if (dia.feriados.length > 0) {
-        tagStatus = { texto: "Feriado / Recesso", classe: "bg-amber-100 text-amber-800 border border-amber-300 font-semibold" };
+        tagStatus = { texto: "Feriado / Recesso", classe: "bg-warning-soft text-warning-ink border border-warning-line font-semibold" };
       } else {
         if (Math.abs(desvio) <= TOLERANCIA_CLT) {
-          tagStatus = { texto: "Jornada Completa", classe: "bg-blue-50 text-blue-700 border border-blue-200" };
+          tagStatus = { texto: "Jornada Completa", classe: "bg-info-soft text-info-ink border border-info-line" };
         } else if (desvio > TOLERANCIA_CLT) {
-          tagStatus = { texto: `H. Extra (+${formatarMinutos(desvio)})`, classe: "bg-green-50 text-green-700 border border-green-200" };
+          tagStatus = { texto: `H. Extra (+${formatarMinutos(desvio)})`, classe: "bg-success-soft text-success-ink border border-success-line" };
         } else {
-          tagStatus = { texto: `Incompleta (${formatarMinutos(Math.abs(desvio))})`, classe: "bg-red-50 text-red-700 border border-red-200" };
+          tagStatus = { texto: `Incompleta (${formatarMinutos(Math.abs(desvio))})`, classe: "bg-danger-soft text-danger-ink border border-danger-line" };
         }
       }
     } else {
       if (dia.feriados.length > 0) {
-        tagStatus = { texto: "Feriado no FDS", classe: "bg-amber-100 text-amber-800 border border-amber-300" };
+        tagStatus = { texto: "Feriado no FDS", classe: "bg-warning-soft text-warning-ink border border-warning-line" };
       } else if (totalCompensado > 0) {
-        tagStatus = { texto: `H. Extra FDS (+${formatarMinutos(totalCompensado)})`, classe: "bg-green-50 text-green-700 border border-green-200" };
+        tagStatus = { texto: `H. Extra FDS (+${formatarMinutos(totalCompensado)})`, classe: "bg-success-soft text-success-ink border border-success-line" };
       }
     }
 
     if (dia.atestados.length > 0 && totalCompensado >= MINUTOS_ESPERADOS_DIARIOS) {
-      tagStatus = { texto: "Abonado pelo Art. 58", classe: "bg-purple-50 text-purple-700 border border-purple-200" };
+      tagStatus = { texto: "Abonado pelo Art. 58", classe: "bg-violet-soft text-violet-ink border border-violet-line" };
     }
 
     const ehFaltaMeioSemana = ehDiaUtil && tagStatus.texto === "Falta Sem Justificativa";
@@ -246,16 +246,16 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
         {ehDiaUtil && (
           <button
             onClick={() => handleAdicionarPontoManual(dia.dataStr)}
-            className="mobile-touch-target text-[11px] bg-white hover:bg-green-50 text-gray-600 hover:text-green-800 border border-gray-200 hover:border-green-300 px-2 py-1 rounded transition-all font-medium flex items-center gap-1 shadow-sm cursor-pointer"
+            className="mobile-touch-target text-[11px] bg-surface hover:bg-success-soft text-secondary hover:text-success-ink border border-line hover:border-success-line px-2 py-1 rounded transition-all font-medium flex items-center gap-1 shadow-sm cursor-pointer"
           >
-            <PlusCircle size={12} className="text-green-600" /> + Ponto
+            <PlusCircle size={12} className="text-success-ink" /> + Ponto
           </button>
         )}
 
         {ehFaltaMeioSemana && (
           <button
             onClick={() => handleMarcarFeriado(dia.dataStr)}
-            className="mobile-touch-target text-[11px] bg-white hover:bg-amber-50 text-gray-600 hover:text-amber-800 border border-gray-200 hover:border-amber-300 px-2 py-1 rounded transition-all font-medium flex items-center gap-1 shadow-sm cursor-pointer"
+            className="mobile-touch-target text-[11px] bg-surface hover:bg-warning-soft text-secondary hover:text-warning-ink border border-line hover:border-warning-line px-2 py-1 rounded transition-all font-medium flex items-center gap-1 shadow-sm cursor-pointer"
           >
             <CalendarDays size={12} /> + Feriado
           </button>
@@ -264,33 +264,33 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
         {(ehFaltaMeioSemana || ehIncompletoMeioSemana) && (
           <button
             onClick={() => handleAbrirModalAtestado(dia.dataStr)}
-            className="mobile-touch-target text-[11px] bg-white hover:bg-purple-50 text-gray-600 hover:text-purple-800 border border-gray-200 hover:border-purple-300 px-2 py-1 rounded transition-all font-medium flex items-center gap-1 shadow-sm cursor-pointer"
+            className="mobile-touch-target text-[11px] bg-surface hover:bg-violet-soft text-secondary hover:text-violet-ink border border-line hover:border-violet-line px-2 py-1 rounded transition-all font-medium flex items-center gap-1 shadow-sm cursor-pointer"
           >
             <FilePlus2 size={12} /> + Atestado
           </button>
         )}
 
         {!ehDiaUtil && (
-          <span className="text-gray-400 text-xs italic">Fim de Semana</span>
+          <span className="text-subtle text-xs italic">Fim de Semana</span>
         )}
       </div>
     );
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border overflow-hidden mt-6">
-      <div className="p-4 bg-gray-50 border-b flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+    <div className="bg-surface rounded-xl shadow-sm border overflow-hidden mt-6">
+      <div className="p-4 bg-surface-soft border-b flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
         <div>
-          <h2 className="text-lg font-bold text-gray-700">Relatório de Ponto Diário Estruturado</h2>
-          <p className="text-sm text-gray-500">Visão consolidada do calendário incluindo faltas, folgas semanais e feriados.</p>
+          <h2 className="text-lg font-bold text-secondary">Relatório de Ponto Diário Estruturado</h2>
+          <p className="text-sm text-muted">Visão consolidada do calendário incluindo faltas, folgas semanais e feriados.</p>
         </div>
       </div>
 
       {/* ==================== VIEW DESKTOP (TABELA) ==================== */}
       <div className="hidden md:block overflow-x-auto">
-        <table className="w-full border-collapse text-left text-sm text-gray-600">
+        <table className="w-full border-collapse text-left text-sm text-secondary">
           <thead>
-            <tr className="bg-gray-100 text-gray-700 font-semibold uppercase text-xs tracking-wider border-b">
+            <tr className="bg-surface-muted text-secondary font-semibold uppercase text-xs tracking-wider border-b">
               <th className="p-4">Data / Dia</th>
               <th className="p-4">Sequência de Marcações</th>
               <th className="p-4 text-center">Total Computado</th>
@@ -304,10 +304,10 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
                 const { totalCompensado, ehDiaUtil, ehDiaFuturo, temRegistroValido, tagStatus, ehFaltaMeioSemana, ehIncompletoMeioSemana } = montarDadosLinha(dia);
 
                 return (
-                  <tr key={dia.dataStr} className="border-b hover:bg-gray-50/70 transition-colors">
-                    <td className="p-4 font-medium text-gray-900 whitespace-nowrap">
+                  <tr key={dia.dataStr} className="border-b hover:bg-surface-soft/70 transition-colors">
+                    <td className="p-4 font-medium text-foreground whitespace-nowrap">
                       {dia.dataObjeto.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-                      <span className="text-xs text-gray-400 block font-normal">
+                      <span className="text-xs text-subtle block font-normal">
                         {dia.dataObjeto.toLocaleDateString('pt-BR', { weekday: 'long' })}
                       </span>
                     </td>
@@ -319,16 +319,16 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
                           const ehEntrada = idx % 2 === 0;
 
                           return (
-                            <div key={ponto.id} className="flex items-center gap-1 bg-white border rounded shadow-sm px-2 py-1 group">
+                            <div key={ponto.id} className="flex items-center gap-1 bg-surface border rounded shadow-sm px-2 py-1 group">
                               <span className={`w-1.5 h-1.5 rounded-full ${ehEntrada ? 'bg-green-500' : 'bg-orange-500'}`} title={ehEntrada ? "Entrada" : "Saída"} />
-                              <span className="font-mono text-xs text-gray-800">{horaFormatada}</span>
+                              <span className="font-mono text-xs text-foreground">{horaFormatada}</span>
 
                               {role === "ADMIN" &&
-                                <div className="flex items-center gap-0.5 ml-2 border-l pl-1 text-gray-400">
-                                  <button onClick={() => handleEditar(ponto)} title="Editar batida" className="mobile-touch-target hover:text-amber-600 p-0.5 transition-colors">
+                                <div className="flex items-center gap-0.5 ml-2 border-l pl-1 text-subtle">
+                                  <button onClick={() => handleEditar(ponto)} title="Editar batida" className="mobile-touch-target hover:text-warning-ink p-0.5 transition-colors">
                                     <Pencil size={11} />
                                   </button>
-                                  <button onClick={() => handleDeletar(ponto.id)} title="Excluir batida" className="mobile-touch-target hover:text-red-600 p-0.5 transition-colors">
+                                  <button onClick={() => handleDeletar(ponto.id)} title="Excluir batida" className="mobile-touch-target hover:text-danger-ink p-0.5 transition-colors">
                                     <Trash2 size={11} />
                                   </button>
                                 </div>
@@ -338,16 +338,16 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
                         })}
 
                         {dia.atestados.map((atestado) => (
-                          <div key={atestado.id} className="flex items-center gap-1 bg-purple-50 border border-purple-200 rounded px-2 py-1">
+                          <div key={atestado.id} className="flex items-center gap-1 bg-violet-soft border border-violet-line rounded px-2 py-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-purple-500" />
-                            <span className="text-xs font-medium text-purple-700">{formatarMinutos(Number(atestado.tipo.split(": ")[1] || 0))}</span>
+                            <span className="text-xs font-medium text-violet-ink">{formatarMinutos(Number(atestado.tipo.split(": ")[1] || 0))}</span>
 
                             {role === "ADMIN" &&
-                              <div className="flex items-center gap-0.5 ml-2 border-l border-purple-200 pl-1 text-purple-400">
-                                <button onClick={() => handleEditar(atestado)} title="Editar abono" className="mobile-touch-target hover:text-amber-600 p-0.5 transition-colors">
+                              <div className="flex items-center gap-0.5 ml-2 border-l border-violet-line pl-1 text-violet-ink">
+                                <button onClick={() => handleEditar(atestado)} title="Editar abono" className="mobile-touch-target hover:text-warning-ink p-0.5 transition-colors">
                                   <Pencil size={11} />
                                 </button>
-                                <button onClick={() => handleDeletar(atestado.id)} title="Remover abono" className="mobile-touch-target hover:text-red-600 p-0.5 transition-colors">
+                                <button onClick={() => handleDeletar(atestado.id)} title="Remover abono" className="mobile-touch-target hover:text-danger-ink p-0.5 transition-colors">
                                   <Trash2 size={11} />
                                 </button>
                               </div>
@@ -356,11 +356,11 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
                         ))}
 
                         {dia.feriados.map((feriado) => (
-                          <div key={feriado.id} className="flex items-center gap-1 bg-amber-50 border border-amber-200 rounded px-2 py-1">
-                            <CalendarDays size={12} className="text-amber-600" />
-                            <span className="text-xs font-medium text-amber-800">Feriado</span>
+                          <div key={feriado.id} className="flex items-center gap-1 bg-warning-soft border border-warning-line rounded px-2 py-1">
+                            <CalendarDays size={12} className="text-warning-ink" />
+                            <span className="text-xs font-medium text-warning-ink">Feriado</span>
                             {role === "ADMIN" &&
-                              <button onClick={() => handleDeletar(feriado.id)} title="Remover Feriado" className="ml-1.5 text-amber-400 hover:text-red-600 transition-colors">
+                              <button onClick={() => handleDeletar(feriado.id)} title="Remover Feriado" className="ml-1.5 text-warning-ink hover:text-danger-ink transition-colors">
                                 <Trash2 size={11} />
                               </button>
                             }
@@ -368,21 +368,21 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
                         ))}
 
                         {!temRegistroValido && (
-                          <span className="text-xs italic text-gray-400 font-normal col-span-2">Sem movimentações no ponto</span>
+                          <span className="text-xs italic text-subtle font-normal col-span-2">Sem movimentações no ponto</span>
                         )}
 
                         {dia.batidasFisicas.length % 2 !== 0 && !ehDiaFuturo && (
-                          <span className="text-[11px] bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded animate-pulse font-medium">
+                          <span className="text-[11px] bg-warning-soft text-warning-ink border border-warning-line px-1.5 py-0.5 rounded animate-pulse font-medium">
                             Falta Saída
                           </span>
                         )}
                       </div>
                     </td>
 
-                    <td className="p-4 text-center font-semibold font-mono text-gray-800 whitespace-nowrap">
+                    <td className="p-4 text-center font-semibold font-mono text-foreground whitespace-nowrap">
                       {dia.feriados.length > 0 || ehDiaFuturo ? "0h 00m" : formatarMinutos(totalCompensado)}
                       {dia.minutosAtestado > 0 && (
-                        <span className="text-[10px] text-purple-500 font-sans block font-normal">
+                        <span className="text-[10px] text-violet-ink font-sans block font-normal">
                           (Físico: {formatarMinutos(dia.minutosTrabalhados)})
                         </span>
                       )}
@@ -404,7 +404,7 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
               })
             ) : (
               <tr>
-                <td colSpan={5} className="p-8 text-center text-gray-400 text-sm">
+                <td colSpan={5} className="p-8 text-center text-subtle text-sm">
                   Nenhum registro mapeado para montar o calendário.
                 </td>
               </tr>
@@ -424,10 +424,10 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
                 {/* Cabeçalho: data + status */}
                 <div className="flex justify-between items-start gap-2">
                   <div>
-                    <p className="font-medium text-gray-900">
+                    <p className="font-medium text-foreground">
                       {dia.dataObjeto.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
                     </p>
-                    <p className="text-xs text-gray-400 capitalize">
+                    <p className="text-xs text-subtle capitalize">
                       {dia.dataObjeto.toLocaleDateString('pt-BR', { weekday: 'long' })}
                     </p>
                   </div>
@@ -437,12 +437,12 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
                 </div>
 
                 {/* Total computado */}
-                <div className="flex items-center justify-between text-sm bg-gray-50 rounded-lg px-3 py-2">
-                  <span className="text-gray-500">Total Computado</span>
-                  <span className="font-semibold font-mono text-gray-800">
+                <div className="flex items-center justify-between text-sm bg-surface-soft rounded-lg px-3 py-2">
+                  <span className="text-muted">Total Computado</span>
+                  <span className="font-semibold font-mono text-foreground">
                     {dia.feriados.length > 0 || ehDiaFuturo ? "0h 00m" : formatarMinutos(totalCompensado)}
                     {dia.minutosAtestado > 0 && (
-                      <span className="text-[10px] text-purple-500 font-sans block font-normal text-right">
+                      <span className="text-[10px] text-violet-ink font-sans block font-normal text-right">
                         (Físico: {formatarMinutos(dia.minutosTrabalhados)})
                       </span>
                     )}
@@ -456,16 +456,16 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
                     const ehEntrada = idx % 2 === 0;
 
                     return (
-                      <div key={ponto.id} className="flex items-center gap-1 bg-white border rounded shadow-sm px-2 py-1">
+                      <div key={ponto.id} className="flex items-center gap-1 bg-surface border rounded shadow-sm px-2 py-1">
                         <span className={`w-1.5 h-1.5 rounded-full ${ehEntrada ? 'bg-green-500' : 'bg-orange-500'}`} title={ehEntrada ? "Entrada" : "Saída"} />
-                        <span className="font-mono text-xs text-gray-800">{horaFormatada}</span>
+                        <span className="font-mono text-xs text-foreground">{horaFormatada}</span>
 
                         {role === "ADMIN" &&
-                          <div className="flex items-center gap-1 ml-2 border-l pl-1 text-gray-400">
-                            <button onClick={() => handleEditar(ponto)} title="Editar batida" className="mobile-touch-target hover:text-amber-600 p-0.5">
+                          <div className="flex items-center gap-1 ml-2 border-l pl-1 text-subtle">
+                            <button onClick={() => handleEditar(ponto)} title="Editar batida" className="mobile-touch-target hover:text-warning-ink p-0.5">
                               <Pencil size={13} />
                             </button>
-                            <button onClick={() => handleDeletar(ponto.id)} title="Excluir batida" className="mobile-touch-target hover:text-red-600 p-0.5">
+                            <button onClick={() => handleDeletar(ponto.id)} title="Excluir batida" className="mobile-touch-target hover:text-danger-ink p-0.5">
                               <Trash2 size={13} />
                             </button>
                           </div>
@@ -475,16 +475,16 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
                   })}
 
                   {dia.atestados.map((atestado) => (
-                    <div key={atestado.id} className="flex items-center gap-1 bg-purple-50 border border-purple-200 rounded px-2 py-1">
+                    <div key={atestado.id} className="flex items-center gap-1 bg-violet-soft border border-violet-line rounded px-2 py-1">
                       <span className="w-1.5 h-1.5 rounded-full bg-purple-500" />
-                      <span className="text-xs font-medium text-purple-700">{formatarMinutos(Number(atestado.tipo.split(": ")[1] || 0))}</span>
+                      <span className="text-xs font-medium text-violet-ink">{formatarMinutos(Number(atestado.tipo.split(": ")[1] || 0))}</span>
 
                       {role === "ADMIN" &&
-                        <div className="flex items-center gap-1 ml-2 border-l border-purple-200 pl-1 text-purple-400">
-                          <button onClick={() => handleEditar(atestado)} title="Editar abono" className="mobile-touch-target hover:text-amber-600 p-0.5">
+                        <div className="flex items-center gap-1 ml-2 border-l border-violet-line pl-1 text-violet-ink">
+                          <button onClick={() => handleEditar(atestado)} title="Editar abono" className="mobile-touch-target hover:text-warning-ink p-0.5">
                             <Pencil size={13} />
                           </button>
-                          <button onClick={() => handleDeletar(atestado.id)} title="Remover abono" className="mobile-touch-target hover:text-red-600 p-0.5">
+                          <button onClick={() => handleDeletar(atestado.id)} title="Remover abono" className="mobile-touch-target hover:text-danger-ink p-0.5">
                             <Trash2 size={13} />
                           </button>
                         </div>
@@ -493,11 +493,11 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
                   ))}
 
                   {dia.feriados.map((feriado) => (
-                    <div key={feriado.id} className="flex items-center gap-1 bg-amber-50 border border-amber-200 rounded px-2 py-1">
-                      <CalendarDays size={12} className="text-amber-600" />
-                      <span className="text-xs font-medium text-amber-800">Feriado</span>
+                    <div key={feriado.id} className="flex items-center gap-1 bg-warning-soft border border-warning-line rounded px-2 py-1">
+                      <CalendarDays size={12} className="text-warning-ink" />
+                      <span className="text-xs font-medium text-warning-ink">Feriado</span>
                       {role === "ADMIN" &&
-                        <button onClick={() => handleDeletar(feriado.id)} title="Remover Feriado" className="ml-1.5 text-amber-400 hover:text-red-600">
+                        <button onClick={() => handleDeletar(feriado.id)} title="Remover Feriado" className="ml-1.5 text-warning-ink hover:text-danger-ink">
                           <Trash2 size={13} />
                         </button>
                       }
@@ -505,11 +505,11 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
                   ))}
 
                   {!temRegistroValido && (
-                    <span className="text-xs italic text-gray-400 font-normal">Sem movimentações no ponto</span>
+                    <span className="text-xs italic text-subtle font-normal">Sem movimentações no ponto</span>
                   )}
 
                   {dia.batidasFisicas.length % 2 !== 0 && !ehDiaFuturo && (
-                    <span className="text-[11px] bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.5 rounded font-medium">
+                    <span className="text-[11px] bg-warning-soft text-warning-ink border border-warning-line px-1.5 py-0.5 rounded font-medium">
                       Falta Saída
                     </span>
                   )}
@@ -525,7 +525,7 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
             );
           })
         ) : (
-          <div className="p-8 text-center text-gray-400 text-sm">
+          <div className="p-8 text-center text-subtle text-sm">
             Nenhum registro mapeado para montar o calendário.
           </div>
         )}
@@ -546,13 +546,13 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
       />
 
       {isAtestadoOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60] p-4 text-black">
-          <div className="modal-panel bg-white rounded-xl shadow-xl max-w-md w-full border  animate-in fade-in zoom-in-95 duration-150">
-            <div className="bg-gray-50 p-4 border-b flex justify-between items-center">
-              <h3 className="font-bold text-gray-700 text-lg">Lançar Atestado / Abono</h3>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60] p-4 text-foreground">
+          <div className="modal-panel bg-surface rounded-xl shadow-xl max-w-md w-full border  animate-in fade-in zoom-in-95 duration-150">
+            <div className="bg-surface-soft p-4 border-b flex justify-between items-center">
+              <h3 className="font-bold text-secondary text-lg">Lançar Atestado / Abono</h3>
               <button
                 onClick={() => setIsAtestadoOpen(false)}
-                className="text-gray-400 hover:text-gray-600 font-bold text-xl"
+                className="text-subtle hover:text-secondary font-bold text-xl"
               >
                 &times;
               </button>
@@ -560,20 +560,20 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
 
             <form onSubmit={handleAtestadoSubmit} className="p-4 sm:p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">Data do Afastamento</label>
+                <label className="block text-sm font-medium text-secondary mb-1">Data do Afastamento</label>
                 <input
                   type="date"
                   name="data"
                   value={dataAtestadoSelecionada}
                   readOnly
                   required
-                  className="w-full border rounded-lg p-2 bg-gray-100 text-gray-500 cursor-not-allowed focus:outline-none"
+                  className="w-full border rounded-lg p-2 bg-surface-muted text-muted cursor-not-allowed focus:outline-none"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-1">Horas Abonadas</label>
+                  <label className="block text-sm font-medium text-secondary mb-1">Horas Abonadas</label>
                   <input
                     type="number"
                     name="horas_input"
@@ -581,11 +581,11 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
                     max="23"
                     defaultValue="8"
                     required
-                    className="w-full border rounded-lg p-2 bg-gray-50 focus:outline-blue-500"
+                    className="w-full border rounded-lg p-2 bg-surface-soft focus:outline-blue-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-1">Minutos Abonados</label>
+                  <label className="block text-sm font-medium text-secondary mb-1">Minutos Abonados</label>
                   <input
                     type="number"
                     name="minutos_input"
@@ -593,12 +593,12 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
                     max="59"
                     defaultValue="30"
                     required
-                    className="w-full border rounded-lg p-2 bg-gray-50 focus:outline-blue-500"
+                    className="w-full border rounded-lg p-2 bg-surface-soft focus:outline-blue-500"
                   />
                 </div>
               </div>
 
-              <p className="text-xs text-gray-400 italic">
+              <p className="text-xs text-subtle italic">
                 O tempo preenchido será somado como crédito para abater as horas em falta do colaborador neste dia específico.
               </p>
 
@@ -606,7 +606,7 @@ export default function TabelaHistoricoPonto({ pontosIniciais, nomeColaborador, 
                 <button
                   type="button"
                   onClick={() => setIsAtestadoOpen(false)}
-                  className="px-4 py-2 text-sm font-medium text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
+                  className="px-4 py-2 text-sm font-medium text-muted hover:bg-surface-muted rounded-lg transition-colors"
                   disabled={isAtestadoPending}
                 >
                   Cancelar

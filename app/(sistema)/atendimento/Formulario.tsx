@@ -18,8 +18,8 @@ export default function Formulario({ acao, clienteId, children, botao, aoSalvar 
     {clienteId && <input type="hidden" name="clienteId" value={clienteId} />}
     <fieldset disabled={pendente} className="space-y-3 disabled:opacity-60">
       {children}
-      <button className="rounded-lg bg-[#0A2540] px-4 py-2 text-sm font-semibold text-white hover:bg-slate-700" type="submit">{pendente ? 'Salvando…' : botao}</button>
+      <button className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover" type="submit">{pendente ? 'Salvando…' : botao}</button>
     </fieldset>
-    {estado.mensagem && <p role="status" className={`text-sm ${estado.sucesso ? 'text-emerald-700' : 'text-red-700'}`}>{estado.mensagem}</p>}
+    {estado.mensagem && <p role="status" className={`text-sm ${estado.sucesso ? 'text-success-ink' : 'text-danger-ink'}`}>{estado.mensagem}</p>}
   </form>;
 }

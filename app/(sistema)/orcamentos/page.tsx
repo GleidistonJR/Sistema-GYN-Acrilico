@@ -184,7 +184,7 @@ export default function CalculadorChapa() {
   return (
     <>
       {/* Botão do Menu Lateral */}
-      <button onClick={() => setIsOpen(!isOpen)} aria-label={isOpen ? "Fechar textos rápidos" : "Abrir textos rápidos"} aria-expanded={isOpen} className="fixed top-20 left-3 z-[45] min-w-11 min-h-11 p-2 text-white bg-[#0a2540] hover:bg-[#0f3a6b] hover:cursor-pointer rounded-md shadow-md">
+      <button onClick={() => setIsOpen(!isOpen)} aria-label={isOpen ? "Fechar textos rápidos" : "Abrir textos rápidos"} aria-expanded={isOpen} className="fixed top-20 left-3 z-[45] min-w-11 min-h-11 p-2 text-white bg-primary hover:bg-primary-hover hover:cursor-pointer rounded-md shadow-md">
         <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={isOpen ? "M6 18L18 6M6 6l12 12" : "M4 6h16M4 12h16M4 18h16"} />
         </svg>
@@ -193,8 +193,8 @@ export default function CalculadorChapa() {
       {isOpen && <button type="button" aria-label="Fechar textos rápidos" onClick={() => setIsOpen(false)} className="fixed inset-0 top-16 z-30 bg-black/30" />}
       <MenuLateral isOpen={isOpen} />
 
-      <div className='bg-gray-200'>
-        <div className="w-full lg:max-w-5/6 mx-auto px-3 pt-18 pb-6 sm:px-6 md:p-6 grid grid-cols-1 lg:grid-cols-5 gap-4 sm:gap-6 text-gray-800 min-h-screen">
+      <div className='bg-surface-hover'>
+        <div className="w-full lg:max-w-5/6 mx-auto px-3 pt-18 pb-6 sm:px-6 md:p-6 grid grid-cols-1 lg:grid-cols-5 gap-4 sm:gap-6 text-foreground min-h-screen">
           <FormEspecificacoes
             modoCalculo={modoCalculoInp} setModoCalculo={setModoCalculoInp}
             tipoMaterial={tipoDeChapaInp} setTipoMaterial={setTipoDeChapaInp}

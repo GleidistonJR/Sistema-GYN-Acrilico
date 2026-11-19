@@ -25,26 +25,26 @@ export default function LoginPage() {
     }
   }
 
-  const classeInput = "w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg outline-none transition-colors focus:border-amber-400 focus:ring-1 focus:ring-amber-400 mt-2";
+  const classeInput = "w-full p-2.5 bg-surface-soft border border-line-strong rounded-lg outline-none transition-colors focus:border-amber-400 focus:ring-1 focus:ring-amber-400 mt-2";
 
   return (
-    <main className="min-h-[calc(100dvh-4rem)] bg-gray-100 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-5 sm:p-8">
+    <main className="min-h-[calc(100dvh-4rem)] bg-surface-muted flex items-center justify-center p-4">
+      <div className="max-w-md w-full bg-surface rounded-2xl shadow-xl p-5 sm:p-8">
 
         <div className="text-center mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">Goiânia Acrílico</h1>
-          <p className="text-gray-500 mt-2">Acesse o sistema de gestão</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Goiânia Acrílico</h1>
+          <p className="text-muted mt-2">Acesse o sistema de gestão</p>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-6">
           {erro && (
-            <div className="bg-red-100 text-red-700 p-3 rounded-lg text-sm text-center">
+            <div className="bg-danger-soft text-danger-ink p-3 rounded-lg text-sm text-center">
               {erro}
             </div>
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">Usuário</label>
+            <label className="block text-sm font-medium text-secondary">Usuário</label>
             <input
               type="text"
               required
@@ -56,7 +56,7 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">Senha</label>
+            <label className="block text-sm font-medium text-secondary">Senha</label>
             <input
               type="password"
               required
@@ -69,13 +69,13 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            className="w-full bg-[#0A2540] text-white hover:bg-[#0f3a6b] hover:cursor-pointer font-bold py-3 rounded-lg transition-colors shadow-lg active:transform active:scale-95"
+            className="w-full bg-primary text-white hover:bg-primary-hover hover:cursor-pointer font-bold py-3 rounded-lg transition-colors shadow-lg active:transform active:scale-95"
           >
             Entrar no Sistema
           </button>
         </form>
 
-        <p className="text-center text-xs text-gray-400 mt-8">
+        <p className="text-center text-xs text-subtle mt-8">
           &copy; 2026 Gleidiston Junior - Sistema GYN Acrílico
         </p>
       </div>

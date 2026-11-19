@@ -80,13 +80,13 @@ export default function ModalProduto({ isOpen, onClose, title, produtoInicial, d
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/25">
-      <div className="modal-panel bg-white rounded-xl shadow-2xl border border-gray-100 max-w-md w-full ">
+      <div className="modal-panel bg-surface rounded-xl shadow-2xl border border-line max-w-md w-full ">
 
-        <div className="flex justify-between items-center p-4 border-b border-gray-100 bg-gray-50">
-          <h3 className="text-lg font-bold text-gray-700">{title}</h3>
+        <div className="flex justify-between items-center p-4 border-b border-line bg-surface-soft">
+          <h3 className="text-lg font-bold text-secondary">{title}</h3>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 font-bold p-1 rounded-lg hover:bg-gray-200 transition"
+            className="text-subtle hover:text-secondary font-bold p-1 rounded-lg hover:bg-surface-hover transition"
           >
             ✕
           </button>
@@ -103,7 +103,7 @@ export default function ModalProduto({ isOpen, onClose, title, produtoInicial, d
               value={dados.nome}
               disabled={editando && !administrador}
               onChange={(e) => setDados({ ...dados, nome: e.target.value })}
-              className="w-full p-2 border rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              className="w-full p-2 border rounded-lg bg-surface-soft focus:ring-blue-500 focus:border-blue-500 outline-none"
             />
           </label>
 
@@ -113,7 +113,7 @@ export default function ModalProduto({ isOpen, onClose, title, produtoInicial, d
               rows={3}
               value={dados.descricao}
               onChange={(e) => setDados({ ...dados, descricao: e.target.value })}
-              className="w-full p-2 border rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              className="w-full p-2 border rounded-lg bg-surface-soft focus:ring-blue-500 focus:border-blue-500 outline-none"
             />
           </label>
 
@@ -127,7 +127,7 @@ export default function ModalProduto({ isOpen, onClose, title, produtoInicial, d
               allowNegative={false}
               value={dados.estoque}
               onValueChange={(v) => setDados({ ...dados, estoque: v.floatValue ?? 0 })}
-              className="w-full p-2 border rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              className="w-full p-2 border rounded-lg bg-surface-soft focus:ring-blue-500 focus:border-blue-500 outline-none"
               placeholder="0 UND"
             />
           </label>
@@ -142,9 +142,9 @@ export default function ModalProduto({ isOpen, onClose, title, produtoInicial, d
               allowNegative={false}
               value={dados.estoquePadrao}
               onValueChange={v => setDados({ ...dados, estoquePadrao: v.floatValue ?? 0 })}
-              className="mt-1 w-full p-2 border rounded-lg bg-gray-50 outline-none focus:border-blue-500"
+              className="mt-1 w-full p-2 border rounded-lg bg-surface-soft outline-none focus:border-blue-500"
             />
-            <span className="block mt-1 text-xs text-gray-500">Quantidade desejada em estoque. Deixe 0 para não incluir na lista de compras.</span>
+            <span className="block mt-1 text-xs text-muted">Quantidade desejada em estoque. Deixe 0 para não incluir na lista de compras.</span>
           </label>}
 
           {administrador && <div className="grid grid-cols-1 min-[400px]:grid-cols-2 gap-4">
@@ -179,13 +179,13 @@ export default function ModalProduto({ isOpen, onClose, title, produtoInicial, d
             </label>
           </div>}
 
-          {!administrador && <p className="text-sm text-gray-500">{editando ? 'Você pode alterar o estoque e a descrição deste produto.' : 'Preços e estoque padrão começam em zero e serão definidos pelo administrador.'}</p>}
-          {erro && <p role="alert" className="text-sm text-red-700">{erro}</p>}
+          {!administrador && <p className="text-sm text-muted">{editando ? 'Você pode alterar o estoque e a descrição deste produto.' : 'Preços e estoque padrão começam em zero e serão definidos pelo administrador.'}</p>}
+          {erro && <p role="alert" className="text-sm text-danger-ink">{erro}</p>}
 
           <div className="flex flex-wrap gap-3 justify-end pt-4">
             <button
               onClick={onClose}
-              className="px-4 py-2 bg-gray-200 text-gray-700 font-semibold rounded-lg hover:bg-gray-300 transition"
+              className="px-4 py-2 bg-surface-hover text-secondary font-semibold rounded-lg hover:bg-surface-strong transition"
             >
               Cancelar
             </button>

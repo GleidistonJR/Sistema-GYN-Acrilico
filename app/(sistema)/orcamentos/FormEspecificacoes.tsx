@@ -44,17 +44,17 @@ interface FormEspecificacoesProps {
 
 function TituloSecao({ numero, texto }: { numero: number; texto: string }) {
   return (
-    <div className="flex items-center gap-2.5 pb-2 border-b border-slate-100">
-      <span className="w-6 h-6 flex items-center justify-center rounded-full bg-amber-100 text-amber-700 text-xs font-bold shrink-0">
+    <div className="flex items-center gap-2.5 pb-2 border-b border-line">
+      <span className="w-6 h-6 flex items-center justify-center rounded-full bg-warning-soft text-warning-ink text-xs font-bold shrink-0">
         {numero}
       </span>
-      <h2 className="text-lg font-bold text-[#0A2540]">{texto}</h2>
+      <h2 className="text-lg font-bold text-primary-ink">{texto}</h2>
     </div>
   );
 }
 
 
-const classeInput = "min-w-0 w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg outline-none transition-colors focus:border-amber-400 focus:ring-1 focus:ring-amber-400";
+const classeInput = "min-w-0 w-full p-2.5 bg-surface-soft border border-line-strong rounded-lg outline-none transition-colors focus:border-amber-400 focus:ring-1 focus:ring-amber-400";
 const classeSelect = classeInput + " font-medium";
 
 export default function FormEspecificacoes({
@@ -136,7 +136,7 @@ export default function FormEspecificacoes({
   return (
     <div className="min-w-0 space-y-5 lg:col-span-2">
       {/* Seletor de Modo de Operação */}
-      <div className="bg-white rounded-xl shadow-sm p-1.5 grid grid-cols-2 gap-1.5 border border-slate-200">
+      <div className="bg-surface rounded-xl shadow-sm p-1.5 grid grid-cols-2 gap-1.5 border border-line">
         {[
           { valor: 'corte', label: 'Corte' },
           { valor: 'caixa', label: 'Caixa' },
@@ -147,7 +147,7 @@ export default function FormEspecificacoes({
             key={valor}
             type="button"
             onClick={() => { setModoCalculo(valor); setTipoMaterial('Acrílico'); setMaterialId(''); }}
-            className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors ${modoCalculo === valor ? 'bg-[#0A2540] text-white' : 'text-slate-500 hover:bg-slate-100 hover:cursor-pointer'
+            className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors ${modoCalculo === valor ? 'bg-primary text-white' : 'text-muted hover:bg-surface-muted hover:cursor-pointer'
               }`}
           >
             {label}
@@ -156,12 +156,12 @@ export default function FormEspecificacoes({
       </div>
 
       {/* Bloco Material */}
-      <section className="bg-white rounded-xl shadow-sm p-5 space-y-4 border border-slate-200">
+      <section className="bg-surface rounded-xl shadow-sm p-5 space-y-4 border border-line">
         <TituloSecao numero={1} texto="Especificações" />
 
         {(modoCalculo == 'corte' || modoCalculo == 'chapa') && (
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-slate-600">Tipo de material</label>
+            <label className="text-sm font-medium text-secondary">Tipo de material</label>
             <select
               value={tipoMaterial}
               onChange={(e) => {
@@ -182,7 +182,7 @@ export default function FormEspecificacoes({
 
         {modoCalculo === 'perso' && (
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-slate-600">Tipo de personalização</label>
+            <label className="text-sm font-medium text-secondary">Tipo de personalização</label>
             <select
               value={materialId}
               onChange={(e) => setMaterialId(e.target.value)}
@@ -201,7 +201,7 @@ export default function FormEspecificacoes({
 
         {modoCalculo === 'caixa' && (
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-slate-600">Tipo de tampa da caixa</label>
+            <label className="text-sm font-medium text-secondary">Tipo de tampa da caixa</label>
             <select value={tipoTampa} onChange={(e) => setTipoTampa(e.target.value)} className={classeSelect}>
               <option value="semTampa">Sem tampa</option>
               <option value="tampaLacrada">Tampa lacrada</option>
@@ -215,7 +215,7 @@ export default function FormEspecificacoes({
 
         {modoCalculo !== 'perso' && (
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-slate-600">Espessura</label>
+            <label className="text-sm font-medium text-secondary">Espessura</label>
             <select
               value={espessuraChapa}
               onChange={(e) => {
@@ -236,7 +236,7 @@ export default function FormEspecificacoes({
 
         {modoCalculo !== 'perso' && (
           <div className="flex flex-col gap-1 relative">
-            <label className="text-sm font-medium text-slate-600">Cor</label>
+            <label className="text-sm font-medium text-secondary">Cor</label>
 
             {/* Campo visível que o usuário digita para filtrar */}
             <input
@@ -257,16 +257,16 @@ export default function FormEspecificacoes({
 
             {/* Lista de opções filtradas */}
             {focoAberto && (
-              <ul className="absolute top-full left-0 right-0 z-50 mt-1 max-h-60 overflow-auto bg-white border border-slate-200 rounded-md shadow-lg py-1">
+              <ul className="absolute top-full left-0 right-0 z-50 mt-1 max-h-60 overflow-auto bg-surface border border-line rounded-md shadow-lg py-1">
                 {opcoesFiltradas.length > 0 ? (
                   opcoesFiltradas.map((cor) => (
                     <li
                       key={cor}
                       onMouseDown={() => selecionarCor(cor)} // onMouseDown executa antes do onBlur
-                      className="px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 cursor-pointer transition-colors"
+                      className="px-3 py-2 text-sm text-secondary hover:bg-surface-muted cursor-pointer transition-colors"
                     >
                       {cor}
-                      <span className="ml-2 text-xs text-slate-400">
+                      <span className="ml-2 text-xs text-subtle">
                         ({materiais.find(
                           (mat) =>
                             mat.categoria?.nome === tipoMaterial &&
@@ -277,7 +277,7 @@ export default function FormEspecificacoes({
                     </li>
                   ))
                 ) : (
-                  <li className="px-3 py-2 text-sm text-slate-400 italic">
+                  <li className="px-3 py-2 text-sm text-subtle italic">
                     Nenhuma cor encontrada
                   </li>
                 )}
@@ -293,7 +293,7 @@ export default function FormEspecificacoes({
           <div className={`grid gap-4 pt-2 ${modoCalculo === 'corte' ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3'}`}>
 
             <div className="flex flex-col gap-1">
-              <label htmlFor="medida-comprimento" className={`text-xs font-medium ${modoCalculo === 'caixa' ? 'text-sky-700' : 'text-slate-600'}`}>{modoCalculo === 'caixa' ? 'C — Comprimento (cm)' : 'Comprimento (cm)'}</label>
+              <label htmlFor="medida-comprimento" className={`text-xs font-medium ${modoCalculo === 'caixa' ? 'text-info-ink' : 'text-secondary'}`}>{modoCalculo === 'caixa' ? 'C — Comprimento (cm)' : 'Comprimento (cm)'}</label>
               <input
                 id="medida-comprimento"
                 type="number"
@@ -306,7 +306,7 @@ export default function FormEspecificacoes({
             </div>
 
             <div className="flex flex-col gap-1">
-              <label htmlFor="medida-largura" className={`text-xs font-medium ${modoCalculo === 'caixa' ? 'text-emerald-700' : 'text-slate-600'}`}>{modoCalculo === 'caixa' ? 'L — Largura do fundo (cm)' : 'Largura (cm)'}</label>
+              <label htmlFor="medida-largura" className={`text-xs font-medium ${modoCalculo === 'caixa' ? 'text-success-ink' : 'text-secondary'}`}>{modoCalculo === 'caixa' ? 'L — Largura do fundo (cm)' : 'Largura (cm)'}</label>
               <input
                 id="medida-largura"
                 type="number"
@@ -321,7 +321,7 @@ export default function FormEspecificacoes({
 
             {modoCalculo === 'caixa' && (
               <div className="flex flex-col gap-1">
-                <label htmlFor="medida-altura" className="text-xs font-medium text-purple-600">A — Altura (cm)</label>
+                <label htmlFor="medida-altura" className="text-xs font-medium text-violet-ink">A — Altura (cm)</label>
                 <input
                   id="medida-altura"
                   type="number"
@@ -336,7 +336,7 @@ export default function FormEspecificacoes({
 
           </div>
         ) : (
-          <div className="p-3 bg-slate-50 border-l-2 border-amber-400 text-slate-700 rounded-r-lg text-sm font-medium text-center">
+          <div className="p-3 bg-surface-soft border-l-2 border-amber-400 text-secondary rounded-r-lg text-sm font-medium text-center">
             Cálculo baseado na medida padrão da chapa inteira.
           </div>
         )}
@@ -346,7 +346,7 @@ export default function FormEspecificacoes({
 
 
       {/* Bloco Custos Adicionais */}
-      <section className="bg-white rounded-xl shadow-sm p-5 space-y-3 border border-slate-200">
+      <section className="bg-surface rounded-xl shadow-sm p-5 space-y-3 border border-line">
         <TituloSecao numero={2} texto="Custos e serviços adicionais" />
         <div className="grid grid-cols-1 min-[360px]:grid-cols-2 gap-2 sm:gap-3 pt-1">
           {[
@@ -357,7 +357,7 @@ export default function FormEspecificacoes({
           ].map(({ label, checked, set }) => (
             <label
               key={label}
-              className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer select-none transition-colors ${checked ? 'bg-amber-50 border-amber-300' : 'bg-slate-50 border-slate-200 hover:bg-slate-100'
+              className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer select-none transition-colors ${checked ? 'bg-warning-soft border-warning-line' : 'bg-surface-soft border-line hover:bg-surface-muted'
                 }`}
             >
               <input
@@ -366,7 +366,7 @@ export default function FormEspecificacoes({
                 onChange={(e) => set(e.target.checked)}
                 className="w-5 h-5 accent-amber-500 rounded"
               />
-              <span className={`font-medium text-sm ${checked ? 'text-amber-800' : 'text-slate-700'}`}>{label}</span>
+              <span className={`font-medium text-sm ${checked ? 'text-warning-ink' : 'text-secondary'}`}>{label}</span>
             </label>
           ))}
         </div>

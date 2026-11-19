@@ -77,10 +77,10 @@ export default function GravarAudio({ disabled, onArquivo, onGravando, onErro }:
     }
   }
 
-  if (estado === 'gravando') return <div className="flex items-center gap-2 rounded-lg bg-[#2a3942] px-2 py-1">
-    <span role="status" className="whitespace-nowrap text-xs text-red-300">● {Math.floor(segundos / 60)}:{String(segundos % 60).padStart(2, '0')}</span>
-    <button type="button" onClick={() => parar(true)} aria-label="Descartar gravação" className="p-2 text-red-300"><Trash2 size={20} /></button>
-    <button type="button" onClick={() => parar()} aria-label="Parar gravação" className="p-2 text-emerald-300"><Square size={20} /></button>
+  if (estado === 'gravando') return <div className="flex items-center gap-2 rounded-lg bg-surface-muted px-2 py-1">
+    <span role="status" className="whitespace-nowrap text-xs text-danger-ink">● {Math.floor(segundos / 60)}:{String(segundos % 60).padStart(2, '0')}</span>
+    <button type="button" onClick={() => parar(true)} aria-label="Descartar gravação" className="p-2 text-danger-ink"><Trash2 size={20} /></button>
+    <button type="button" onClick={() => parar()} aria-label="Parar gravação" className="p-2 text-success-ink"><Square size={20} /></button>
   </div>;
-  return <button type="button" disabled={disabled || estado === 'iniciando'} onClick={iniciar} aria-label="Gravar áudio" title="Gravar áudio (até 2 minutos)" className="rounded-full p-3 text-[#aebac1] hover:bg-white/5 disabled:opacity-40"><Mic size={22} />{estado === 'iniciando' && <span className="sr-only">Aguardando microfone</span>}</button>;
+  return <button type="button" disabled={disabled || estado === 'iniciando'} onClick={iniciar} aria-label="Gravar áudio" title="Gravar áudio (até 2 minutos)" className="rounded-full p-3 text-secondary hover:bg-foreground/5 disabled:opacity-40"><Mic size={22} />{estado === 'iniciando' && <span className="sr-only">Aguardando microfone</span>}</button>;
 }

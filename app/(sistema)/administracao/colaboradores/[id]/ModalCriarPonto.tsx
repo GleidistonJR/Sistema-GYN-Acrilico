@@ -59,15 +59,15 @@ export default function ModalCriarPonto({ colaboradorId, isOpen, onClose, dataIn
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60] p-4 text-black">
-      <div className="modal-panel bg-white rounded-lg shadow-2xl w-full max-w-md  animate-in fade-in zoom-in-95 duration-150">
-        <div className="bg-gray-100 p-4 border-b">
-          <h2 className="text-xl font-bold text-gray-800 text-center">Lançar Ponto Manual</h2>
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60] p-4 text-foreground">
+      <div className="modal-panel bg-surface rounded-lg shadow-2xl w-full max-w-md  animate-in fade-in zoom-in-95 duration-150">
+        <div className="bg-surface-muted p-4 border-b">
+          <h2 className="text-xl font-bold text-foreground text-center">Lançar Ponto Manual</h2>
         </div>
 
         <form onSubmit={handleSalvar} className="p-4 sm:p-6 space-y-4">
           <div>
-            <label className="block text-sm font-semibold text-gray-700">Data e Hora:</label>
+            <label className="block text-sm font-semibold text-secondary">Data e Hora:</label>
             <input
               type="datetime-local"
               required
@@ -78,7 +78,7 @@ export default function ModalCriarPonto({ colaboradorId, isOpen, onClose, dataIn
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-gray-700">Tipo de Batida:</label>
+            <label className="block text-sm font-semibold text-secondary">Tipo de Batida:</label>
             <select
               value={tipo}
               onChange={(e) => setTipo(e.target.value)}
@@ -93,14 +93,14 @@ export default function ModalCriarPonto({ colaboradorId, isOpen, onClose, dataIn
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-md transition"
+              className="px-4 py-2 text-secondary hover:bg-surface-muted rounded-md transition"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition font-semibold disabled:bg-gray-400"
+              className="px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 transition font-semibold disabled:bg-surface-strong"
             >
               {loading ? "Salvando..." : "Salvar Ponto"}
             </button>

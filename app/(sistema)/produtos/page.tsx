@@ -86,10 +86,10 @@ export default function ProdutosFinais() {
 
 
     if (!role) return (
-        <div className="mx-auto max-w-lg p-6 text-gray-700">
+        <div className="mx-auto max-w-lg p-6 text-secondary">
             {carregandoPermissoes ? <p role="status">Carregando produtos...</p> : <>
                 <p>Entre novamente para acessar os produtos com suas permissões atualizadas.</p>
-                <Link href="/login" className="mt-4 inline-block rounded-lg bg-[#0A2540] px-4 py-3 text-white">Fazer login</Link>
+                <Link href="/login" className="mt-4 inline-block rounded-lg bg-primary px-4 py-3 text-white">Fazer login</Link>
             </>}
         </div>
     );
@@ -98,7 +98,7 @@ export default function ProdutosFinais() {
         <div>
             <div className="w-full lg:w-6/7 px-3 sm:px-6 lg:px-0 m-auto pb-6">
 
-                <div className="sticky top-16 z-10 bg-white lg:px-10 pt-4 pb-3 lg:pb-0">
+                <div className="sticky top-16 z-10 bg-surface lg:px-10 pt-4 pb-3 lg:pb-0">
                     <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                         <div className="flex min-w-0 flex-1 items-center gap-3">
 
@@ -106,7 +106,7 @@ export default function ProdutosFinais() {
                             onClick={() => setModalAberto(true)}
                             aria-label="Novo produto"
                             title="Novo produto"
-                            className="rounded border border-blue-800 p-2 text-blue-800 hover:cursor-pointer hover:bg-blue-50"
+                            className="rounded border border-blue-800 p-2 text-info-ink hover:cursor-pointer hover:bg-info-soft"
                         >
                             <Plus size={22} />
                         </button>
@@ -121,12 +121,12 @@ export default function ProdutosFinais() {
                             className="min-w-0 w-full rounded border border-blue-800 px-3 sm:px-4 py-2 outline-none focus:border-blue-600"
                         />
                         </div>
-                        <button type="button" onClick={copiarListaCompras} disabled={copiandoLista} className="flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-[#0A2540] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0f3a6b] disabled:opacity-50">
+                        <button type="button" onClick={copiarListaCompras} disabled={copiandoLista} className="flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-50">
                             <ClipboardCopy size={18} />
                             {copiandoLista ? 'Preparando lista...' : 'Copiar lista de compras'}
                         </button>
                     </div>
-                    {mensagemLista && <p role="status" className="py-2 text-sm text-gray-600">{mensagemLista}</p>}
+                    {mensagemLista && <p role="status" className="py-2 text-sm text-secondary">{mensagemLista}</p>}
 
                     <div className="hidden lg:grid grid-cols-5 py-5">
                         <h3 className="font-semibold col-span-2">Nome</h3>
@@ -138,43 +138,43 @@ export default function ProdutosFinais() {
 
                 <div className="space-y-3 lg:space-y-0 lg:px-10">
                     {produtosFiltrados.map((p) => (
-                        <div key={p.id} className="grid grid-cols-2 lg:grid-cols-5 gap-3 lg:gap-0 p-4 lg:px-0 lg:py-2 border lg:border-0 lg:border-b rounded-xl lg:rounded-none border-gray-300 bg-white">
+                        <div key={p.id} className="grid grid-cols-2 lg:grid-cols-5 gap-3 lg:gap-0 p-4 lg:px-0 lg:py-2 border lg:border-0 lg:border-b rounded-xl lg:rounded-none border-line-strong bg-surface">
                             <div className="min-w-0 flex items-start gap-3 lg:px-2 col-span-2">
                                 <FotoItem foto={p.foto} nome={p.nome} />
                                 <div className="min-w-0 break-words">
                                 <h3 className="font-semibold">{p.nome}</h3>
-                                <p className="text-sm text-gray-500">{p.descricao}</p>
+                                <p className="text-sm text-muted">{p.descricao}</p>
                                 </div>
                             </div>
 
-                            <p className="min-w-0 break-words font-semibold text-green-800"><span className="block lg:hidden text-xs text-gray-500 font-normal mb-1">Venda</span>R${p.precoVenda.toFixed(2)}</p>
+                            <p className="min-w-0 break-words font-semibold text-success-ink"><span className="block lg:hidden text-xs text-muted font-normal mb-1">Venda</span>R${p.precoVenda.toFixed(2)}</p>
                             <div className="min-w-0 break-words">
-                                <button type="button" title="Atualizar estoque" onClick={() => setProdutoEstoque(p)} className="text-left font-semibold min-h-11 lg:min-h-0 hover:text-blue-700">
-                                    <span className="block lg:hidden text-xs text-gray-500 font-normal mb-1">Estoque</span>{p.estoque} UND
+                                <button type="button" title="Atualizar estoque" onClick={() => setProdutoEstoque(p)} className="text-left font-semibold min-h-11 lg:min-h-0 hover:text-info-ink">
+                                    <span className="block lg:hidden text-xs text-muted font-normal mb-1">Estoque</span>{p.estoque} UND
                                 </button>
-                                <p className="mt-1 text-xs text-gray-500">Padrão: {p.estoquePadrao ?? 0} UND</p>
-                                {calcularReposicao(p.estoque, p.estoquePadrao) > 0 && <p className="mt-1 text-xs font-semibold text-amber-700">Pedir: {calcularReposicao(p.estoque, p.estoquePadrao)} UND</p>}
+                                <p className="mt-1 text-xs text-muted">Padrão: {p.estoquePadrao ?? 0} UND</p>
+                                {calcularReposicao(p.estoque, p.estoquePadrao) > 0 && <p className="mt-1 text-xs font-semibold text-warning-ink">Pedir: {calcularReposicao(p.estoque, p.estoquePadrao)} UND</p>}
                             </div>
 
 
                             <div className="col-span-2 lg:col-span-1 flex items-center justify-end lg:justify-center gap-2 lg:gap-3 border-t lg:border-0 pt-2 lg:pt-0">
                                 <button
                                     title="Duplicar"
-                                    className="mobile-touch-target text-green-800 hover:cursor-pointer"
+                                    className="mobile-touch-target text-success-ink hover:cursor-pointer"
                                     onClick={() => setProdutoDuplicando(p)}
                                 >
                                     <Copy size={20} />
                                 </button>
                                 <button
                                     aria-label="Editar produto"
-                                    className="mobile-touch-target text-amber-500 hover:cursor-pointer"
+                                    className="mobile-touch-target text-warning-ink hover:cursor-pointer"
                                     onClick={() => setProdutoEditando(p)}
                                 >
                                     <Pencil size={20} />
                                 </button>
                                 {administrador && <button
                                     aria-label="Excluir produto"
-                                    className="mobile-touch-target text-red-700 hover:cursor-pointer"
+                                    className="mobile-touch-target text-danger-ink hover:cursor-pointer"
                                     onClick={() => handleDeletar(p.id)}
                                 >
                                     <Trash2 size={20} />

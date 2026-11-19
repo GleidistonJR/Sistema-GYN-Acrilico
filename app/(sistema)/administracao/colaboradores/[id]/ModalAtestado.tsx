@@ -49,12 +49,12 @@ export default function ModalAtestado({ colaboradorId }: ModalAtestadoProps) {
 
       {isOpen && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
-          <div className="modal-panel bg-white rounded-xl shadow-xl max-w-md w-full border  animate-in fade-in zoom-in-95 duration-150">
-            <div className="bg-gray-50 p-4 border-b flex justify-between items-center">
-              <h3 className="font-bold text-gray-700 text-lg">Lançar Atestado / Abono</h3>
+          <div className="modal-panel bg-surface rounded-xl shadow-xl max-w-md w-full border  animate-in fade-in zoom-in-95 duration-150">
+            <div className="bg-surface-soft p-4 border-b flex justify-between items-center">
+              <h3 className="font-bold text-secondary text-lg">Lançar Atestado / Abono</h3>
               <button 
                 onClick={() => setIsOpen(false)} 
-                className="text-gray-400 hover:text-gray-600 font-bold text-xl"
+                className="text-subtle hover:text-secondary font-bold text-xl"
               >
                 &times;
               </button>
@@ -62,18 +62,18 @@ export default function ModalAtestado({ colaboradorId }: ModalAtestadoProps) {
 
             <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">Data do Afastamento</label>
+                <label className="block text-sm font-medium text-secondary mb-1">Data do Afastamento</label>
                 <input 
                   type="date" 
                   name="data" 
                   required 
-                  className="w-full border rounded-lg p-2 bg-gray-50 focus:outline-blue-500"
+                  className="w-full border rounded-lg p-2 bg-surface-soft focus:outline-blue-500"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-1">Horas Abonadas</label>
+                  <label className="block text-sm font-medium text-secondary mb-1">Horas Abonadas</label>
                   <input 
                     type="number" 
                     name="horas_input" 
@@ -81,11 +81,11 @@ export default function ModalAtestado({ colaboradorId }: ModalAtestadoProps) {
                     max="23" 
                     defaultValue="8" 
                     required
-                    className="w-full border rounded-lg p-2 bg-gray-50 focus:outline-blue-500"
+                    className="w-full border rounded-lg p-2 bg-surface-soft focus:outline-blue-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-1">Minutos Abonados</label>
+                  <label className="block text-sm font-medium text-secondary mb-1">Minutos Abonados</label>
                   <input 
                     type="number" 
                     name="minutos_input" 
@@ -93,12 +93,12 @@ export default function ModalAtestado({ colaboradorId }: ModalAtestadoProps) {
                     max="59" 
                     defaultValue="30" 
                     required
-                    className="w-full border rounded-lg p-2 bg-gray-50 focus:outline-blue-500"
+                    className="w-full border rounded-lg p-2 bg-surface-soft focus:outline-blue-500"
                   />
                 </div>
               </div>
 
-              <p className="text-xs text-gray-400 italic">
+              <p className="text-xs text-subtle italic">
                 O tempo preenchido será somado como crédito para abater as horas em falta do colaborador.
               </p>
 
@@ -106,7 +106,7 @@ export default function ModalAtestado({ colaboradorId }: ModalAtestadoProps) {
                 <button
                   type="button"
                   onClick={() => setIsOpen(false)}
-                  className="px-4 py-2 text-sm font-medium text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
+                  className="px-4 py-2 text-sm font-medium text-muted hover:bg-surface-muted rounded-lg transition-colors"
                   disabled={isPending}
                 >
                   Cancelar

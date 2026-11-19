@@ -53,7 +53,7 @@ export default function AnexoMensagem({ id, midia }: { id: string; midia: Midia 
     {mostrarBotaoAbrir && <button type="button" onClick={abrir} className="mt-1 block text-xs font-semibold underline">
       {erroOriginal && video ? 'Tentar novamente' : imagem ? 'Abrir imagem' : 'Reproduzir'}
     </button>}
-    {erroOriginal && !imagem && <p role="alert" className="mt-2 text-xs text-amber-300">
+    {erroOriginal && !imagem && <p role="alert" className="mt-2 text-xs text-warning-ink">
       Arquivo indisponível. Se o anexo expirou, peça para reenviá-lo.
     </p>}
     {audio && erroOriginal && <button type="button" onClick={() => {
@@ -64,9 +64,9 @@ export default function AnexoMensagem({ id, midia }: { id: string; midia: Midia 
 
     {imagem && <dialog ref={modal} aria-label={`Imagem ampliada: ${midia.nome}`} onClose={() => setAberto(false)} onClick={event => {
       if (event.target === event.currentTarget) event.currentTarget.close();
-    }} className="m-auto max-h-[94dvh] max-w-[94vw] rounded-xl bg-[#202c33] p-3 text-white backdrop:bg-black/80">
+    }} className="m-auto max-h-[94dvh] max-w-[94vw] rounded-xl bg-surface p-3 text-foreground backdrop:bg-black/80">
       <div className="mb-2 flex flex-wrap items-center justify-end gap-4">
-        <button type="button" autoFocus onClick={() => modal.current?.close()} className="rounded-md bg-white/10 px-3 py-1 text-sm font-semibold">Fechar</button>
+        <button type="button" autoFocus onClick={() => modal.current?.close()} className="rounded-md bg-foreground/10 px-3 py-1 text-sm font-semibold">Fechar</button>
       </div>
       {aberto && !erroOriginal && (
         // eslint-disable-next-line @next/next/no-img-element -- O original privado é buscado ao abrir o modal.
@@ -77,7 +77,7 @@ export default function AnexoMensagem({ id, midia }: { id: string; midia: Midia 
           // eslint-disable-next-line @next/next/no-img-element -- A prévia continua disponível se o original expirou.
           <img src={previa} alt={midia.nome} className="max-h-[78dvh] max-w-full object-contain" />
         )}
-        <p role="alert" className="mt-2 text-sm text-amber-300">Original indisponível. Se o anexo expirou, peça para reenviá-lo.</p>
+        <p role="alert" className="mt-2 text-sm text-warning-ink">Original indisponível. Se o anexo expirou, peça para reenviá-lo.</p>
       </>}
     </dialog>}
   </div>;

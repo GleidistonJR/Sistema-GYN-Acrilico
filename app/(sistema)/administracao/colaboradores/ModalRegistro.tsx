@@ -47,9 +47,9 @@ export default function ModalRegistro({ isOpen, onClose, dadosEdicao, onSalvar }
   const isEditing = !!dadosEdicao; // Variável auxiliar para saber o modo
 
   return (
-    <div className="fixed inset-0 bg-black/25 flex items-center justify-center z-[60] p-4 text-black">
-      <div className="modal-panel bg-white rounded-lg p-4 sm:p-6 w-full max-w-md shadow-2xl">
-        <h2 className="text-2xl font-bold mb-4 text-center text-gray-800">{isEditing ? 'Editar Colaborador' : 'Novo Colaborador'}</h2>
+    <div className="fixed inset-0 bg-black/25 flex items-center justify-center z-[60] p-4 text-foreground">
+      <div className="modal-panel bg-surface rounded-lg p-4 sm:p-6 w-full max-w-md shadow-2xl">
+        <h2 className="text-2xl font-bold mb-4 text-center text-foreground">{isEditing ? 'Editar Colaborador' : 'Novo Colaborador'}</h2>
 
         <div className="space-y-5">
           <div>
@@ -145,7 +145,7 @@ export default function ModalRegistro({ isOpen, onClose, dadosEdicao, onSalvar }
                 <select
                   value={colaborador.role}
                   onChange={(e) => setColaborador({ ...colaborador, role: e.target.value })}
-                  className="mt-1 block w-full border rounded-md p-2 bg-white"
+                  className="mt-1 block w-full border rounded-md p-2 bg-surface"
                 >
                   <option value="USER" selected>Usuário</option>
                   <option value="ADMIN">Administrador</option>
@@ -160,7 +160,7 @@ export default function ModalRegistro({ isOpen, onClose, dadosEdicao, onSalvar }
           <div className="mt-6 flex flex-wrap justify-end gap-3">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-gray-700 hover:bg-gray-200 rounded"
+              className="px-4 py-2 text-secondary hover:bg-surface-hover rounded"
             >
               Cancelar
             </button>

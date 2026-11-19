@@ -47,23 +47,23 @@ export default function ModalCategoria({ isOpen, onClose, title, categoria, onSa
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/25">
-      <div role="dialog" aria-modal="true" aria-labelledby="titulo-categoria" className="modal-panel bg-white rounded-xl shadow-2xl border border-gray-100 max-w-md w-full">
-        <div className="flex justify-between items-center p-4 border-b border-gray-100 bg-gray-50">
-          <h3 id="titulo-categoria" className="text-lg font-bold text-gray-700">{title}</h3>
-          <button type="button" onClick={onClose} disabled={salvando} aria-label="Fechar categoria" className="mobile-touch-target p-2 rounded-lg text-gray-500 hover:bg-gray-200 disabled:opacity-50">✕</button>
+      <div role="dialog" aria-modal="true" aria-labelledby="titulo-categoria" className="modal-panel bg-surface rounded-xl shadow-2xl border border-line max-w-md w-full">
+        <div className="flex justify-between items-center p-4 border-b border-line bg-surface-soft">
+          <h3 id="titulo-categoria" className="text-lg font-bold text-secondary">{title}</h3>
+          <button type="button" onClick={onClose} disabled={salvando} aria-label="Fechar categoria" className="mobile-touch-target p-2 rounded-lg text-muted hover:bg-surface-hover disabled:opacity-50">✕</button>
         </div>
         <form onSubmit={handleSalvar} className="p-4 sm:p-6 space-y-4">
-          <label className="block text-sm font-medium text-gray-700">
+          <label className="block text-sm font-medium text-secondary">
             Nome da categoria
-            <input autoFocus required maxLength={120} value={nome} onChange={event => setNome(event.target.value)} disabled={salvando} placeholder="Ex.: MDF" className="mt-2 w-full p-2.5 border rounded-lg bg-gray-50 outline-none focus:border-blue-500" />
+            <input autoFocus required maxLength={120} value={nome} onChange={event => setNome(event.target.value)} disabled={salvando} placeholder="Ex.: MDF" className="mt-2 w-full p-2.5 border rounded-lg bg-surface-soft outline-none focus:border-blue-500" />
           </label>
-          {categoria && <p className="text-sm text-gray-500">O novo nome será exibido em todos os materiais desta categoria.</p>}
+          {categoria && <p className="text-sm text-muted">O novo nome será exibido em todos os materiais desta categoria.</p>}
           {categoria && ['Acrílico', 'Personalização'].includes(categoria.nome) && nome.trim() !== categoria.nome && (
-            <p className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-3">Esta categoria é identificada pelo nome nas regras de orçamento. Renomeá-la pode exigir ajustes nesses cálculos.</p>
+            <p className="text-sm text-warning-ink bg-warning-soft border border-warning-line rounded-lg p-3">Esta categoria é identificada pelo nome nas regras de orçamento. Renomeá-la pode exigir ajustes nesses cálculos.</p>
           )}
-          {erro && <p role="alert" className="text-sm text-red-700 bg-red-50 rounded-lg p-3">{erro}</p>}
+          {erro && <p role="alert" className="text-sm text-danger-ink bg-danger-soft rounded-lg p-3">{erro}</p>}
           <div className="flex flex-wrap gap-3 justify-end pt-2">
-            <button type="button" onClick={onClose} disabled={salvando} className="min-h-11 px-4 py-2 bg-gray-200 text-gray-700 font-semibold rounded-lg disabled:opacity-50">Cancelar</button>
+            <button type="button" onClick={onClose} disabled={salvando} className="min-h-11 px-4 py-2 bg-surface-hover text-secondary font-semibold rounded-lg disabled:opacity-50">Cancelar</button>
             <button type="submit" disabled={salvando || !nome.trim()} className="min-h-11 px-4 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 disabled:opacity-50">{salvando ? 'Salvando...' : categoria ? 'Salvar alterações' : 'Salvar categoria'}</button>
           </div>
         </form>

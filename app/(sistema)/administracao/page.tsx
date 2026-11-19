@@ -4,12 +4,12 @@ import Link from 'next/link';
 
 export default function RegistroPonto() {
 
-  const buttonEstilo = "bg-[#0A2540] text-white hover:bg-[#0f3a6b] hover:cursor-pointer"
+  const buttonEstilo = "bg-primary text-white hover:bg-primary-hover hover:cursor-pointer"
 
   return (
     <main className='grid grid-cols-1 md:grid-cols-4'>
 
-      <nav className="col-span-1 bg-gray-200 flex flex-wrap md:flex-col p-2 gap-2 md:min-h-screen  overflow-x-auto">
+      <nav className="col-span-1 bg-surface-hover flex flex-wrap md:flex-col p-2 gap-2 md:min-h-screen  overflow-x-auto">
 
         <Link href="/administracao/colaboradores" className={buttonEstilo +" min-h-11 flex items-center p-2 sm:pl-5 rounded font-semibold text-sm"}>Colaboradores</Link>
         <Link href="/administracao/relatorioPontosAdmin" className={buttonEstilo +" min-h-11 flex items-center p-2 sm:pl-5 rounded font-semibold text-sm"}>Pontos</Link>
@@ -18,7 +18,7 @@ export default function RegistroPonto() {
       </nav>
 
       <article className='min-w-0 col-span-1 md:col-span-3'>
-        <h1 className='text-2xl md:text-3xl my-6 text-center text-gray-700 font-bold'>Administração</h1>
+        <h1 className='text-2xl md:text-3xl my-6 text-center text-secondary font-bold'>Administração</h1>
 
         <div className='p-5'>
           <h2 className='text-xl md:text-2xl text-center'>Relatorio de vendas</h2>

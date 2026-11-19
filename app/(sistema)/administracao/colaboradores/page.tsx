@@ -52,8 +52,8 @@ export default function Relatorios() {
 
 
   return (
-    <main className="text-gray-700 px-4 sm:px-6 pb-8 max-w-7xl mx-auto">
-      <h1 className="text-2xl sm:text-3xl my-6 text-center text-gray-700 font-bold">Gestão de Colaboradores</h1>
+    <main className="text-secondary px-4 sm:px-6 pb-8 max-w-7xl mx-auto">
+      <h1 className="text-2xl sm:text-3xl my-6 text-center text-secondary font-bold">Gestão de Colaboradores</h1>
 
 
 
@@ -64,7 +64,7 @@ export default function Relatorios() {
 
 
 
-            <aside key={Colaborador.id} className='border border-gray-300 shadow-lg shadow-gray-500 rounded-xl min-w-0 font-semibold
+            <aside key={Colaborador.id} className='border border-line-strong shadow-lg shadow-gray-500 rounded-xl min-w-0 font-semibold
             flex flex-col justify-between'>
               <h2 className='px-4 py-5 break-words border-b text-xl font-semibold text-center'>{Colaborador.nome}</h2>
               <div className='text-center text-xl font-normal py-5'>
@@ -95,18 +95,18 @@ export default function Relatorios() {
               </div>
 
               <div className='flex justify-center w-full gap-3 mb-5'>
-                <Link href={`/administracao/colaboradores/${Colaborador.id}`} className='bg-green-100 text-green-700 p-3 m-0 rounded-full text-center block hover:bg-green-200 hover:cursor-pointer'><Eye size={18} /></Link>
+                <Link href={`/administracao/colaboradores/${Colaborador.id}`} className='bg-success-soft text-success-ink p-3 m-0 rounded-full text-center block hover:bg-success-soft hover:cursor-pointer'><Eye size={18} /></Link>
 
-                <button className='bg-amber-100 text-amber-700 p-3 m-0 rounded-full hover:bg-amber-200 hover:cursor-pointer' onClick={() => editar(Colaborador.id)}><Pencil size={18} /></button>
+                <button className='bg-warning-soft text-warning-ink p-3 m-0 rounded-full hover:bg-warning-soft hover:cursor-pointer' onClick={() => editar(Colaborador.id)}><Pencil size={18} /></button>
 
-                <button className='bg-red-100 text-red-700 p-3 m-0 rounded-full hover:bg-red-200 hover:cursor-pointer' onClick={() => deletar(Colaborador.id)}><Trash2 size={18} /></button>
+                <button className='bg-danger-soft text-danger-ink p-3 m-0 rounded-full hover:bg-danger-soft hover:cursor-pointer' onClick={() => deletar(Colaborador.id)}><Trash2 size={18} /></button>
 
               </div>
             </aside>
           ))) : ('')}
 
-        <aside className='rounded-2xl border border-gray-300 shadow-lg shadow-gray-500  flex justify-center'>
-          <button onClick={() => setIsModalOpen(true)} className='py-20 font-semibold text-3xl w-full text-green-600 hover:text-green-800 hover:cursor-pointer hover:shadow-md '>Adicionar <br />Colaborador</button>
+        <aside className='rounded-2xl border border-line-strong shadow-lg shadow-gray-500  flex justify-center'>
+          <button onClick={() => setIsModalOpen(true)} className='py-20 font-semibold text-3xl w-full text-success-ink hover:text-success-ink hover:cursor-pointer hover:shadow-md '>Adicionar <br />Colaborador</button>
         </aside>
 
       </article>

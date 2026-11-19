@@ -157,10 +157,10 @@ export default function Produtos() {
 
 
     if (!role) return (
-        <div className="mx-auto max-w-lg p-6 text-gray-700">
+        <div className="mx-auto max-w-lg p-6 text-secondary">
             {carregandoPermissoes ? <p role="status">Carregando materiais...</p> : <>
                 <p>Entre novamente para acessar os materiais com suas permissões atualizadas.</p>
-                <Link href="/login" className="mt-4 inline-block rounded-lg bg-[#0A2540] px-4 py-3 text-white">Fazer login</Link>
+                <Link href="/login" className="mt-4 inline-block rounded-lg bg-primary px-4 py-3 text-white">Fazer login</Link>
             </>}
         </div>
     );
@@ -180,15 +180,15 @@ export default function Produtos() {
                     {/* Gaveta lateral */}
                     <aside
                         aria-hidden={!menuAberto}
-                        className={`fixed top-0 left-0 z-[60] flex h-dvh w-72 max-w-[calc(100vw-1rem)] overflow-y-auto flex-col gap-3 bg-gray-100 p-5 shadow-xl transition-all duration-300 ${menuAberto ? 'translate-x-0' : 'invisible -translate-x-full'
+                        className={`fixed top-0 left-0 z-[60] flex h-dvh w-72 max-w-[calc(100vw-1rem)] overflow-y-auto flex-col gap-3 bg-surface-muted p-5 shadow-xl transition-all duration-300 ${menuAberto ? 'translate-x-0' : 'invisible -translate-x-full'
                             }`}
                     >
                         <div className="mb-2 flex items-center justify-between">
-                            <span className="font-bold text-[#0A2540]">Menu</span>
+                            <span className="font-bold text-primary-ink">Menu</span>
                             <button
                                 onClick={() => setMenuAberto(false)}
                                 aria-label="Fechar menu"
-                                className="rounded p-1 text-gray-500 hover:cursor-pointer hover:bg-gray-200"
+                                className="rounded p-1 text-muted hover:cursor-pointer hover:bg-surface-hover"
                             >
                                 <X size={22} />
                             </button>
@@ -196,21 +196,21 @@ export default function Produtos() {
 
                         <button
                             onClick={() => { setMenuAberto(false); setModalCategoriaAberto(true); }}
-                            className="w-full flex items-center gap-3 text-left px-4 py-2 rounded-lg border transition-all duration-150 bg-[#0A2540] border-[#0A2540] text-white hover:bg-[#0f3a6b] hover:cursor-pointer"
+                            className="w-full flex items-center gap-3 text-left px-4 py-2 rounded-lg border transition-all duration-150 bg-primary border-primary-ink text-white hover:bg-primary-hover hover:cursor-pointer"
                         >
                             Cadastrar Categoria
                         </button>
 
                         <button
                             onClick={() => { setMenuAberto(false); setGerenciarCategoriasAberto(true); }}
-                            className="w-full flex items-center gap-3 text-left px-4 py-2 rounded-lg border transition-all duration-150 bg-[#0A2540] border-[#0A2540] text-white hover:bg-[#0f3a6b] hover:cursor-pointer"
+                            className="w-full flex items-center gap-3 text-left px-4 py-2 rounded-lg border transition-all duration-150 bg-primary border-primary-ink text-white hover:bg-primary-hover hover:cursor-pointer"
                         >
                             Gerenciar Categorias
                         </button>
 
                         <button
                             onClick={() => { setMenuAberto(false); setModalAberto(true); }}
-                            className="w-full flex items-center gap-3 text-left px-4 py-2 rounded-lg border transition-all duration-150 bg-[#0A2540] border-[#0A2540] text-white hover:bg-[#0f3a6b] hover:cursor-pointer"
+                            className="w-full flex items-center gap-3 text-left px-4 py-2 rounded-lg border transition-all duration-150 bg-primary border-primary-ink text-white hover:bg-primary-hover hover:cursor-pointer"
                         >
                             Cadastrar Material
                         </button>
@@ -220,14 +220,14 @@ export default function Produtos() {
 
             <div className='w-full lg:w-6/7 px-3 sm:px-6 lg:px-0 m-auto pb-6'>
 
-                <div className='sticky top-16 z-10 bg-white lg:px-10 pt-4 pb-3 lg:pb-0'>
+                <div className='sticky top-16 z-10 bg-surface lg:px-10 pt-4 pb-3 lg:pb-0'>
                     <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                         <div className="flex min-w-0 flex-1 items-center gap-3">
                         {role === 'ADMIN' && (
                             <button
                                 onClick={() => setMenuAberto(true)}
                                 aria-label="Abrir menu"
-                                className="rounded border border-blue-800 p-2 text-blue-800 hover:cursor-pointer hover:bg-blue-50"
+                                className="rounded border border-blue-800 p-2 text-info-ink hover:cursor-pointer hover:bg-info-soft"
                             >
                                 <Menu size={22} />
                             </button>
@@ -246,13 +246,13 @@ export default function Produtos() {
                             type="button"
                             onClick={copiarListaCompras}
                             disabled={copiandoLista}
-                            className="flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-[#0A2540] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0f3a6b] disabled:opacity-50"
+                            className="flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-50"
                         >
                             <ClipboardCopy size={18} />
                             {copiandoLista ? 'Preparando lista...' : 'Copiar lista de compras'}
                         </button>
                     </div>
-                    {mensagemLista && <p role="status" className="py-2 text-sm text-gray-600">{mensagemLista}</p>}
+                    {mensagemLista && <p role="status" className="py-2 text-sm text-secondary">{mensagemLista}</p>}
 
                     <div className={`hidden lg:grid ${role === 'ADMIN' ? 'grid-cols-5' : 'grid-cols-4'} py-5`}>
 
@@ -277,7 +277,7 @@ export default function Produtos() {
 
                     {materiaisFiltrados.map((m) => (
 
-                        <div className={`grid grid-cols-1 gap-4 lg:gap-0 ${role === 'ADMIN' ? 'lg:grid-cols-5' : 'lg:grid-cols-4'} p-4 lg:px-0 lg:py-2 border lg:border-0 lg:border-b rounded-xl lg:rounded-none border-gray-300 bg-white`} key={m.id} >
+                        <div className={`grid grid-cols-1 gap-4 lg:gap-0 ${role === 'ADMIN' ? 'lg:grid-cols-5' : 'lg:grid-cols-4'} p-4 lg:px-0 lg:py-2 border lg:border-0 lg:border-b rounded-xl lg:rounded-none border-line-strong bg-surface`} key={m.id} >
 
                             <div className='min-w-0 flex items-start gap-3 lg:px-2 lg:col-span-2'>
                                 <FotoItem foto={m.foto} nome={[m.categoria.nome, m.nome, m.cor, m.espessura ? `${m.espessura}mm` : null].filter(Boolean).join(' ')} />
@@ -291,7 +291,7 @@ export default function Produtos() {
                                     ].filter(Boolean).join(' ')}
                                 </h3>
                                 <p>{m.descricao}</p>
-                                <p className="text-sm text-gray-500">
+                                <p className="text-sm text-muted">
                                     {m.largura && m.altura ? `${m.largura} x ${m.altura} cm` : ''}
                                     {m.velocidadeCorte ? ` | Corte: ${m.velocidadeCorte} mm/s` : ''}
                                 </p>
@@ -301,25 +301,25 @@ export default function Produtos() {
                             <div className='grid grid-cols-2 min-[400px]:grid-cols-3 gap-3 lg:gap-10 font-semibold lg:col-span-2 text-sm lg:text-base [&>p]:break-words'>
 
                                 {m.valorVendaInteiro ? (
-                                    <p className='text-green-800'><span className="block lg:hidden text-xs text-gray-500 font-normal mb-1">Venda inteira</span>R${m.valorVendaInteiro.toFixed(2)}</p>
-                                ) : <p className='text-green-800'><span className="block lg:hidden text-xs text-gray-500 font-normal mb-1">Venda inteira</span>R$0</p>}
+                                    <p className='text-success-ink'><span className="block lg:hidden text-xs text-muted font-normal mb-1">Venda inteira</span>R${m.valorVendaInteiro.toFixed(2)}</p>
+                                ) : <p className='text-success-ink'><span className="block lg:hidden text-xs text-muted font-normal mb-1">Venda inteira</span>R$0</p>}
 
                                 {m.ValorVendaFracionado ? (
-                                    <p className='text-green-800'><span className="block lg:hidden text-xs text-gray-500 font-normal mb-1">Venda m²</span>R${m.ValorVendaFracionado.toFixed(2)}</p>
-                                ) : <p className='text-green-800'><span className="block lg:hidden text-xs text-gray-500 font-normal mb-1">Venda m²</span>R$0</p>}
+                                    <p className='text-success-ink'><span className="block lg:hidden text-xs text-muted font-normal mb-1">Venda m²</span>R${m.ValorVendaFracionado.toFixed(2)}</p>
+                                ) : <p className='text-success-ink'><span className="block lg:hidden text-xs text-muted font-normal mb-1">Venda m²</span>R$0</p>}
 
                                 <div className="min-w-0">
                                 <button
                                     onClick={() => setMaterialEstoque(m)}
                                     title="Atualizar estoque"
-                                    className='flex flex-col items-start lg:block min-h-11 lg:min-h-0 hover:cursor-pointer hover:text-blue-700'
+                                    className='flex flex-col items-start lg:block min-h-11 lg:min-h-0 hover:cursor-pointer hover:text-info-ink'
                                 >
-                                    <span className="block lg:hidden text-xs text-gray-500 font-normal mb-1">Estoque</span>
+                                    <span className="block lg:hidden text-xs text-muted font-normal mb-1">Estoque</span>
                                     <span className="flex items-center gap-2">{m.estoque} <Box size={20} /></span>
                                 </button>
-                                <p className="mt-1 text-xs font-normal text-gray-500">Padrão: {m.estoquePadrao ?? 0} UND</p>
+                                <p className="mt-1 text-xs font-normal text-muted">Padrão: {m.estoquePadrao ?? 0} UND</p>
                                 {calcularReposicao(m.estoque, m.estoquePadrao) > 0 && (
-                                    <p className="mt-1 text-xs font-semibold text-amber-700">Pedir: {calcularReposicao(m.estoque, m.estoquePadrao)} UND</p>
+                                    <p className="mt-1 text-xs font-semibold text-warning-ink">Pedir: {calcularReposicao(m.estoque, m.estoquePadrao)} UND</p>
                                 )}
                                 </div>
                             </div>
@@ -329,7 +329,7 @@ export default function Produtos() {
 
                                     <button
                                         title="Duplicar"
-                                        className='mobile-touch-target text-green-800 rounded-full hover:cursor-pointer'
+                                        className='mobile-touch-target text-success-ink rounded-full hover:cursor-pointer'
                                         onClick={() => setMaterialDuplicando(m)}
                                     >
                                         <CopyPlus size={20} />
@@ -337,14 +337,14 @@ export default function Produtos() {
 
                                     <button
                                         aria-label="Editar material"
-                                        className='mobile-touch-target text-amber-500 rounded-full hover:cursor-pointer'
+                                        className='mobile-touch-target text-warning-ink rounded-full hover:cursor-pointer'
                                         onClick={() => editarMaterial(m.id)}>
                                         <Pencil size={20} />
                                     </button>
 
                                     <button
                                         aria-label="Excluir material"
-                                        className='mobile-touch-target text-red-700 rounded-full hover:cursor-pointer'
+                                        className='mobile-touch-target text-danger-ink rounded-full hover:cursor-pointer'
                                         onClick={() => deletarMaterial(m.id)}>
                                         <Trash2 size={20} />
                                     </button>

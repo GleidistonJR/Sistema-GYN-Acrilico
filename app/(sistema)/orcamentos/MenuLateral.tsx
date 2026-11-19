@@ -66,11 +66,11 @@ export default function MenuLateral({ isOpen }: MenuLateralProps) {
   return (
     <div
       aria-hidden={!isOpen}
-      className={`fixed top-16 bottom-0 left-0 w-80 max-w-[calc(100vw-1rem)] bg-white pt-18 p-5 shadow-2xl z-40 transform transition-transform duration-300 ease-in-out overflow-y-auto ${
+      className={`fixed top-16 bottom-0 left-0 w-80 max-w-[calc(100vw-1rem)] bg-surface pt-18 p-5 shadow-2xl z-40 transform transition-transform duration-300 ease-in-out overflow-y-auto ${
         isOpen ? 'translate-x-0' : 'invisible -translate-x-full'
       }`}
     >
-      <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-3">
+      <p className="text-xs font-semibold uppercase tracking-wide text-subtle mb-3">
         Textos rápidos
       </p>
 
@@ -83,11 +83,11 @@ export default function MenuLateral({ isOpen }: MenuLateralProps) {
               onClick={() => copiarTexto(id, texto)}
               className={`w-full flex items-center gap-3 text-left px-4 py-2.5 rounded-lg border transition-all duration-150 ${
                 copiado
-                  ? 'bg-amber-50 border-amber-300 text-amber-700'
-                  : 'bg-[#0A2540] border-[#0A2540] text-white hover:bg-[#0f3a6b] hover:cursor-pointer'
+                  ? 'bg-warning-soft border-warning-line text-warning-ink'
+                  : 'bg-primary border-primary-ink text-white hover:bg-primary-hover hover:cursor-pointer'
               }`}
             >
-              {copiado ? <Check size={17} className="shrink-0" /> : <Icone size={17} className="shrink-0 text-amber-400" />}
+              {copiado ? <Check size={17} className="shrink-0" /> : <Icone size={17} className="shrink-0 text-warning-ink" />}
               <span className="text-sm font-medium flex-1">{copiado ? 'Copiado!' : label}</span>
               {!copiado && <ClipboardCopy size={14} className="shrink-0 opacity-50" />}
             </button>
@@ -95,8 +95,8 @@ export default function MenuLateral({ isOpen }: MenuLateralProps) {
         })}
       </div>
 
-      <div className="pt-5 mt-5 border-t border-slate-200">
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-3">
+      <div className="pt-5 mt-5 border-t border-line">
+        <p className="text-xs font-semibold uppercase tracking-wide text-subtle mb-3">
           Consultas externas
         </p>
 
@@ -107,7 +107,7 @@ export default function MenuLateral({ isOpen }: MenuLateralProps) {
               href={url}
               target="_blank"
               rel="noreferrer"
-              className="flex items-center justify-between px-4 py-2.5 rounded-lg border border-slate-200 text-slate-700 font-medium text-sm hover:border-amber-300 hover:bg-amber-50/50 hover:text-amber-700 transition-colors"
+              className="flex items-center justify-between px-4 py-2.5 rounded-lg border border-line text-secondary font-medium text-sm hover:border-warning-line hover:bg-warning-soft/50 hover:text-warning-ink transition-colors"
             >
               {label}
               <ExternalLink size={14} className="opacity-40" />

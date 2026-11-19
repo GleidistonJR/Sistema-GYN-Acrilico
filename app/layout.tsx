@@ -1,10 +1,13 @@
 import "./globals.css";
+import { cookies } from 'next/headers';
+import { ProvedorTema } from './tema';
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const tema = (await cookies()).get('gyn-tema')?.value === 'escuro' ? 'escuro' : 'claro';
   return (
-    <html lang="pt-br">
+    <html lang="pt-br" data-tema={tema}>
       <body>
-        {children} {/* Aqui entra o conteúdo de qualquer página */}
+        <ProvedorTema inicial={tema}>{children}</ProvedorTema>
       </body>
     </html>
   );

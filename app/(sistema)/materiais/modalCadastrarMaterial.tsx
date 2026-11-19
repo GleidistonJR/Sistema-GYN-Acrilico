@@ -114,16 +114,16 @@ export default function ModalMaterial({ isOpen, onClose, title, materialInicial,
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/25  animate-fade-in">
 
       {/* 2. Caixa do Modal */}
-      <div className="modal-panel bg-white rounded-xl shadow-2xl border border-gray-100 max-w-md w-full  animate-scale-up">
+      <div className="modal-panel bg-surface rounded-xl shadow-2xl border border-line max-w-md w-full  animate-scale-up">
 
         {/* Cabeçalho do Modal */}
-        <div className="flex justify-between items-center p-4 border-b border-gray-100 bg-gray-50">
-          <h3 className="text-lg font-bold text-gray-700">{title}</h3>
+        <div className="flex justify-between items-center p-4 border-b border-line bg-surface-soft">
+          <h3 className="text-lg font-bold text-secondary">{title}</h3>
 
           {/* Botão de Fechar (X) */}
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 font-bold p-1 rounded-lg hover:bg-gray-200 transition"
+            className="text-subtle hover:text-secondary font-bold p-1 rounded-lg hover:bg-surface-hover transition"
           >
             ✕
           </button>
@@ -141,7 +141,7 @@ export default function ModalMaterial({ isOpen, onClose, title, materialInicial,
             <select id="categoria" name='categoria'
               value={dados.categoria}
               onChange={(e) => setDados({ ...dados, categoria: e.target.value })}
-              className="w-full p-2 border rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none">
+              className="w-full p-2 border rounded-lg bg-surface-soft focus:ring-blue-500 focus:border-blue-500 outline-none">
               <option value="">Selecione...</option>
 
               {categorias.map((cat) => (
@@ -161,7 +161,7 @@ export default function ModalMaterial({ isOpen, onClose, title, materialInicial,
                   placeholder="Acrilico Crital 2mm"
                   value={dados.nome}
                   onChange={(e) => setDados({ ...dados, nome: e.target.value })}
-                  className="w-full p-2 border rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                  className="w-full p-2 border rounded-lg bg-surface-soft focus:ring-blue-500 focus:border-blue-500 outline-none"
                 />
               </label>
             </div>
@@ -176,7 +176,7 @@ export default function ModalMaterial({ isOpen, onClose, title, materialInicial,
                   allowNegative={false}
                   value={dados.espessura}
                   onValueChange={(e) => setDados({ ...dados, espessura: e.value })}
-                  className="w-full p-2 border rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                  className="w-full p-2 border rounded-lg bg-surface-soft focus:ring-blue-500 focus:border-blue-500 outline-none"
                   placeholder="2 mm"
                 />
               </label>
@@ -188,7 +188,7 @@ export default function ModalMaterial({ isOpen, onClose, title, materialInicial,
                   placeholder="Cristal"
                   value={dados.cor}
                   onChange={(e) => setDados({ ...dados, cor: e.target.value })}
-                  className="w-full p-2 border rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                  className="w-full p-2 border rounded-lg bg-surface-soft focus:ring-blue-500 focus:border-blue-500 outline-none"
                 />
               </label>
             </div>
@@ -204,7 +204,7 @@ export default function ModalMaterial({ isOpen, onClose, title, materialInicial,
                   allowNegative={false}
                   value={dados.largura}
                   onValueChange={(v) => setDados({ ...dados, largura: v.floatValue ?? null })}
-                  className="w-full p-2 border rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                  className="w-full p-2 border rounded-lg bg-surface-soft focus:ring-blue-500 focus:border-blue-500 outline-none"
                   placeholder="1000 cm"
                 />
               </label>
@@ -219,7 +219,7 @@ export default function ModalMaterial({ isOpen, onClose, title, materialInicial,
                   allowNegative={false}
                   value={dados.altura}
                   onValueChange={(v) => setDados({ ...dados, altura: v.floatValue ?? null })}
-                  className="w-full p-2 border rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                  className="w-full p-2 border rounded-lg bg-surface-soft focus:ring-blue-500 focus:border-blue-500 outline-none"
                   placeholder="2000 cm"
                 />
               </label>
@@ -235,7 +235,7 @@ export default function ModalMaterial({ isOpen, onClose, title, materialInicial,
                   allowNegative={false}
                   value={dados.velocidadeCorte}
                   onValueChange={(v) => setDados({ ...dados, velocidadeCorte: v.floatValue ?? null })}
-                  className="w-full p-2 border rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                  className="w-full p-2 border rounded-lg bg-surface-soft focus:ring-blue-500 focus:border-blue-500 outline-none"
                   placeholder="0 mm/s"
                 />
               </label>
@@ -250,7 +250,7 @@ export default function ModalMaterial({ isOpen, onClose, title, materialInicial,
                   allowNegative={false}
                   value={dados.estoque}
                   onValueChange={(e) => setDados({ ...dados, estoque: e.floatValue ?? 0 })}
-                  className="w-full p-2 border rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                  className="w-full p-2 border rounded-lg bg-surface-soft focus:ring-blue-500 focus:border-blue-500 outline-none"
                   placeholder="1 und"
                 />
               </label>
@@ -267,9 +267,9 @@ export default function ModalMaterial({ isOpen, onClose, title, materialInicial,
                 allowNegative={false}
                 value={dados.estoquePadrao}
                 onValueChange={v => setDados({ ...dados, estoquePadrao: v.floatValue ?? 0 })}
-                className="mt-1 w-full p-2 border rounded-lg bg-gray-50 outline-none focus:border-blue-500"
+                className="mt-1 w-full p-2 border rounded-lg bg-surface-soft outline-none focus:border-blue-500"
               />
-              <span className="block mt-1 text-xs text-gray-500">Quantidade desejada em estoque. Deixe 0 para não incluir na lista de compras.</span>
+              <span className="block mt-1 text-xs text-muted">Quantidade desejada em estoque. Deixe 0 para não incluir na lista de compras.</span>
             </label>
 
             <div className='grid grid-cols-1 min-[400px]:grid-cols-2 gap-4'>
@@ -330,11 +330,11 @@ export default function ModalMaterial({ isOpen, onClose, title, materialInicial,
 
 
 
-            {erro && <p role="alert" className="text-sm text-red-700">{erro}</p>}
+            {erro && <p role="alert" className="text-sm text-danger-ink">{erro}</p>}
             <div className="flex flex-wrap gap-3 justify-end pt-4">
               <button
                 onClick={onClose}
-                className="px-4 py-2 bg-gray-200 text-gray-700 font-semibold rounded-lg hover:bg-gray-300 transition"
+                className="px-4 py-2 bg-surface-hover text-secondary font-semibold rounded-lg hover:bg-surface-strong transition"
               >
                 Cancelar
               </button>

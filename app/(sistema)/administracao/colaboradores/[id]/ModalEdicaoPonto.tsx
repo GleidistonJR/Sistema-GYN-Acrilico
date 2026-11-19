@@ -87,20 +87,20 @@ export default function ModalEdicaoPonto({ isOpen, onClose, dadosEdicao }: Modal
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60] p-4 text-black">
-      <div className="modal-panel bg-white rounded-lg shadow-2xl w-full max-w-md  animate-in fade-in zoom-in-95 duration-150">
-        <div className="bg-gray-100 p-4 border-b">
-          <h2 className="text-xl font-bold text-gray-800 text-center">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60] p-4 text-foreground">
+      <div className="modal-panel bg-surface rounded-lg shadow-2xl w-full max-w-md  animate-in fade-in zoom-in-95 duration-150">
+        <div className="bg-surface-muted p-4 border-b">
+          <h2 className="text-xl font-bold text-foreground text-center">
             Modificar {isAtestado ? "Atestado" : "Registro de Ponto"}
           </h2>
         </div>
 
         <div className="p-4 sm:p-6 space-y-4">
-          <h3 className='text-lg text-center font-bold text-gray-800'>{ponto.colaborador?.nome}</h3>
+          <h3 className='text-lg text-center font-bold text-foreground'>{ponto.colaborador?.nome}</h3>
           
           {/* Data do Evento */}
           <div>
-            <label className="block text-sm font-semibold text-gray-700">Data:</label>
+            <label className="block text-sm font-semibold text-secondary">Data:</label>
             <input
               type={isAtestado ? "date" : "datetime-local"}
               value={isAtestado ? ponto.dataHora.split('T')[0] : ponto.dataHora}
@@ -112,7 +112,7 @@ export default function ModalEdicaoPonto({ isOpen, onClose, dadosEdicao }: Modal
           {/* Renderização Condicional se for Ponto ou Atestado */}
           {!isAtestado ? (
             <div>
-              <label className="block text-sm font-semibold text-gray-700">Tipo de Batida:</label>
+              <label className="block text-sm font-semibold text-secondary">Tipo de Batida:</label>
               <select
                 value={ponto.tipo}
                 onChange={(e) => setPonto({ ...ponto, tipo: e.target.value })}
@@ -125,7 +125,7 @@ export default function ModalEdicaoPonto({ isOpen, onClose, dadosEdicao }: Modal
           ) : (
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-semibold text-gray-700">Horas Abonadas:</label>
+                <label className="block text-sm font-semibold text-secondary">Horas Abonadas:</label>
                 <input
                   type="number"
                   min="0"
@@ -135,7 +135,7 @@ export default function ModalEdicaoPonto({ isOpen, onClose, dadosEdicao }: Modal
                 />
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700">Minutos Abonados:</label>
+                <label className="block text-sm font-semibold text-secondary">Minutos Abonados:</label>
                 <input
                   type="number"
                   min="0"
@@ -150,7 +150,7 @@ export default function ModalEdicaoPonto({ isOpen, onClose, dadosEdicao }: Modal
 
           {/* Motivo */}
           <div>
-            <label className="block text-sm font-semibold text-gray-700">Motivo da Alteração:</label>
+            <label className="block text-sm font-semibold text-secondary">Motivo da Alteração:</label>
             <textarea
               value={motivo}
               onChange={(e) => setMotivo(e.target.value)}
@@ -163,7 +163,7 @@ export default function ModalEdicaoPonto({ isOpen, onClose, dadosEdicao }: Modal
           <div className="flex flex-wrap justify-end gap-3 pt-4 border-t">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-md transition"
+              className="px-4 py-2 text-secondary hover:bg-surface-muted rounded-md transition"
             >
               Cancelar
             </button>

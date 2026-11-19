@@ -16,12 +16,12 @@ export default function Relatorios() {
   const { dados: pontos } = useDadosAtualizados(buscar, [], { ativo: !!dataFiltro });
 
   return (
-    <div className="bg-gray-200">
-      <section className="bg-white text-gray-700 px-4 sm:px-6 pb-10 xl:max-w-3/4 mx-auto">
+    <div className="bg-surface-hover">
+      <section className="bg-surface text-secondary px-4 sm:px-6 pb-10 xl:max-w-3/4 mx-auto">
         <div className='flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 py-6'>
-          <h1 className="text-2xl sm:text-4xl text-center text-gray-700 font-bold">Relatório Ponto</h1>
+          <h1 className="text-2xl sm:text-4xl text-center text-secondary font-bold">Relatório Ponto</h1>
           <div className='text-center flex flex-col items-center'>
-            <label htmlFor="buscarData" className="text-sm font-semibold text-gray-500 mb-1">
+            <label htmlFor="buscarData" className="text-sm font-semibold text-muted mb-1">
               Filtrar pontos por dia:
             </label>
             <input
@@ -30,32 +30,32 @@ export default function Relatorios() {
               onChange={(e) => setDataFiltro(e.target.value)}
               name="buscarData"
               id="buscarData"
-              className='border rounded p-2 text-gray-700 font-medium shadow-sm focus:outline-green-500'
+              className='border rounded p-2 text-secondary font-medium shadow-sm focus:outline-green-500'
             />
           </div>
         </div>
         <div className="space-y-3 sm:hidden">
           {pontos.length > 0 ? pontos.map(ponto => (
-            <article key={ponto.id} className="rounded-xl border border-gray-200 p-4 space-y-3">
+            <article key={ponto.id} className="rounded-xl border border-line p-4 space-y-3">
               <h2 className="font-semibold break-words">{ponto.colaborador.nome}</h2>
               <div className="flex flex-wrap justify-between items-center gap-3 text-sm">
-                <p className="text-gray-500">
+                <p className="text-muted">
                   {new Date(ponto.dataHora).toLocaleDateString('pt-BR')}
-                  <span className="block font-semibold text-gray-800 text-lg">
+                  <span className="block font-semibold text-foreground text-lg">
                     {new Date(ponto.dataHora).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                   </span>
                 </p>
-                <span className={`px-3 py-1 rounded-full font-semibold ${ponto.tipo === 'Entrada' ? 'bg-green-100 text-green-800' : ponto.tipo.startsWith('Atestado') ? 'bg-purple-100 text-purple-800' : 'bg-orange-100 text-orange-800'}`}>
+                <span className={`px-3 py-1 rounded-full font-semibold ${ponto.tipo === 'Entrada' ? 'bg-success-soft text-success-ink' : ponto.tipo.startsWith('Atestado') ? 'bg-violet-soft text-violet-ink' : 'bg-warning-soft text-warning-ink'}`}>
                   {ponto.tipo.startsWith('Atestado') ? 'Atestado' : ponto.tipo}
                 </span>
               </div>
             </article>
-          )) : <p className="text-center py-6 text-gray-500 italic">Nenhum ponto registrado nesta data.</p>}
+          )) : <p className="text-center py-6 text-muted italic">Nenhum ponto registrado nesta data.</p>}
         </div>
         <div className="hidden sm:block overflow-x-auto">
         <table className="w-full lg:w-5/6 m-auto border-collapse border">
           <thead>
-            <tr className="bg-gray-200">
+            <tr className="bg-surface-hover">
               <th className="border p-2">Funcionário</th>
               <th className="border p-2">Data</th>
               <th className="border p-2">Hora</th>
@@ -73,8 +73,8 @@ export default function Relatorios() {
                     minute: '2-digit'
                   })}</td>
                   <td className="p-2" >
-                    <span className={`px-2.5 py-1 rounded-full text-sm font-semibold ${ponto.tipo === 'Entrada' ? 'bg-green-100 text-green-800' :
-                        ponto.tipo.startsWith('Atestado') ? 'bg-purple-100 text-purple-800' : 'bg-orange-100 text-orange-800'
+                    <span className={`px-2.5 py-1 rounded-full text-sm font-semibold ${ponto.tipo === 'Entrada' ? 'bg-success-soft text-success-ink' :
+                        ponto.tipo.startsWith('Atestado') ? 'bg-violet-soft text-violet-ink' : 'bg-warning-soft text-warning-ink'
                       }`}>
                       {ponto.tipo.startsWith("Atestado") ? "Atestado" : ponto.tipo}
                     </span>
@@ -83,7 +83,7 @@ export default function Relatorios() {
               ))
             ) : (
               <tr className="text-center border-b">
-                <td colSpan={4} className="p-2 text-gray-500 italic">
+                <td colSpan={4} className="p-2 text-muted italic">
                   Nenhum ponto registrado nesta data.
                 </td>
               </tr>
