@@ -6,6 +6,7 @@ type Midia = { nome: string; mimeType: string; preparadaEm: string | null };
 
 export default function AnexoMensagem({ id, midia }: { id: string; midia: Midia }) {
   const modal = useRef<HTMLDialogElement>(null);
+  const playerAudio = useRef<HTMLAudioElement>(null);
   const [aberto, setAberto] = useState(false);
   const [erroOriginal, setErroOriginal] = useState(false);
   const [previaIndisponivel, setPreviaIndisponivel] = useState<string>();
@@ -18,7 +19,7 @@ export default function AnexoMensagem({ id, midia }: { id: string; midia: Midia 
     ? `${base}?previa=1&v=${encodeURIComponent(versaoPrevia)}`
     : '';
   const mostrarBotaoAbrir = (imagem && !previa)
-    || ((audio || video) && (!aberto || erroOriginal) && (!previa || erroOriginal));
+    || (video && (!aberto || erroOriginal) && (!previa || erroOriginal));
 
   function abrir() {
     setErroOriginal(false);
@@ -26,9 +27,12 @@ export default function AnexoMensagem({ id, midia }: { id: string; midia: Midia 
     if (imagem) modal.current?.showModal();
   }
 
-  const baixar = <a href={`${base}?baixar=1`} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold underline">
-    {imagem ? 'Baixar imagem' : 'Baixar arquivo'}
-  </a>;
+  if (!imagem && !video && !audio) return <div className="mb-2 max-w-sm">
+    <p className="break-all text-sm font-semibold">{midia.nome}</p>
+    <a href={`${base}?baixar=1`} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-xs font-semibold underline">
+      Baixar arquivo
+    </a>
+  </div>;
 
   return <div className="mb-2 max-w-sm">
     {previa && !(video && aberto) ? (
@@ -39,29 +43,29 @@ export default function AnexoMensagem({ id, midia }: { id: string; midia: Midia 
           className="max-h-80 max-w-full object-contain" />
         {video && <span className="absolute bottom-2 left-2 rounded bg-black/75 px-2 py-1 text-xs text-white">Reproduzir vídeo</span>}
       </button>
-    ) : !video && <p className="break-all text-sm font-semibold">{midia.nome}</p>}
+    ) : null}
 
     {aberto && video && !erroOriginal && <video controls controlsList="nodownload" playsInline preload="metadata" src={base} poster={previa || undefined}
       onError={() => setErroOriginal(true)} className="max-h-96 max-w-full rounded" />}
-    {aberto && audio && !erroOriginal && <audio controls preload="metadata" src={base}
-      onError={() => setErroOriginal(true)} className="max-w-full" />}
+    {audio && <audio ref={playerAudio} aria-label="Áudio da mensagem" controls controlsList="nodownload" preload="none" src={base}
+      onPlaying={() => setErroOriginal(false)} onError={() => setErroOriginal(true)} className="block w-64 max-w-full" />}
 
-    {(mostrarBotaoAbrir || !video) && <div className="mt-1 flex flex-wrap gap-3">
-      {mostrarBotaoAbrir &&
-        <button type="button" onClick={abrir} className="text-xs font-semibold underline">
-          {erroOriginal && !imagem ? 'Tentar novamente' : imagem ? 'Abrir imagem' : 'Reproduzir'}
-        </button>}
-      {!video && baixar}
-    </div>}
+    {mostrarBotaoAbrir && <button type="button" onClick={abrir} className="mt-1 block text-xs font-semibold underline">
+      {erroOriginal && video ? 'Tentar novamente' : imagem ? 'Abrir imagem' : 'Reproduzir'}
+    </button>}
     {erroOriginal && !imagem && <p role="alert" className="mt-2 text-xs text-amber-300">
       Arquivo indisponível. Se o anexo expirou, peça para reenviá-lo.
     </p>}
+    {audio && erroOriginal && <button type="button" onClick={() => {
+      const player = playerAudio.current;
+      player?.load();
+      void player?.play().catch(() => {});
+    }} className="mt-1 block text-xs font-semibold underline">Tentar novamente</button>}
 
     {imagem && <dialog ref={modal} aria-label={`Imagem ampliada: ${midia.nome}`} onClose={() => setAberto(false)} onClick={event => {
       if (event.target === event.currentTarget) event.currentTarget.close();
     }} className="m-auto max-h-[94dvh] max-w-[94vw] rounded-xl bg-[#202c33] p-3 text-white backdrop:bg-black/80">
       <div className="mb-2 flex flex-wrap items-center justify-end gap-4">
-        {baixar}
         <button type="button" autoFocus onClick={() => modal.current?.close()} className="rounded-md bg-white/10 px-3 py-1 text-sm font-semibold">Fechar</button>
       </div>
       {aberto && !erroOriginal && (
