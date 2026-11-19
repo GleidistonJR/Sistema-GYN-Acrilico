@@ -214,7 +214,7 @@ export default function PainelAtendimento({ usuario, etiquetas, filaInicial, cli
         <div className="rounded-lg bg-emerald-50 p-3 text-sm"><strong>{usuario.apelido || 'Atendimento'}:</strong><br />Mensagem normal</div>
         <p className="text-xs text-slate-500">Esta configuração pertence ao seu login e funciona em todos os computadores.</p>
       </Formulario>}
-      {modal === 'cliente' && <Formulario acao="criarCliente" botao="Adicionar cliente" aoSalvar={abrirClienteCriado}><label className="block text-sm">Nome<input name="nome" required maxLength={120} className={campo} autoFocus /></label><label className="block text-sm">WhatsApp com país e DDD<input name="telefone" required type="tel" className={campo} placeholder="+55 62 99999-9999" /></label></Formulario>}
+      {modal === 'cliente' && <Formulario acao="criarCliente" botao="Adicionar cliente" aoSalvar={abrirClienteCriado}><label className="block text-sm">Nome<input name="nome" required maxLength={120} className={campo} autoFocus /></label><label className="block text-sm">WhatsApp com DDD<input name="telefone" required type="tel" className={campo} placeholder="(62) 99999-9999" /></label></Formulario>}
       {modal === 'etiqueta' && <Formulario acao="criarEtiqueta" botao="Criar etiqueta"><label className="block text-sm">Nome<input name="nome" required maxLength={40} className={campo} autoFocus /></label></Formulario>}
       {modal === 'detalhes' && <div className="space-y-6">{erroDetalhes ? <p role="alert" className="text-sm text-red-700">{erroDetalhes}</p> : !detalhes ? <p className="text-sm text-slate-500">Carregando…</p> : <>
         <div><h3 className="font-semibold">{detalhes.cliente.nome}</h3><p className="text-sm text-slate-500">{detalhes.cliente.telefone}</p></div>

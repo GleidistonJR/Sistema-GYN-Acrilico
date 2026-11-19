@@ -2,10 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { normalizarTelefone, podeEditarCliente, filtroClientes, validarTexto } from '../lib/atendimento/regras.ts';
 
-test('telefones com a mesma formatação internacional produzem uma única identidade', () => {
+test('normaliza WhatsApp brasileiro com DDD e aceita o +55 ao colar', () => {
+  assert.equal(normalizarTelefone('(62) 99999-1234'), '+5562999991234');
+  assert.equal(normalizarTelefone('62 3333-1234'), '+556233331234');
+  assert.equal(normalizarTelefone('55 99999-1234'), '+5555999991234');
   assert.equal(normalizarTelefone('+55 (62) 99999-1234'), '+5562999991234');
   assert.equal(normalizarTelefone('5562999991234'), '+5562999991234');
-  for (const entrada of ['', 'abc5562999991234', '+012345678', '123', '1234567890123456', null]) {
+  for (const entrada of ['', 'abc5562999991234', '+012345678', '999991234', '+1 202 555 0123', '+62999991234', '1234567890123456', null]) {
     assert.throws(() => normalizarTelefone(entrada));
   }
 });

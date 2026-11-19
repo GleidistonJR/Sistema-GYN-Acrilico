@@ -5,12 +5,19 @@ export function podeEditarCliente(usuario: Operador, responsavelId: string | nul
 }
 
 export function normalizarTelefone(valor: unknown) {
-  if (typeof valor !== 'string' || !/^\+?[\d\s().-]+$/.test(valor)) {
-    throw new Error('Informe um telefone com código do país e DDD.');
+  const mensagem = 'Informe o DDD e o número do WhatsApp (10 ou 11 dígitos).';
+  const telefone = typeof valor === 'string' ? valor.trim() : '';
+  if (!/^\+?[\d\s().-]+$/.test(telefone)) {
+    throw new Error(mensagem);
   }
-  const numeros = valor.replace(/\D/g, '');
-  if (!/^[1-9]\d{7,14}$/.test(numeros)) throw new Error('Informe de 8 a 15 dígitos, incluindo país e DDD.');
-  return '+' + numeros;
+  const numeros = telefone.replace(/\D/g, '');
+  const nacional = telefone.startsWith('+') || numeros.length > 11
+    ? numeros.replace(/^55(?=\d{10,11}$)/, '')
+    : numeros;
+  if (!/^[1-9]\d\d{8,9}$/.test(nacional) || (telefone.startsWith('+') && nacional === numeros)) {
+    throw new Error(mensagem);
+  }
+  return '+55' + nacional;
 }
 
 export function validarTexto(valor: unknown, limite: number) {
