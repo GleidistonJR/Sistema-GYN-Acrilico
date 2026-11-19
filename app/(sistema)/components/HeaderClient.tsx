@@ -6,7 +6,7 @@ import { useEffect, useState, useRef } from 'react';
 import { ChevronDown, Menu, X } from 'lucide-react';
 import { encerrarSessao } from '../login/actions';
 import { BotaoTema } from '@/app/tema';
-import { permite, PERFIS_COMERCIAIS, PERFIS_REGISTRO_PONTO, PERFIS_RELATORIO_PONTO } from '@/lib/permissoes';
+import { permite, PERFIS_ATENDIMENTO, PERFIS_COMERCIAIS, PERFIS_REGISTRO_PONTO, PERFIS_RELATORIO_PONTO } from '@/lib/permissoes';
 
 type UsuarioMenu = {
   role: string; userNome: string; userId: number | null;
@@ -27,6 +27,7 @@ function MenuNavegacao({ usuario, pathname }: { usuario: UsuarioMenu; pathname: 
   const userId = usuario?.userId;
   const equipe = role === 'ADMIN' || role === 'USER';
   const comercial = permite(PERFIS_COMERCIAIS, role);
+  const atendimento = permite(PERFIS_ATENDIMENTO, role);
   const registrarPonto = permite(PERFIS_REGISTRO_PONTO, role);
   const verRelatorios = permite(PERFIS_RELATORIO_PONTO, role);
 
@@ -98,9 +99,9 @@ function MenuNavegacao({ usuario, pathname }: { usuario: UsuarioMenu; pathname: 
 
 
 
-            {equipe && <Link href="/atendimento" className={linkClasse('/atendimento')}>Atendimento</Link>}
+            {atendimento && <Link href="/atendimento" className={linkClasse('/atendimento')}>Atendimento</Link>}
             {comercial && <Link href="/orcamentos" className={linkClasse('/orcamentos')}>Orçamentos</Link>}
-            {role === 'COMERCIAL' && <>
+            {comercial && !equipe && <>
               <Link href="/materiais" className={linkClasse('/materiais')}>Materiais</Link>
               <Link href="/produtos" className={linkClasse('/produtos')}>Produtos</Link>
             </>}
@@ -208,7 +209,7 @@ function MenuNavegacao({ usuario, pathname }: { usuario: UsuarioMenu; pathname: 
       <div className={`${menuAberto ? 'max-h-[calc(100dvh-4rem)] overflow-y-auto' : 'max-h-0'} md:hidden overflow-hidden transition-all duration-300 bg-surface border-t border-line`}>
         <div className="px-4 pt-3 pb-4 flex flex-col gap-1 text-[15px]">
 
-          {equipe && (
+          {atendimento && (
             <Link href="/atendimento" onClick={fecharMenu} className="px-2 py-2.5 text-secondary">Atendimento</Link>
           )}
           {comercial && (
@@ -217,7 +218,7 @@ function MenuNavegacao({ usuario, pathname }: { usuario: UsuarioMenu; pathname: 
             </Link>
           )}
 
-          {role === 'COMERCIAL' && <>
+          {comercial && !equipe && <>
             <Link href="/materiais" onClick={fecharMenu} className="px-2 py-2.5 text-secondary">Materiais</Link>
             <Link href="/produtos" onClick={fecharMenu} className="px-2 py-2.5 text-secondary">Produtos</Link>
           </>}

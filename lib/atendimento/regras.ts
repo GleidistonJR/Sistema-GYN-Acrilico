@@ -1,7 +1,7 @@
 export type Operador = { id: string; role: string };
 
 export function podeEditarCliente(usuario: Operador, responsavelId: string | null) {
-  return usuario.role === 'ADMIN' || (usuario.role === 'USER' && usuario.id === responsavelId);
+  return usuario.role === 'ADMIN' || (['USER', 'RECEPCAO'].includes(usuario.role) && usuario.id === responsavelId);
 }
 
 export function normalizarTelefone(valor: unknown) {
@@ -29,6 +29,6 @@ export function validarTexto(valor: unknown, limite: number) {
 
 export function filtroClientes(usuario: Operador, fila: string) {
   if (fila === 'fila') return { responsavelId: null };
-  if (fila === 'todos' && ['ADMIN', 'USER'].includes(usuario.role)) return {};
+  if (fila === 'todos' && ['ADMIN', 'USER', 'RECEPCAO'].includes(usuario.role)) return {};
   return { responsavelId: usuario.id };
 }

@@ -1,17 +1,24 @@
 import assert from 'node:assert/strict';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { EventEmitter } from 'node:events';
 import { PrismaClient } from '@prisma/client';
 import puppeteer from 'puppeteer';
 import { vinculoColaboradorTeste } from './fixtures/colaborador.mjs';
+import { criarServicoMensagens } from '../scripts/whatsapp-mensagens.mjs';
+import { emitirTransferencia, hashToken, lerTransferencia } from '../lib/whatsapp/transferencia.mjs';
 
 if (process.env.RUN_DATABASE_INTEGRATION !== '1') throw new Error('Requer RUN_DATABASE_INTEGRATION=1.');
 const base = process.env.TEST_BASE_URL || 'http://localhost:3000';
 const db = new PrismaClient();
 const adminId = randomUUID();
 const adminToken = randomBytes(32).toString('hex');
-const emails = [randomUUID() + '@example.invalid', randomUUID() + '@example.invalid'];
+const emails = Array.from({ length: 3 }, () => randomUUID() + '@example.invalid');
+const clienteId = randomUUID();
+const contaWhatsApp = 'recepcao-teste-' + randomUUID();
 const senha = randomUUID();
 let browser;
+let servico;
+let ticket;
 
 const consultar = (rota, token) => fetch(base + rota, {
   redirect: 'manual',
@@ -63,6 +70,7 @@ try {
 
   await criar(emails[0], 'PONTO');
   await criar(emails[1], 'COMERCIAL');
+  await criar(emails[2], 'RECEPCAO');
   const ponto = await entrar(emails[0], '/baterPonto');
   const comercial = await entrar(emails[1], '/orcamentos');
   assert.equal((await consultar('/relatorioPontos', ponto)).status, 200);
@@ -70,6 +78,31 @@ try {
   for (const rota of ['/orcamentos', '/materiais', '/produtos', '/api/textos-rapidos']) assert.equal((await consultar(rota, comercial)).status, 200, rota);
   for (const rota of ['/baterPonto', '/relatorioPontos', '/atendimento', '/administracao/acessos', perfil]) await bloquear(rota, comercial);
   assert.equal((await consultar('/api/atendimento/clientes', comercial)).status, 401);
+
+  const recepcao = await entrar(emails[2], '/atendimento');
+  const segundaSessao = await entrar(emails[2], '/atendimento');
+  assert.notEqual(segundaSessao, recepcao);
+  for (const rota of ['/atendimento', '/orcamentos', '/materiais', '/produtos', '/api/atendimento/clientes']) {
+    assert.equal((await consultar(rota, recepcao)).status, 200, rota);
+  }
+  for (const rota of ['/baterPonto', '/relatorioPontos', '/administracao/acessos', '/atendimento/conexao', perfil]) {
+    await bloquear(rota, recepcao);
+  }
+  const { id: responsavelId } = await db.user.findUniqueOrThrow({ where: { email: emails[2] }, select: { id: true } });
+  await db.cliente.create({ data: { id: clienteId, nome: 'Recepção em teste', responsavelId } });
+  assert.equal((await consultar(`/api/atendimento/${clienteId}/mensagens`, segundaSessao)).status, 200);
+  ticket = await emitirTransferencia(db, { acao: 'upload', clienteId, userId: responsavelId, sessionHash: hashToken(recepcao) });
+  assert.ok(await lerTransferencia(db, ticket), 'A recepção pode transferir anexos.');
+  const jid = '12345@c.us';
+  await db.identidadeWhatsApp.create({ data: { conta: contaWhatsApp, jid, clienteId } });
+  const pendente = await db.mensagemWhatsApp.create({ data: {
+    conta: contaWhatsApp, clienteId, autorId: responsavelId, direcao: 'SAIDA', status: 'PENDENTE', texto: 'Envio simulado',
+  } });
+  const client = new EventEmitter();
+  client.sendMessage = async () => ({ id: { _serialized: randomUUID() }, ack: 1 });
+  servico = criarServicoMensagens({ prisma: db, client, conta: contaWhatsApp, ativo: () => true });
+  await servico.enviarPendentes();
+  assert.equal((await db.mensagemWhatsApp.findUniqueOrThrow({ where: { id: pendente.id } })).status, 'ENVIADA');
 
   await admin.bringToFront();
   admin.once('dialog', dialog => void dialog.accept());
@@ -80,6 +113,9 @@ try {
   console.log('Criação, login com destino por perfil, bloqueio por rota/API e revogação de acesso avulso verificados.');
 } finally {
   await browser?.close();
+  await servico?.stop();
+  if (ticket) await db.transferenciaWhatsApp.deleteMany({ where: { tokenHash: hashToken(ticket) } });
+  await db.cliente.deleteMany({ where: { id: clienteId } });
   await db.user.deleteMany({ where: { email: { in: emails } } });
   await db.colaborador.deleteMany({ where: { userId: adminId } });
   await db.$disconnect();

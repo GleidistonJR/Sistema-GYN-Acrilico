@@ -1,6 +1,8 @@
 import 'server-only';
 import { createHash, randomBytes } from 'node:crypto';
 import { cookies } from 'next/headers';
+import { Prisma } from '@prisma/client';
+import { PERFIS_AVULSOS } from './permissoes';
 import { prisma } from './prisma';
 
 const COOKIE = 'sessao_segura';
@@ -37,7 +39,7 @@ export async function obterUsuarioSessao() {
     FROM "Sessao" s JOIN "User" u ON u.id = s."userId"
     LEFT JOIN "Colaborador" c ON c."userId" = u.id
     WHERE s."tokenHash" = ${hash(token)} AND s."expiresAt" > CURRENT_TIMESTAMP
-      AND ((u.role IN ('PONTO', 'COMERCIAL') AND c.id IS NULL)
+      AND ((u.role IN (${Prisma.join(PERFIS_AVULSOS)}) AND c.id IS NULL)
         OR (u.role IN ('ADMIN', 'USER', 'OUTRO') AND c.id IS NOT NULL AND c."inativadoEm" IS NULL))
     LIMIT 1`;
   return user ? { id: user.id, role: user.role, email: user.email, apelido: user.apelido, sessaoExpiraEm: user.sessaoExpiraEm,

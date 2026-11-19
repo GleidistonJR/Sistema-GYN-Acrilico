@@ -1,3 +1,4 @@
+import { permite, PERFIS_ATENDIMENTO } from '@/lib/permissoes';
 import { obterUsuarioSessao } from '@/lib/sessao';
 import { criarCanalEventos } from '@/lib/whatsapp/canal-eventos.mjs';
 
@@ -8,7 +9,7 @@ const shared = globalThis as typeof globalThis & { canalAtendimento?: ReturnType
 
 export async function GET(request: Request) {
   const user = await obterUsuarioSessao();
-  if (!user || !['ADMIN', 'USER'].includes(user.role)) return new Response(null, { status: 401 });
+  if (!user || !permite(PERFIS_ATENDIMENTO, user.role)) return new Response(null, { status: 401 });
   if (request.signal.aborted) return new Response(null, { status: 204 });
   const hub = shared.canalAtendimento ??= criarCanalEventos();
   const encoder = new TextEncoder();

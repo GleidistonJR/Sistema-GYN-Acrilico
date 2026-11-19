@@ -1,3 +1,4 @@
+import { permite, PERFIS_ATENDIMENTO } from '@/lib/permissoes';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { obterUsuarioSessao } from '@/lib/sessao';
@@ -6,7 +7,7 @@ import { mesmaOrigem, privado } from '@/lib/whatsapp/acesso';
 export async function POST(request: Request) {
   if (!mesmaOrigem(request)) return new Response(null, { status: 403 });
   const usuario = await obterUsuarioSessao();
-  if (!usuario || !['ADMIN', 'USER'].includes(usuario.role)) return new Response(null, { status: 401 });
+  if (!usuario || !permite(PERFIS_ATENDIMENTO, usuario.role)) return new Response(null, { status: 401 });
   const body = await request.text();
   if (body.length > 6000) return new Response(null, { status: 400 });
   let ids: unknown;

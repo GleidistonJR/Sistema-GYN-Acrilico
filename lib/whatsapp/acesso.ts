@@ -1,10 +1,11 @@
 import 'server-only';
+import { permite, PERFIS_ATENDIMENTO } from '@/lib/permissoes';
 import { prisma } from '@/lib/prisma';
 import { obterUsuarioSessao } from '@/lib/sessao';
 
 export async function acessoConversa(clienteId: string) {
   const usuario = await obterUsuarioSessao();
-  if (!usuario || !['ADMIN', 'USER'].includes(usuario.role)) return null;
+  if (!usuario || !permite(PERFIS_ATENDIMENTO, usuario.role)) return null;
   const cliente = await prisma.cliente.findUnique({ where: { id: clienteId } });
   return cliente && (!cliente.conversaExcluidaEm || cliente.ultimaMensagemEm) ? { usuario, cliente } : null;
 }

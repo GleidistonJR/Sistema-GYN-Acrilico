@@ -1,3 +1,4 @@
+import { permite, PERFIS_ATENDIMENTO } from '@/lib/permissoes';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { obterUsuarioSessao } from '@/lib/sessao';
@@ -5,7 +6,7 @@ import { privado } from '@/lib/whatsapp/acesso';
 
 export async function GET(request: Request) {
   const usuario = await obterUsuarioSessao();
-  if (!usuario || !['ADMIN', 'USER'].includes(usuario.role)) return Response.json({ erro: 'Acesso não autorizado.' }, { status: 401, headers: privado });
+  if (!usuario || !permite(PERFIS_ATENDIMENTO, usuario.role)) return Response.json({ erro: 'Acesso não autorizado.' }, { status: 401, headers: privado });
   const params = new URL(request.url).searchParams;
   const busca = (params.get('busca') || '').slice(0, 120);
   const etiqueta = (params.get('etiqueta') || '').slice(0, 100);
@@ -17,7 +18,8 @@ export async function GET(request: Request) {
   const search = busca ? Prisma.sql`AND (c.nome ILIKE ${pattern} OR c.telefone LIKE ${pattern})` : Prisma.empty;
   const tag = etiqueta ? Prisma.sql`AND EXISTS (SELECT 1 FROM "ClienteEtiqueta" e WHERE e."clienteId" = c.id AND e."etiquetaId" = ${etiqueta})` : Prisma.empty;
   const clientes = await prisma.$queryRaw<Array<{ id: string; nome: string; telefone: string | null; responsavelId: string | null; naoLida: boolean; responsavelNome: string | null }>>(Prisma.sql`
-    SELECT c.id, c.nome, c.telefone, c."responsavelId", COALESCE(NULLIF(u.apelido, ''), co.nome, u.email) AS "responsavelNome",
+    SELECT c.id, c.nome, c.telefone, c."responsavelId",
+      COALESCE(NULLIF(u.apelido, ''), co.nome, CASE WHEN u.role = 'RECEPCAO' THEN 'Recepção' END, u.email) AS "responsavelNome",
       (c."versaoEntrada" > GREATEST(COALESCE(l.versao, 0), c."versaoEntradaExcluida")) AS "naoLida"
     FROM "Cliente" c LEFT JOIN "LeituraConversa" l ON l."clienteId" = c.id AND l."userId" = ${usuario.id}
     LEFT JOIN "User" u ON u.id = c."responsavelId"

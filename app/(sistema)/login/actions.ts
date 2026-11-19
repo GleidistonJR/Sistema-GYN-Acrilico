@@ -25,7 +25,8 @@ export async function verificarLogin(email: string, senha: string) {
     return {
       sucesso: true,
       destino: permite(PERFIS_REGISTRO_PONTO, usuario.role) ? '/baterPonto'
-        : usuario.role === 'COMERCIAL' ? '/orcamentos' : '/administracao/colaboradores/' + usuario.colaborador?.id,
+        : usuario.role === 'RECEPCAO' ? '/atendimento'
+          : usuario.role === 'COMERCIAL' ? '/orcamentos' : '/administracao/colaboradores/' + usuario.colaborador?.id,
     };
   } catch (error) {
     console.error("Erro no login:", error);

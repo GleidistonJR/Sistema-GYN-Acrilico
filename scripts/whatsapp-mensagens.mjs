@@ -191,7 +191,7 @@ export function criarServicoMensagens({ prisma, client, conta, ativo, retryDelay
           SELECT id, "responsavelId" FROM "Cliente" WHERE id = ${message.clienteId} FOR UPDATE
         ), permitido AS (
           SELECT 1 FROM dono JOIN "User" u ON u.id = ${message.autorId}
-          WHERE u.role IN ('ADMIN', 'USER')
+          WHERE u.role IN ('ADMIN', 'USER', 'RECEPCAO')
         )
         UPDATE "MensagemWhatsApp" SET
           status = CASE WHEN EXISTS (SELECT 1 FROM permitido) THEN 'ENVIANDO' ELSE 'FALHOU' END,

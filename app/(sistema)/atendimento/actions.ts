@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client';
 import { revalidatePath } from 'next/cache';
 import { exigirUsuario } from '@/lib/autorizacao';
 import { prisma } from '@/lib/prisma';
+import { PERFIS_ATENDIMENTO } from '@/lib/permissoes';
 import { validarApelido } from '@/lib/whatsapp/assinatura.mjs';
 import { normalizarTelefone, podeEditarCliente, validarTexto } from '@/lib/atendimento/regras';
 
@@ -11,7 +12,7 @@ type Resultado = { sucesso: boolean; mensagem: string; clienteCriadoId?: string 
 
 export async function alterarAtendimento(_anterior: Resultado, form: FormData): Promise<Resultado> {
   // Every mutation validates the server session, including direct action requests.
-  const usuario = await exigirUsuario();
+  const usuario = await exigirUsuario(PERFIS_ATENDIMENTO);
   try {
     const acao = form.get('acao');
     if (acao === 'meuApelido') {
@@ -89,7 +90,7 @@ export async function alterarAtendimento(_anterior: Resultado, form: FormData): 
         if (acao === 'transferir') {
           if (usuario.role !== 'ADMIN') throw new Error('Somente administradores podem transferir clientes.');
           const novoId = form.get('responsavelId') ? validarTexto(form.get('responsavelId'), 100) : null;
-          if (novoId && !await tx.user.findFirst({ where: { id: novoId, role: { in: ['ADMIN', 'USER'] } }, select: { id: true } })) {
+          if (novoId && !await tx.user.findFirst({ where: { id: novoId, role: { in: [...PERFIS_ATENDIMENTO] } }, select: { id: true } })) {
             throw new Error('Vendedor indisponível.');
           }
           const alterado = await tx.cliente.updateMany({ where: { id, responsavelId: cliente.responsavelId }, data: { responsavelId: novoId } });
