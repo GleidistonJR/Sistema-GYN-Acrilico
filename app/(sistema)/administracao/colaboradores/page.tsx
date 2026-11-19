@@ -1,123 +1,113 @@
-"use client";
+'use client';
+
 import Link from 'next/link';
-import ModalRegistro from './ModalRegistro';
-import { buscarColaboradores, buscarColaboradorPorId, deletarColaborador } from './actions';
-import { useState, useCallback } from 'react';
+import { useCallback, useState } from 'react';
+import { Eye, Pencil, Plus, Search, UserMinus } from 'lucide-react';
+import { PatternFormat } from 'react-number-format';
 import { useDadosAtualizados } from '@/lib/useDadosAtualizados';
-import { PatternFormat, NumericFormat } from 'react-number-format';
-import { Eye, Pencil, Trash2 } from 'lucide-react';
+import ModalRegistro from './ModalRegistro';
+import { buscarColaboradores, buscarColaboradorPorId, inativarColaborador, type FiltroColaboradores } from './actions';
 
+type Colaborador = Awaited<ReturnType<typeof buscarColaboradores>>[number];
+type Edicao = NonNullable<Awaited<ReturnType<typeof buscarColaboradorPorId>>>;
 
-interface Colaboradortype {
-  id: number;
-  nome: string;
-  cargo: string;
-  cpf: string;
-  salario: number;
-}
+export default function Colaboradores() {
+  const [filtro, setFiltro] = useState<FiltroColaboradores>('ativos');
+  const [busca, setBusca] = useState('');
+  const [modal, setModal] = useState<Edicao | 'novo' | null>(null);
+  const [ocupado, setOcupado] = useState(false);
+  const [erroAcao, setErroAcao] = useState('');
+  const [aviso, setAviso] = useState('');
+  const buscar = useCallback(() => buscarColaboradores(busca, filtro), [busca, filtro]);
+  const { dados, setDados, atualizar, erro, carregando } = useDadosAtualizados<Colaborador[]>(buscar, []);
+  const colaboradores = dados.filter(c => filtro === 'todos' || Boolean(c.inativadoEm) === (filtro === 'inativos'));
 
-export default function Relatorios() {
-
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [filtro, setFiltro] = useState('');
-  const buscar = useCallback(() => buscarColaboradores(filtro), [filtro]);
-  const { dados: colaboradores, setDados: setColaboradores, atualizar } = useDadosAtualizados<Colaboradortype[]>(buscar, []);
-  const [colaborador, setColaborador] = useState<Colaboradortype | null>(null);
-
-  async function deletar(id: number) {
-    if (confirm("Tem certeza?")) {
-      await deletarColaborador(id);
-      // Filtra a lista local removendo o ID deletado (Atualização instantânea)
-      setColaboradores(prev => prev.filter(c => c.id !== id));
-    }
-  }
-
-  const editar = async (id: number) => {
+  async function editar(id: number) {
+    setOcupado(true);
+    setErroAcao('');
     try {
-      // 1. Busca os dados
-      const selecionado = await buscarColaboradorPorId(id);
-
-      setColaborador(selecionado);
-      setIsModalOpen(true);
-
-
-      console.log("Dados carregados:", selecionado);
-    } catch (error) {
-      console.error("Erro ao buscar colaborador:", error);
+      const colaborador = await buscarColaboradorPorId(id);
+      if (!colaborador) throw new Error('Colaborador não encontrado.');
+      setModal(colaborador);
+    } catch {
+      setErroAcao('Não foi possível abrir o cadastro.');
+    } finally {
+      setOcupado(false);
     }
-
   }
 
+  async function inativar(colaborador: Colaborador) {
+    if (!window.confirm(`Inativar ${colaborador.nome}? O login e as sessões serão removidos. O histórico de ponto será preservado.`)) return;
+    setOcupado(true);
+    setErroAcao('');
+    setAviso('');
+    try {
+      const resultado = await inativarColaborador(colaborador.id);
+      if (!resultado.sucesso) {
+        setErroAcao(resultado.erro || 'Não foi possível inativar o colaborador.');
+        return;
+      }
+      setDados(atuais => atuais.map(c => c.id === colaborador.id ? { ...c, inativadoEm: new Date(), userId: null } : c));
+      setAviso('Colaborador inativado e acesso revogado.');
+      await atualizar();
+    } catch {
+      setErroAcao('Não foi possível confirmar a inativação. Atualize a lista e tente novamente.');
+    } finally {
+      setOcupado(false);
+    }
+  }
 
+  const acao = 'inline-flex size-11 items-center justify-center rounded-lg hover:bg-surface-muted disabled:opacity-50';
 
-
-  return (
-    <main className="text-secondary px-4 sm:px-6 pb-8 max-w-7xl mx-auto">
-      <h1 className="text-2xl sm:text-3xl my-6 text-center text-secondary font-bold">Gestão de Colaboradores</h1>
-
-
-
-      <article className='grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6'>
-
-        {colaboradores.length > 0 ? (
-          colaboradores.map((Colaborador) => (
-
-
-
-            <aside key={Colaborador.id} className='border border-line-strong shadow-lg shadow-gray-500 rounded-xl min-w-0 font-semibold
-            flex flex-col justify-between'>
-              <h2 className='px-4 py-5 break-words border-b text-xl font-semibold text-center'>{Colaborador.nome}</h2>
-              <div className='text-center text-xl font-normal py-5'>
-                <p className='font-semibold pb-5'>{Colaborador.cargo}</p>
-
-                {/* CPF Formatado */}
-                <p>
-                  CPF: <PatternFormat
-                    value={Colaborador.cpf}
-                    format="###.###.###-##"
-                    displayType="text"
-                  />
-                </p>
-
-                {/* Salário Formatado como Moeda Brasileira */}
-                <p>
-                  Salário: <NumericFormat
-                    value={Colaborador.salario}
-                    displayType="text"
-                    thousandSeparator="."
-                    decimalSeparator=","
-                    prefix="R$ "
-                    fixedDecimalScale
-                    decimalScale={2}
-                  />
-                </p>
-
-              </div>
-
-              <div className='flex justify-center w-full gap-3 mb-5'>
-                <Link href={`/administracao/colaboradores/${Colaborador.id}`} className='bg-success-soft text-success-ink p-3 m-0 rounded-full text-center block hover:bg-success-soft hover:cursor-pointer'><Eye size={18} /></Link>
-
-                <button className='bg-warning-soft text-warning-ink p-3 m-0 rounded-full hover:bg-warning-soft hover:cursor-pointer' onClick={() => editar(Colaborador.id)}><Pencil size={18} /></button>
-
-                <button className='bg-danger-soft text-danger-ink p-3 m-0 rounded-full hover:bg-danger-soft hover:cursor-pointer' onClick={() => deletar(Colaborador.id)}><Trash2 size={18} /></button>
-
-              </div>
-            </aside>
-          ))) : ('')}
-
-        <aside className='rounded-2xl border border-line-strong shadow-lg shadow-gray-500  flex justify-center'>
-          <button onClick={() => setIsModalOpen(true)} className='py-20 font-semibold text-3xl w-full text-success-ink hover:text-success-ink hover:cursor-pointer hover:shadow-md '>Adicionar <br />Colaborador</button>
-        </aside>
-
-      </article>
-
-      {/* O Componente do Modal isolado */}
-      <ModalRegistro
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        dadosEdicao={colaborador}
-        onSalvar={atualizar}
-      />
-    </main>
-  );
+  return <section className="mx-auto max-w-6xl px-4 pb-8 sm:px-6">
+    <div className="flex flex-wrap items-center justify-between gap-3 py-6">
+      <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Colaboradores</h1>
+      <button type="button" disabled={ocupado} onClick={() => { setErroAcao(''); setModal('novo'); }}
+        className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-white hover:bg-primary-hover disabled:opacity-50">
+        <Plus size={18} /> Adicionar colaborador
+      </button>
+    </div>
+    <div className="rounded-xl border border-line bg-surface">
+      <div className="flex flex-wrap gap-3 border-b border-line p-3 sm:p-4">
+        <label className="flex min-w-40 flex-1 items-center gap-2 rounded-lg border border-line-strong bg-surface-soft px-3">
+          <Search size={18} className="shrink-0 text-muted" aria-hidden="true" />
+          <input aria-label="Buscar por nome ou CPF" placeholder="Buscar por nome ou CPF" value={busca}
+            onChange={event => setBusca(event.target.value)} className="min-h-11 w-full bg-transparent text-foreground placeholder:text-muted" />
+        </label>
+        <select aria-label="Situação do colaborador" value={filtro} onChange={event => setFiltro(event.target.value as FiltroColaboradores)}
+          className="min-h-11 rounded-lg border border-line-strong bg-surface-soft px-3 text-foreground">
+          <option value="ativos">Ativos</option>
+          <option value="inativos">Inativos</option>
+          <option value="todos">Todos</option>
+        </select>
+      </div>
+      {(erroAcao || erro) && <p role="alert" className="px-4 pt-3 text-sm text-danger-ink">{erroAcao || 'Não foi possível atualizar a lista.'}</p>}
+      {aviso && <p role="status" className="px-4 pt-3 text-sm text-success-ink">{aviso}</p>}
+      {carregando ? <p role="status" className="p-6 text-sm text-muted">Carregando colaboradores…</p>
+        : !colaboradores.length ? <p className="p-6 text-sm text-muted">Nenhum colaborador neste filtro.</p>
+        : <ul className="divide-y divide-line">
+          {colaboradores.map(c => <li key={c.id} className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-2 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
+            <div className="min-w-0">
+              <Link href={`/administracao/colaboradores/${c.id}`} className="break-words font-semibold text-primary-ink hover:underline">{c.nome}</Link>
+              <p className="break-words text-sm text-muted">{c.cargo}</p>
+            </div>
+            <div className="col-start-1 row-start-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm sm:col-start-2 sm:row-start-1">
+              <PatternFormat value={c.cpf} format="###.###.###-##" displayType="text" className="text-secondary" />
+              <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${c.inativadoEm ? 'bg-surface-muted text-secondary' : 'bg-success-soft text-success-ink'}`}>
+                {c.inativadoEm ? 'Inativo' : 'Ativo'}
+              </span>
+              {!c.inativadoEm && !c.userId && <span className="text-xs text-muted">Sem login</span>}
+            </div>
+            <div className="col-start-2 row-span-2 row-start-1 flex items-center gap-1 sm:col-start-3 sm:row-span-1">
+              <Link href={`/administracao/colaboradores/${c.id}`} aria-label={`Histórico de ${c.nome}`} title="Ver histórico" className={acao + ' text-primary-ink'}><Eye size={18} /></Link>
+              <button type="button" disabled={ocupado} onClick={() => void editar(c.id)} aria-label={`Editar ${c.nome}`} title="Editar" className={acao + ' text-primary-ink'}><Pencil size={18} /></button>
+              {!c.inativadoEm && <button type="button" disabled={ocupado} onClick={() => void inativar(c)}
+                aria-label={`Inativar ${c.nome}`} title="Inativar" className={acao + ' text-danger-ink'}><UserMinus size={18} /></button>}
+            </div>
+          </li>)}
+        </ul>}
+    </div>
+    {modal && <ModalRegistro dadosEdicao={modal === 'novo' ? undefined : modal} fechar={() => setModal(null)}
+      aoSalvar={() => { setModal(null); void atualizar(); }} />}
+  </section>;
 }

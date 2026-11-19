@@ -1,3 +1,4 @@
+import { vinculoColaboradorTeste } from './fixtures/colaborador.mjs';
 import assert from 'node:assert/strict';
 import { randomUUID, randomBytes, createHash } from 'node:crypto';
 import { mkdtemp, writeFile, unlink, rmdir } from 'node:fs/promises';
@@ -14,7 +15,7 @@ const directory = await mkdtemp(path.join(tmpdir(), 'gyn-anexo-')), file = path.
 let browser;
 try {
   const data = Buffer.alloc(12 * 1024 * 1024, 32); data.write('%PDF-1.4\n'); await writeFile(file, data);
-  await db.user.create({ data: { id: userId, email: `${userId}@example.invalid`, password: 'teste', role: 'USER', sessoes: { create: { tokenHash: sessionHash, expiresAt: new Date(Date.now() + 3600000) } } } });
+  await db.user.create({ data: { id: userId, colaborador: vinculoColaboradorTeste(userId), email: `${userId}@example.invalid`, password: 'teste', role: 'USER', sessoes: { create: { tokenHash: sessionHash, expiresAt: new Date(Date.now() + 3600000) } } } });
   await db.cliente.create({ data: { id: clienteId, nome: 'Teste navegador sem telefone', responsavelId: userId } });
   browser = await puppeteer.launch({ headless: true, executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe' });
   const page = await browser.newPage(); page.setDefaultTimeout(120000);
@@ -41,6 +42,6 @@ try {
   const records = await db.$queryRaw`SELECT payload FROM "TransferenciaWhatsApp" WHERE payload->>'userId' = ${userId}`;
   for (const { payload } of records) if (payload.chave) await unlink(caminhoArquivo(payload.chave)).catch(() => {});
   await db.$executeRaw`DELETE FROM "TransferenciaWhatsApp" WHERE payload->>'userId' = ${userId}`;
-  await db.cliente.deleteMany({ where: { id: clienteId } }); await db.user.deleteMany({ where: { id: userId } }); await db.$disconnect();
+  await db.cliente.deleteMany({ where: { id: clienteId } }); await db.colaborador.deleteMany({ where: { userId: userId } }); await db.$disconnect();
   await unlink(file); await rmdir(directory);
 }

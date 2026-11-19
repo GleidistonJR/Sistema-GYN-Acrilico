@@ -1,3 +1,4 @@
+import { vinculoColaboradorTeste } from './fixtures/colaborador.mjs';
 import { unlink } from 'node:fs/promises';
 import { salvarArquivo, lerArquivo, caminhoArquivo } from '../scripts/whatsapp-arquivos.mjs';
 import { criarServidorMidia } from '../scripts/whatsapp-midia-servidor.mjs';
@@ -47,7 +48,7 @@ let eventos;
 try {
   const tokens = users.map(() => randomBytes(32).toString('hex'));
   for (let i = 0; i < users.length; i++) await prisma.user.create({ data: {
-    id: users[i], email: `${conta}-${i}@example.invalid`, password: '!temporario', role: 'USER',
+    id: users[i], colaborador: vinculoColaboradorTeste(users[i]), email: `${conta}-${i}@example.invalid`, password: '!temporario', role: 'USER',
     sessoes: { create: { tokenHash: createHash('sha256').update(tokens[i]).digest('hex'), expiresAt: new Date(Date.now() + 600000) } },
   } });
   await prisma.cliente.create({ data: { id: clienteId, nome: 'Conversa de validação', telefone: phone, responsavelId: users[0] } });
@@ -206,7 +207,7 @@ try {
   await prisma.mensagemWhatsApp.deleteMany({ where: { conta } });
   await prisma.identidadeWhatsApp.deleteMany({ where: { conta } });
   await prisma.cliente.deleteMany({ where: { id: clienteId } });
-  await prisma.user.deleteMany({ where: { id: { in: users } } });
+  await prisma.colaborador.deleteMany({ where: { userId: { in: users } } });
   await prisma.$disconnect();
   console.log('Registros de validação removidos; nenhuma mensagem real foi enviada.');
 }

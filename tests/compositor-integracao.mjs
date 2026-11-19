@@ -1,3 +1,4 @@
+import { vinculoColaboradorTeste } from './fixtures/colaborador.mjs';
 import assert from 'node:assert/strict';
 import { randomUUID, randomBytes, createHash } from 'node:crypto';
 import { PrismaClient } from '@prisma/client';
@@ -7,7 +8,7 @@ const db = new PrismaClient(), userId = randomUUID(), clienteId = randomUUID(), 
 const base = process.env.TEST_BASE_URL || 'http://localhost:3000';
 let browser;
 try {
-  await db.user.create({ data: { id: userId, email: `${userId}@example.invalid`, password: 'teste', role: 'USER', sessoes: { create: { tokenHash: createHash('sha256').update(token).digest('hex'), expiresAt: new Date(Date.now() + 600000) } } } });
+  await db.user.create({ data: { id: userId, colaborador: vinculoColaboradorTeste(userId), email: `${userId}@example.invalid`, password: 'teste', role: 'USER', sessoes: { create: { tokenHash: createHash('sha256').update(token).digest('hex'), expiresAt: new Date(Date.now() + 600000) } } } });
   await db.cliente.create({ data: { id: clienteId, nome: 'Teste do compositor', responsavelId: userId } });
   browser = await puppeteer.launch({ headless: true, executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe' });
   const page = await browser.newPage(); page.setDefaultTimeout(30000);
@@ -123,5 +124,5 @@ try {
   console.log('OK: Enter, Shift+Enter, PDF por drop, colagem de imagem/vídeo com confirmação, texto normal preservado, busca/modal ignorados, anexo existente protegido, retry e mobile. Nenhuma mensagem real enviada.');
 } finally {
   await browser?.close(); await db.cliente.deleteMany({ where: { id: clienteId } });
-  await db.user.deleteMany({ where: { id: userId } }); await db.$disconnect();
+  await db.colaborador.deleteMany({ where: { userId: userId } }); await db.$disconnect();
 }

@@ -1,3 +1,4 @@
+import { vinculoColaboradorTeste } from './fixtures/colaborador.mjs';
 import assert from 'node:assert/strict';
 import { randomUUID, randomBytes, createHash } from 'node:crypto';
 import { PrismaClient } from '@prisma/client';
@@ -10,7 +11,7 @@ const tokenHash = createHash('sha256').update(token).digest('hex');
 const base = process.env.TEST_BASE_URL || 'http://localhost:3000';
 let browser;
 try {
-  await db.user.create({ data: { id: userId, email: `${userId}@example.invalid`, password: 'teste', role: 'USER',
+  await db.user.create({ data: { id: userId, colaborador: vinculoColaboradorTeste(userId), email: `${userId}@example.invalid`, password: 'teste', role: 'USER',
     sessoes: { create: { tokenHash, expiresAt: new Date(Date.now() + 600000) } } } });
   browser = await puppeteer.launch({ headless: true, executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe' });
   let page = await browser.newPage();
@@ -43,6 +44,6 @@ try {
   console.log('OK: sessão antiga renovada, cookie persistente, novo navegador, sem escrita repetida, revogação e expiração respeitadas.');
 } finally {
   await browser?.close();
-  await db.user.deleteMany({ where: { id: userId } });
+  await db.colaborador.deleteMany({ where: { userId: userId } });
   await db.$disconnect();
 }

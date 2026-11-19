@@ -1,3 +1,4 @@
+import { vinculoColaboradorTeste } from './fixtures/colaborador.mjs';
 // Explicit opt-in: creates isolated temporary records and removes only their IDs.
 import assert from 'node:assert/strict';
 import { randomBytes, randomUUID, createHash } from 'node:crypto';
@@ -14,7 +15,7 @@ let browser;
 try {
   const tokens = [randomBytes(32).toString('hex'), randomBytes(32).toString('hex')];
   await prisma.$transaction(userIds.map((id, index) => prisma.user.create({ data: {
-    id, email: `teste-${prefix}-${index}@example.invalid`, password: '!conta-temporaria-sem-login', role: index === 0 ? 'ADMIN' : 'USER',
+    id, colaborador: vinculoColaboradorTeste(id), email: `teste-${prefix}-${index}@example.invalid`, password: '!conta-temporaria-sem-login', role: index === 0 ? 'ADMIN' : 'USER',
     sessoes: { create: { tokenHash: createHash('sha256').update(tokens[index]).digest('hex'), expiresAt: new Date(Date.now() + 600000) } },
   } })));
   await prisma.cliente.create({ data: { id: clienteId, nome: `Teste ${prefix}`, telefone: '+999' + String(Date.now()).slice(-11) } });
@@ -63,7 +64,7 @@ try {
 } finally {
   await browser?.close();
   await prisma.cliente.deleteMany({ where: { id: clienteId } });
-  await prisma.user.deleteMany({ where: { id: { in: userIds } } });
+  await prisma.colaborador.deleteMany({ where: { userId: { in: userIds } } });
   await prisma.$disconnect();
   console.log('Registros temporários de teste removidos.');
 }

@@ -12,7 +12,8 @@ model Colaborador {
   nome    String
   cargo   String
   cpf     String @unique // CPF único para não repetir funcionários
-  salario Float // No Prisma, usamos Float ou Decimal para números com centavos
+  salario Float @default(0)
+  inativadoEm DateTime?
 
   pontos Ponto[] // Um colaborador tem muitos pontos
 

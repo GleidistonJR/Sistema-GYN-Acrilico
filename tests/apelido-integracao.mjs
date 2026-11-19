@@ -1,3 +1,4 @@
+import { vinculoColaboradorTeste } from './fixtures/colaborador.mjs';
 import { unlink } from 'node:fs/promises';
 import { caminhoArquivo } from '../scripts/whatsapp-arquivos.mjs';
 import assert from 'node:assert/strict';
@@ -10,7 +11,7 @@ const tokens = users.map(() => randomBytes(32).toString('hex'));
 const base = process.env.TEST_BASE_URL || 'http://localhost:3000';
 let browser;
 try {
-  for (const [i, id] of users.entries()) await db.user.create({ data: { id, email: `${id}@example.invalid`, password: 'teste', role: 'USER', sessoes: { create: { tokenHash: createHash('sha256').update(tokens[i]).digest('hex'), expiresAt: new Date(Date.now() + 600000) } } } });
+  for (const [i, id] of users.entries()) await db.user.create({ data: { id, colaborador: vinculoColaboradorTeste(id), email: `${id}@example.invalid`, password: 'teste', role: 'USER', sessoes: { create: { tokenHash: createHash('sha256').update(tokens[i]).digest('hex'), expiresAt: new Date(Date.now() + 600000) } } } });
   // No phone and no WhatsApp identity: the real worker cannot transmit these fixtures.
   await db.cliente.create({ data: { id: clienteId, nome: 'Validação de assinatura sem destinatário' } });
   browser = await puppeteer.launch({ headless: true, executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe' });
@@ -76,6 +77,6 @@ try {
   }
   await db.mensagemWhatsApp.deleteMany({ where: { clienteId } });
   await db.cliente.deleteMany({ where: { id: clienteId } });
-  await db.user.deleteMany({ where: { id: { in: users } } });
+  await db.colaborador.deleteMany({ where: { userId: { in: users } } });
   await db.$disconnect();
 }

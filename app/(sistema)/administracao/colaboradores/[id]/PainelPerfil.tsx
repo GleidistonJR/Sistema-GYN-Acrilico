@@ -6,10 +6,11 @@ import BotaoImprimir from "./BotaoImprimir";
 import ModalCriarPonto from "./ModalCriarPonto";
 import ModalAtestado from "./ModalAtestado";
 import TabelaHistoricoPonto from "./TabelaHistoricoPonto";
+import type { Ponto } from '@prisma/client';
 
 interface PainelProps {
   role: string;
-  colaborador: any;
+  colaborador: { id: number; nome: string; cargo: string; cpf: string; inativadoEm: Date | null; pontos: Ponto[] };
   linhasParaImpressao: LinhaRelatorio[];
   diasUteisIniciais: number;
   mesInicialValue: string;
@@ -156,7 +157,9 @@ export default function PainelPerfil({
               <p className="mb-1.5 text-sm"><strong>Nome:</strong> {colaborador.nome}</p>
               <p className="mb-1.5 text-sm"><strong>Cargo:</strong> {colaborador.cargo}</p>
               <p className="mb-1.5 text-sm"><strong>CPF:</strong> {colaborador.cpf}</p>
-              <p className="text-sm"><strong>Salário Base:</strong> {colaborador.salario.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+              {colaborador.inativadoEm && <p className="text-sm text-muted">
+                Inativo desde {colaborador.inativadoEm.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' })}
+              </p>}
             </div>
             <div className="bg-surface p-4 sm:p-6 rounded-xl shadow-sm border md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="bg-info-soft/50 p-4 rounded-lg flex flex-col justify-center items-center border border-info-line">

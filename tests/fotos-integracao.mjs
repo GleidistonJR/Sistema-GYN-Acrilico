@@ -1,3 +1,4 @@
+import { vinculoColaboradorTeste } from './fixtures/colaborador.mjs';
 import assert from 'node:assert/strict';
 import { randomUUID, randomBytes, createHash } from 'node:crypto';
 import { PrismaClient } from '@prisma/client';
@@ -9,8 +10,8 @@ const token = randomBytes(32).toString('hex');
 const base = process.env.TEST_BASE_URL || 'http://localhost:3000';
 let browser;
 try {
-  await db.user.create({ data: { id: userId, email: `${userId}@example.invalid`, password: 'teste', role: 'USER', sessoes: { create: { tokenHash: createHash('sha256').update(token).digest('hex'), expiresAt: new Date(Date.now() + 600000) } } } });
-  await db.user.create({ data: { id: otherId, email: `${otherId}@example.invalid`, password: 'teste', role: 'USER' } });
+  await db.user.create({ data: { id: userId, colaborador: vinculoColaboradorTeste(userId), email: `${userId}@example.invalid`, password: 'teste', role: 'USER', sessoes: { create: { tokenHash: createHash('sha256').update(token).digest('hex'), expiresAt: new Date(Date.now() + 600000) } } } });
+  await db.user.create({ data: { id: otherId, colaborador: vinculoColaboradorTeste(otherId), email: `${otherId}@example.invalid`, password: 'teste', role: 'USER' } });
   for (const [i, id] of ids.entries()) {
     await db.cliente.create({ data: { id, nome: `Foto teste ${String(i).padStart(2, '0')}`, responsavelId: i === 24 ? otherId : userId } });
     await db.$executeRaw`INSERT INTO "FotoContato" ("clienteId", url, "consultadaEm", pendente) VALUES (${id}, 'https://pps.whatsapp.net/test-avatar', NOW(), FALSE)`;
@@ -49,6 +50,6 @@ try {
 } finally {
   await browser?.close();
   await db.cliente.deleteMany({ where: { id: { in: ids } } });
-  await db.user.deleteMany({ where: { id: { in: [userId, otherId] } } });
+  await db.colaborador.deleteMany({ where: { userId: { in: [userId, otherId] } } });
   await db.$disconnect();
 }

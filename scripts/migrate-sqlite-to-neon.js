@@ -12,25 +12,16 @@ async function main() {
 
   console.log("Lendo SQLite...");
 
-  // USER
   const users = await sqlite.all("SELECT * FROM User");
-  for (const user of users) {
-    await prisma.user.upsert({
-      where: { id: user.id },
-      update: {},
-      create: user,
-    });
-  }
-
-  console.log(`✔ Users: ${users.length}`);
-
-  // COLABORADOR
+  const usuariosPorId = new Map(users.map(user => [user.id, user]));
   const colaboradores = await sqlite.all("SELECT * FROM Colaborador");
   for (const colaborador of colaboradores) {
-    await prisma.colaborador.upsert({
-      where: { id: colaborador.id },
-      update: {},
-      create: colaborador,
+    const user = usuariosPorId.get(colaborador.userId);
+    await prisma.$transaction(async tx => {
+      const existente = await tx.colaborador.findUnique({ where: { id: colaborador.id }, select: { id: true } });
+      if (existente) return;
+      if (user) await tx.user.upsert({ where: { id: user.id }, update: {}, create: user });
+      await tx.colaborador.create({ data: { ...colaborador, userId: user?.id ?? null } });
     });
   }
 

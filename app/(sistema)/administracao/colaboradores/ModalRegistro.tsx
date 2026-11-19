@@ -1,189 +1,98 @@
-"use client";
-import { useState, useEffect } from 'react';
-import { salvarColaborador } from './actions';
-import { PatternFormat, NumericFormat } from 'react-number-format';
+'use client';
 
-export interface Colaboradortype {
-  id?: number; // Opcional, pois no 'Novo' ele ainda não existe
-  nome: string;
-  cargo: string;
-  cpf: string;
-  salario: number;
-  email?: string;
-  senha?: string;
-  role?: string;
-}
+import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
+import { PatternFormat } from 'react-number-format';
+import { salvarColaborador, type DadosColaborador } from './actions';
 
-interface ModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  dadosEdicao?: Colaboradortype | null; // Opcional
-  onSalvar?: () => Promise<void>;
-}
+type Edicao = DadosColaborador & { inativadoEm: Date | null; user: { email: string; role: string } | null };
+const campo = 'mt-1 block w-full rounded-lg border border-line-strong bg-surface-soft p-2.5 text-foreground';
 
-export default function ModalRegistro({ isOpen, onClose, dadosEdicao, onSalvar }: ModalProps) {
-  const [colaborador, setColaborador] = useState<Colaboradortype>({
-    nome: '',
-    cargo: '',
-    cpf: '',
-    salario: 0,
-    email: '',
-    senha: '',
-    role: 'USER',
-  });
+export default function ModalRegistro({ dadosEdicao, fechar, aoSalvar }: {
+  dadosEdicao?: Edicao;
+  fechar: () => void;
+  aoSalvar: () => void;
+}) {
+  const dialogo = useRef<HTMLDialogElement>(null);
+  const enviando = useRef(false);
+  const titulo = useId();
+  const [cpf, setCpf] = useState(dadosEdicao?.cpf ?? '');
+  const [erro, setErro] = useState('');
+  const [pendente, setPendente] = useState(false);
+  const ativo = !dadosEdicao?.inativadoEm;
+  const temLogin = !!dadosEdicao?.user;
 
-  // Este efeito roda sempre que o modal abre ou os dados de edição mudam
-  useEffect(() => {
-    if (dadosEdicao) {
-      setColaborador(dadosEdicao);
-    } else {
-      // Limpa o formulário se for um novo cadastro
-      setColaborador({ nome: '', cargo: '', cpf: '', salario: 0, email: '', senha: '', role: 'USER', });
+  useEffect(() => { dialogo.current?.showModal(); }, []);
+
+  async function salvar(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (enviando.current) return;
+    const dados = new FormData(event.currentTarget);
+    enviando.current = true;
+    setPendente(true);
+    setErro('');
+    try {
+      const resultado = await salvarColaborador({
+        id: dadosEdicao?.id,
+        nome: String(dados.get('nome') ?? ''),
+        cargo: String(dados.get('cargo') ?? ''),
+        cpf,
+        email: String(dados.get('email') ?? ''),
+        senha: String(dados.get('senha') ?? ''),
+        role: String(dados.get('role') ?? 'USER'),
+      });
+      if (resultado.sucesso) aoSalvar();
+      else setErro(resultado.erro || 'Não foi possível salvar o colaborador.');
+    } catch {
+      setErro('Não foi possível salvar o colaborador.');
+    } finally {
+      enviando.current = false;
+      setPendente(false);
     }
-  }, [dadosEdicao, isOpen]);
+  }
 
-  if (!isOpen) return null;
-
-  const isEditing = !!dadosEdicao; // Variável auxiliar para saber o modo
-
-  return (
-    <div className="fixed inset-0 bg-black/25 flex items-center justify-center z-[60] p-4 text-foreground">
-      <div className="modal-panel bg-surface rounded-lg p-4 sm:p-6 w-full max-w-md shadow-2xl">
-        <h2 className="text-2xl font-bold mb-4 text-center text-foreground">{isEditing ? 'Editar Colaborador' : 'Novo Colaborador'}</h2>
-
-        <div className="space-y-5">
+  return <dialog ref={dialogo} aria-labelledby={titulo} onClose={fechar}
+    onCancel={event => { if (enviando.current) event.preventDefault(); }}
+    className="modal-panel m-auto w-[min(94vw,480px)] rounded-xl border border-line bg-surface p-4 text-foreground shadow-xl backdrop:bg-black/60 sm:p-6">
+    <h2 id={titulo} className="mb-4 text-lg font-semibold">{dadosEdicao ? 'Editar colaborador' : 'Novo colaborador'}</h2>
+    <form onSubmit={salvar}>
+      <fieldset disabled={pendente} className="space-y-3">
+        <label className="block text-sm font-medium">Nome
+          <input autoFocus required name="nome" autoComplete="name" defaultValue={dadosEdicao?.nome} className={campo} />
+        </label>
+        <label className="block text-sm font-medium">Cargo
+          <input required name="cargo" defaultValue={dadosEdicao?.cargo} className={campo} />
+        </label>
+        <label className="block text-sm font-medium">CPF
+          <PatternFormat required inputMode="numeric" format="###.###.###-##" mask="_" value={cpf}
+            onValueChange={valores => setCpf(valores.value)} className={campo} />
+        </label>
+        {ativo ? <div className="space-y-3 border-t border-line pt-3">
           <div>
-            <label className="block text-md">Nome:</label>
-            <input
-              type="text"
-              value={colaborador.nome}
-              onChange={(e) => setColaborador({ ...colaborador, nome: e.target.value })}
-              className="mt-1 block w-full border rounded-md p-2"
-            />
+            <h3 className="text-sm font-semibold">Acesso ao sistema</h3>
+            <p className="mt-1 text-xs text-muted">{temLogin ? 'Preencha a senha apenas se quiser trocá-la.' : 'Preencha o e-mail e a senha para liberar o acesso.'}</p>
           </div>
-
-          <div>
-            <label className="block text-md">Cargo:</label>
-            <input
-              type="text"
-              value={colaborador.cargo}
-              onChange={(e) => setColaborador({ ...colaborador, cargo: e.target.value })}
-              className="mt-1 block w-full border rounded-md p-2"
-            />
-          </div>
-
-          <div>
-            <label className="block text-md">CPF:</label>
-            <PatternFormat
-              format="###.###.###-##"
-              mask="_"
-              value={colaborador.cpf}
-              // O 'values' é um objeto que a biblioteca nos dá. 
-              // Usamos o 'values.value' para pegar apenas os números.
-              onValueChange={(values) => {
-                setColaborador({
-                  ...colaborador,
-                  cpf: values.value // Salva "12345678901" em vez de "123.456.789-01"
-                });
-              }}
-              className="mt-1 block w-full border rounded-md p-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-              placeholder="000.000.000-00"
-            />
-          </div>
-
-          <div>
-            <label className="block text-md">Salário:</label>
-            <NumericFormat
-              value={colaborador.salario}
-              thousandSeparator="."
-              decimalSeparator=","
-              prefix="R$ "
-              fixedDecimalScale
-              decimalScale={2}
-              // O 'values' é um objeto que a biblioteca nos dá. 
-              // Usamos o 'values.value' para pegar apenas os números.
-              onValueChange={(values) => {
-                setColaborador({
-                  ...colaborador,
-                  salario: Number(values.value) // Salva "12345678901" em vez de "123.456.789-01"
-                });
-              }}
-              className="mt-1 block w-full border rounded-md p-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-              placeholder="R$ 000,00"
-            />
-          </div>
-
-
-          {isEditing && (
-            <div className="border-t pt-4 mt-2">
-              <h3 className="text-md font-semibold mb-2">Criar acesso ao sistema</h3>
-
-              <div>
-                <label className="block text-md">Email:</label>
-                <input
-                  type="email"
-                  value={colaborador.email}
-                  onChange={(e) => setColaborador({ ...colaborador, email: e.target.value })}
-                  className="mt-1 block w-full border rounded-md p-2"
-                  placeholder="email@exemplo.com"
-                />
-              </div>
-
-              <div className="mt-3">
-                <label className="block text-md">Senha:</label>
-                <input
-                  type="password"
-                  value={colaborador.senha}
-                  onChange={(e) => setColaborador({ ...colaborador, senha: e.target.value })}
-                  className="mt-1 block w-full border rounded-md p-2"
-                  placeholder="Defina uma senha"
-                />
-              </div>
-
-              <div className="mt-3">
-                <label className="block text-md">Nível de acesso:</label>
-                <select
-                  value={colaborador.role}
-                  onChange={(e) => setColaborador({ ...colaborador, role: e.target.value })}
-                  className="mt-1 block w-full border rounded-md p-2 bg-surface"
-                >
-                  <option value="USER" selected>Usuário</option>
-                  <option value="ADMIN">Administrador</option>
-                  <option value="OUTRO">OUTRO</option>
-                </select>
-              </div>
-
-            </div>
-          )}
-
-
-          <div className="mt-6 flex flex-wrap justify-end gap-3">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 text-secondary hover:bg-surface-hover rounded"
-            >
-              Cancelar
-            </button>
-
-            <button
-              onClick={async () => {
-                // Chamando a action que criamos acima
-                const resultado = await salvarColaborador(colaborador);
-
-                if (resultado.sucesso) {
-                  onClose();
-                  await onSalvar?.();
-                } else {
-                  alert(resultado.erro);
-                }
-              }}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-            >
-              {isEditing ? 'Salvar Alterações' : 'Cadastrar'}
-            </button>
-          </div>
+          <label className="block text-sm font-medium">E-mail
+            <input type="email" name="email" autoComplete="off" required={temLogin} defaultValue={dadosEdicao?.user?.email} className={campo} />
+          </label>
+          <label className="block text-sm font-medium">{temLogin ? 'Nova senha' : 'Senha'}
+            <input type="password" name="senha" autoComplete="new-password" maxLength={72} className={campo} />
+          </label>
+          <label className="block text-sm font-medium">Nível de acesso
+            <select name="role" defaultValue={dadosEdicao?.user?.role ?? 'USER'} className={campo}>
+              <option value="USER">Vendedor</option>
+              <option value="ADMIN">Administrador</option>
+              <option value="OUTRO">Ponto e relatórios</option>
+            </select>
+          </label>
+        </div> : <p className="text-sm text-muted">Colaborador inativo, sem acesso ao sistema.</p>}
+        {erro && <p role="alert" className="text-sm text-danger-ink">{erro}</p>}
+        <div className="flex flex-wrap justify-end gap-2 pt-2">
+          <button type="button" onClick={() => dialogo.current?.close()} className="min-h-11 rounded-lg px-4 text-sm hover:bg-surface-muted">Cancelar</button>
+          <button type="submit" className="min-h-11 rounded-lg bg-primary px-4 text-sm font-semibold text-white hover:bg-primary-hover">
+            {pendente ? 'Salvando…' : 'Salvar colaborador'}
+          </button>
         </div>
-      </div>
-    </div>
-  );
+      </fieldset>
+    </form>
+  </dialog>;
 }

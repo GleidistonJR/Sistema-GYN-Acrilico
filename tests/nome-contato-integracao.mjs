@@ -1,3 +1,4 @@
+import { vinculoColaboradorTeste } from './fixtures/colaborador.mjs';
 import assert from 'node:assert/strict';
 import { randomUUID, randomBytes, createHash } from 'node:crypto';
 import { PrismaClient } from '@prisma/client';
@@ -10,7 +11,7 @@ const phone = '+999' + Date.now().toString().slice(-10);
 const base = process.env.TEST_BASE_URL || 'http://localhost:3000';
 let browser;
 try {
-  for (let i = 0; i < users.length; i++) await db.user.create({ data: { id: users[i], email: `teste-${users[i]}@example.invalid`, password: 'temporario', role: 'USER', sessoes: { create: { tokenHash: createHash('sha256').update(tokens[i]).digest('hex'), expiresAt: new Date(Date.now() + 600000) } } } });
+  for (let i = 0; i < users.length; i++) await db.user.create({ data: { id: users[i], colaborador: vinculoColaboradorTeste(users[i]), email: `teste-${users[i]}@example.invalid`, password: 'temporario', role: 'USER', sessoes: { create: { tokenHash: createHash('sha256').update(tokens[i]).digest('hex'), expiresAt: new Date(Date.now() + 600000) } } } });
   await db.cliente.create({ data: { id: clienteId, nome: phone, telefone: phone } });
   browser = await puppeteer.launch({ headless: true, executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe' });
   const pages = [];
@@ -49,6 +50,6 @@ try {
 } finally {
   await browser?.close();
   await db.cliente.deleteMany({ where: { id: clienteId } });
-  await db.user.deleteMany({ where: { id: { in: users } } });
+  await db.colaborador.deleteMany({ where: { userId: { in: users } } });
   await db.$disconnect();
 }

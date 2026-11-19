@@ -1,3 +1,4 @@
+import { vinculoColaboradorTeste } from './fixtures/colaborador.mjs';
 import assert from 'node:assert/strict';
 import { randomUUID, randomBytes, createHash } from 'node:crypto';
 import { PrismaClient } from '@prisma/client';
@@ -8,7 +9,7 @@ const users = [randomUUID(), randomUUID(), randomUUID()], tokens = users.map(() 
 const clienteId = randomUUID(), nome = 'Compartilhado ' + randomUUID();
 let browser;
 try {
-  for (let i = 0; i < users.length; i++) await db.user.create({ data: { id: users[i], email: `${users[i]}@example.invalid`, password: 'teste', role: i === 2 ? 'OUTRO' : 'USER', sessoes: { create: { tokenHash: createHash('sha256').update(tokens[i]).digest('hex'), expiresAt: new Date(Date.now() + 3600000) } } } });
+  for (let i = 0; i < users.length; i++) await db.user.create({ data: { id: users[i], colaborador: vinculoColaboradorTeste(users[i]), email: `${users[i]}@example.invalid`, password: 'teste', role: i === 2 ? 'OUTRO' : 'USER', sessoes: { create: { tokenHash: createHash('sha256').update(tokens[i]).digest('hex'), expiresAt: new Date(Date.now() + 3600000) } } } });
   await db.$executeRaw`UPDATE "User" SET apelido = 'Gleidiston' WHERE id = ${users[0]}`;
   await db.$executeRaw`UPDATE "User" SET apelido = 'Claudia' WHERE id = ${users[1]}`;
   await db.cliente.create({ data: { id: clienteId, nome, responsavelId: users[0] } });
@@ -43,5 +44,5 @@ try {
   console.log('OK: todos os USER visualizam e respondem sem mudar responsável; Meus filtra a carteira; ícone mostra responsável e atualiza; OUTRO e visitantes bloqueados. Nenhum destinatário real.');
 } finally {
   await browser?.close(); await db.cliente.deleteMany({ where: { id: clienteId } });
-  await db.user.deleteMany({ where: { id: { in: users } } }); await db.$disconnect();
+  await db.colaborador.deleteMany({ where: { userId: { in: users } } }); await db.$disconnect();
 }

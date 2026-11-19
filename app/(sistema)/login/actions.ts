@@ -6,10 +6,8 @@ import { criarSessao, removerSessao } from '@/lib/sessao';
 export async function verificarLogin(email: string, senha: string) {
   try {
     const usuario = await prisma.user.findUnique({
-      where: { email },
-      include :{
-        colaborador: true
-      }
+      where: { email, colaborador: { is: { inativadoEm: null } } },
+      select: { id: true, password: true, role: true, colaborador: { select: { id: true, nome: true } } },
     });
 
     if (!usuario) {

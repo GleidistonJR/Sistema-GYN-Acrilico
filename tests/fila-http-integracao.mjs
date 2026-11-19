@@ -1,3 +1,4 @@
+import { vinculoColaboradorTeste } from './fixtures/colaborador.mjs';
 import assert from 'node:assert/strict';
 import { randomUUID, randomBytes, createHash } from 'node:crypto';
 import { PrismaClient } from '@prisma/client';
@@ -12,7 +13,7 @@ const outroClienteId = randomUUID(), outraMensagemId = randomUUID();
 const conteudoHash = createHash('sha256').update(JSON.stringify([texto, undefined, undefined])).update('').digest('hex');
 const call = (path, index = 0, body) => fetch(base + path, { headers: { Cookie: `sessao_segura=${tokens[index]}`, Origin: base }, ...(body ? { method: 'POST', body } : {}) });
 try {
-  for (let i = 0; i < 2; i++) await prisma.user.create({ data: { id: ids[i], role: i ? 'ADMIN' : 'USER', email: `${conta}-${i}@example.invalid`, password: 'temporario', sessoes: { create: { tokenHash: createHash('sha256').update(tokens[i]).digest('hex'), expiresAt: new Date(Date.now() + 300000) } } } });
+  for (let i = 0; i < 2; i++) await prisma.user.create({ data: { id: ids[i], colaborador: vinculoColaboradorTeste(ids[i]), role: i ? 'ADMIN' : 'USER', email: `${conta}-${i}@example.invalid`, password: 'temporario', sessoes: { create: { tokenHash: createHash('sha256').update(tokens[i]).digest('hex'), expiresAt: new Date(Date.now() + 300000) } } } });
   await prisma.cliente.create({ data: { id: clienteId, nome: 'Teste de resposta na fila' } });
   // An existing simulated send exercises HTTP authorization/idempotency without contacting anyone.
   await prisma.mensagemWhatsApp.create({ data: { clienteId, conta, pedidoId, conteudoHash, autorId: ids[0], direcao: 'SAIDA', texto, status: 'ENVIADA' } });
@@ -41,6 +42,6 @@ try {
   await prisma.mensagemWhatsApp.deleteMany({ where: { id: outraMensagemId } });
   await prisma.cliente.deleteMany({ where: { id: outroClienteId } });
   await prisma.cliente.deleteMany({ where: { id: clienteId } });
-  await prisma.user.deleteMany({ where: { id: { in: ids } } });
+  await prisma.colaborador.deleteMany({ where: { userId: { in: ids } } });
   await prisma.$disconnect();
 }

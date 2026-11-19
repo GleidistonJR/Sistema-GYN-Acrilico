@@ -1,3 +1,4 @@
+import { vinculoColaboradorTeste } from './fixtures/colaborador.mjs';
 import assert from 'node:assert/strict';
 import { randomUUID, randomBytes, createHash } from 'node:crypto';
 import { unlink } from 'node:fs/promises';
@@ -11,7 +12,7 @@ const hash = value => createHash('sha256').update(value).digest('hex');
 const headers = { Cookie: `sessao_segura=${token}`, Origin: base };
 const files = [], tickets = [];
 try {
-  for (const [id, secret] of [[userId, token], [otherId, otherToken]]) await db.user.create({ data: { id, email: `${id}@example.invalid`, password: 'teste', role: id === userId ? 'USER' : 'OUTRO', sessoes: { create: { tokenHash: hash(secret), expiresAt: new Date(Date.now() + 3600000) } } } });
+  for (const [id, secret] of [[userId, token], [otherId, otherToken]]) await db.user.create({ data: { id, colaborador: vinculoColaboradorTeste(id), email: `${id}@example.invalid`, password: 'teste', role: id === userId ? 'USER' : 'OUTRO', sessoes: { create: { tokenHash: hash(secret), expiresAt: new Date(Date.now() + 3600000) } } } });
   // No phone and no WhatsApp identity: this fixture cannot contact a real customer.
   await db.cliente.create({ data: { id: clienteId, nome: 'Teste transferência sem destinatário', responsavelId: userId } });
   for (const size of [2048, 12 * 1024 * 1024]) {
@@ -45,7 +46,7 @@ try {
 } finally {
   for (const key of tickets) await db.$executeRaw`DELETE FROM "TransferenciaWhatsApp" WHERE "tokenHash" = ${key}`;
   await db.cliente.deleteMany({ where: { id: clienteId } });
-  await db.user.deleteMany({ where: { id: { in: [userId, otherId] } } });
+  await db.colaborador.deleteMany({ where: { userId: { in: [userId, otherId] } } });
   for (const key of files) await unlink(caminhoArquivo(key)).catch(() => {});
   await db.$disconnect();
 }

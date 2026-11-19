@@ -1,3 +1,4 @@
+import { vinculoColaboradorTeste } from './fixtures/colaborador.mjs';
 import assert from 'node:assert/strict';
 import { randomUUID, randomBytes, createHash } from 'node:crypto';
 import { PrismaClient } from '@prisma/client';
@@ -8,7 +9,7 @@ const userId = randomUUID(), clienteId = randomUUID(), token = randomBytes(32).t
 const ids = Array.from({ length: 110 }, () => randomUUID());
 let browser;
 try {
-  await db.user.create({ data: { id: userId, email: conta + '@example.invalid', password: 'temporario', role: 'USER', sessoes: { create: { tokenHash: createHash('sha256').update(token).digest('hex'), expiresAt: new Date(Date.now() + 600000) } } } });
+  await db.user.create({ data: { id: userId, colaborador: vinculoColaboradorTeste(userId), email: conta + '@example.invalid', password: 'temporario', role: 'USER', sessoes: { create: { tokenHash: createHash('sha256').update(token).digest('hex'), expiresAt: new Date(Date.now() + 600000) } } } });
   await db.cliente.create({ data: { id: clienteId, nome: 'Navegação de citações', responsavelId: userId } });
   const start = Date.now() - 120000;
   await db.mensagemWhatsApp.createMany({ data: ids.map((id, i) => ({ id, clienteId, conta, externaId: 'externa-' + id, direcao: 'ENTRADA', status: 'RECEBIDA', texto: `Mensagem ${i}`, enviadoEm: new Date(start + i * 1000),
@@ -49,6 +50,6 @@ try {
   await browser?.close();
   await db.mensagemWhatsApp.deleteMany({ where: { conta } });
   await db.cliente.deleteMany({ where: { id: clienteId } });
-  await db.user.deleteMany({ where: { id: userId } });
+  await db.colaborador.deleteMany({ where: { userId: userId } });
   await db.$disconnect();
 }

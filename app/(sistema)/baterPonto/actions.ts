@@ -9,12 +9,12 @@ export async function salvarPontoNoBanco(cpf: string) {
   try {
     // 1. Usando findUnique em vez de findFirst (é mais rápido no Postgres)
     const colaborador = await prisma.colaborador.findUnique({
-      where: { cpf: cpf },
+      where: { cpf, inativadoEm: null },
+      select: { id: true },
     });
 
     if (!colaborador) {
-      console.log("CPF não cadastrado");
-      return { sucesso: false, mensagem: "CPF não cadastrado" };
+      return { sucesso: false, mensagem: "CPF não cadastrado ou colaborador inativo." };
     }
 
     // Busca o último ponto registrado
@@ -47,14 +47,13 @@ export async function salvarPontoNoBanco(cpf: string) {
     // ----------------------------------
 
     // Cria o ponto com o tipo correto
-    await prisma.ponto.create({
-      data: {
-        cpf: cpf,
-        tipo: proximoTipoPonto,
-        // 3. Passando a data explicitamente para evitar conflitos de fuso no Neon
-        dataHora: agora,
-      },
-    });
+    const registrados = await prisma.$executeRaw`
+      INSERT INTO "Ponto" ("cpf", "tipo", "dataHora")
+      SELECT c.cpf, ${proximoTipoPonto}, ${agora} FROM "Colaborador" c
+      WHERE c.id = ${colaborador.id} AND c.cpf = ${cpf} AND c."inativadoEm" IS NULL
+      FOR SHARE
+    `;
+    if (!registrados) return { sucesso: false, mensagem: "CPF não cadastrado ou colaborador inativo." };
 
     revalidatePath("/relatorios");
     return { sucesso: true };

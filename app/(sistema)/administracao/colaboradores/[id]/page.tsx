@@ -51,7 +51,8 @@ export default async function DetalhesColaborador({ params, searchParams }: Deta
 
   const colaborador = await prisma.colaborador.findUnique({
     where: { id: idNumero },
-    include: {
+    select: {
+      id: true, nome: true, cargo: true, cpf: true, inativadoEm: true,
       pontos: {
         where: { dataHora: { gte: inicioMes, lte: fimMes } },
         orderBy: { dataHora: 'asc' },

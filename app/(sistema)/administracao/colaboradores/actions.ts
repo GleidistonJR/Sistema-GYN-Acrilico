@@ -1,9 +1,9 @@
 "use server";
-import { exigirUsuario, exigirPerfil } from "@/lib/autorizacao";
+import { exigirUsuario } from "@/lib/autorizacao";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache"; // Importante para atualizar a tela
-import bcrypt from "bcryptjs"
-import { Colaboradortype } from "./ModalRegistro"; // Importante para atualizar a tela
+import bcrypt from 'bcryptjs';
+import { Prisma } from '@prisma/client';
 
 interface Pontos {
   id: number;
@@ -14,123 +14,132 @@ interface Pontos {
 }
 
 
-// FUNÇÃO 1: CRIAR
-export async function salvarColaborador(dados: Colaboradortype) {
-  await exigirUsuario(['ADMIN']);
+export type FiltroColaboradores = 'ativos' | 'inativos' | 'todos';
+export type DadosColaborador = {
+  id?: number;
+  nome: string;
+  cargo: string;
+  cpf: string;
+  email?: string;
+  senha?: string;
+  role?: string;
+};
+
+const caminhoColaboradores = '/administracao/colaboradores';
+const camposColaborador = { id: true, nome: true, cargo: true, cpf: true, inativadoEm: true } as const;
+const perfis = ['ADMIN', 'USER', 'OUTRO'];
+
+async function bloquearAlteracoes(tx: Prisma.TransactionClient, adminId: string) {
+  await tx.$queryRaw`SELECT pg_advisory_xact_lock(20261119, 5)::text AS bloqueio`;
+  const admin = await tx.user.findFirst({
+    where: { id: adminId, role: 'ADMIN', colaborador: { is: { inativadoEm: null } } }, select: { id: true },
+  });
+  if (!admin) throw new Error('Acesso não autorizado.');
+}
+
+async function protegerUltimoAdmin(tx: Prisma.TransactionClient, id: string) {
+  const outroAdmin = await tx.user.findFirst({
+    where: { id: { not: id }, role: 'ADMIN', colaborador: { is: { inativadoEm: null } } },
+    select: { id: true },
+  });
+  if (!outroAdmin) throw new Error('Mantenha pelo menos um administrador ativo com acesso ao sistema.');
+}
+
+function erroColaborador(erro: unknown, fallback: string) {
+  if (erro instanceof Prisma.PrismaClientKnownRequestError) {
+    return erro.code === 'P2002' ? 'Já existe um cadastro com esse CPF ou e-mail.' : fallback;
+  }
+  return erro instanceof Error && !erro.name.startsWith('Prisma') ? erro.message : fallback;
+}
+
+export async function salvarColaborador(dados: DadosColaborador) {
+  const admin = await exigirUsuario(['ADMIN']);
   try {
-    if (dados.id) {
-      // Atualiza os dados normais do colaborador
-      const colaboradorAtualizado = await prisma.colaborador.update({
-        where: { id: dados.id },
-        data: {
-          nome: dados.nome,
-          cargo: dados.cargo,
-          cpf: dados.cpf,
-          salario: dados.salario,
-        },
-      });
-
-      // Se veio email e senha, criamos ou atualizamos o usuário
-      if (dados.email && dados.senha) {
-        const colaboradorComUser = await prisma.colaborador.findUnique({
-          where: { id: dados.id },
-          select: { userId: true },
-        });
-
-        const senhaHash = await bcrypt.hash(dados.senha, 10);
-
-        if (!colaboradorComUser?.userId) {
-          // Não tem usuário ainda -> cria
-          await prisma.user.create({
-            data: {
-              email: dados.email,
-              password: senhaHash,
-              role: dados.role ?? "USER",
-              colaborador: {
-                connect: { id: dados.id },
-              },
-            },
-          });
-        } else {
-          // Já tem usuário -> atualiza email, senha e role
-          await prisma.user.update({
-            where: { id: colaboradorComUser.userId },
-            data: {
-              email: dados.email,
-              password: senhaHash,
-              role: dados.role ?? "USER",
-            },
-          });
-        }
-      }
-
-      revalidatePath("/colaboradores");
-      return { sucesso: true, colaborador: colaboradorAtualizado };
-    } else {
-      // Se não tem ID, é um CREATE (prisma.colaborador.create...)
-      const novoColaborador = await prisma.colaborador.create({
-        data: {
-          nome: dados.nome,
-          cargo: dados.cargo,
-          cpf: dados.cpf,
-          salario: dados.salario,
-        },
-      });
-
-      revalidatePath("/colaboradores");
-      return { sucesso: true, colaborador: novoColaborador };
+    const nome = dados.nome.trim();
+    const cargo = dados.cargo.trim();
+    const cpf = dados.cpf.replace(/\D/g, '');
+    const email = dados.email?.trim() || '';
+    const senha = dados.senha || '';
+    const role = dados.role ?? 'USER';
+    if (!nome || !cargo || !/^\d{11}$/.test(cpf)) return { sucesso: false, erro: 'Informe nome, cargo e CPF com 11 dígitos.' };
+    if (!perfis.includes(role) || (email && !/^[^@\s]+@[^@\s]+$/.test(email)) || Buffer.byteLength(senha) > 72) {
+      return { sucesso: false, erro: 'Confira o e-mail, o perfil de acesso e o limite de 72 bytes da senha.' };
     }
-  } catch (error) {
-    console.error("Erro ao salvar colaborador:", error);
-    return { sucesso: false, erro: "Não foi possível salvar o colaborador." };
+    const password = senha ? await bcrypt.hash(senha, 10) : undefined;
+    const cadastro = { nome, cargo, cpf };
+    await prisma.$transaction(async tx => {
+      await bloquearAlteracoes(tx, admin.id);
+      const existente = dados.id ? await tx.colaborador.findUnique({
+        where: { id: dados.id }, select: { inativadoEm: true, user: { select: { id: true, role: true } } },
+      }) : null;
+      if (dados.id && !existente) throw new Error('Colaborador não encontrado.');
+      if (existente?.inativadoEm && (email || password)) throw new Error('Colaboradores inativos não podem receber acesso.');
+      if ((email || password || existente?.user) && (!email || (!existente?.user && !password))) {
+        throw new Error('Informe e-mail e senha para criar o acesso.');
+      }
+      if (existente?.user?.role === 'ADMIN' && role !== 'ADMIN') await protegerUltimoAdmin(tx, existente.user.id);
+      if (dados.id) {
+        await tx.colaborador.update({
+          where: { id: dados.id },
+          data: {
+            ...cadastro,
+            ...(existente?.user ? { user: { update: { email, role, ...(password ? { password } : {}) } } }
+              : email && password ? { user: { create: { email, password, role } } } : {}),
+          },
+        });
+      } else {
+        await tx.colaborador.create({ data: {
+          ...cadastro, ...(email && password ? { user: { create: { email, password, role } } } : {}),
+        } });
+      }
+    }, { timeout: 15000 });
+    return { sucesso: true };
+  } catch (erro) {
+    return { sucesso: false, erro: erroColaborador(erro, 'Não foi possível salvar o colaborador.') };
   }
 }
 
-
-// FUNÇÃO 2: BUSCAR
-export async function buscarColaboradores(filtroCpf?: string) {
+export async function buscarColaboradores(busca = '', filtro: FiltroColaboradores = 'ativos') {
   await exigirUsuario(['ADMIN']);
-  try {
-    const colaboradores = await prisma.colaborador.findMany({
-      where: filtroCpf ? { cpf: { contains: filtroCpf } } : {},
-      orderBy: {
-        nome: 'asc', // Organiza por ordem alfabética
-      },
-    });
-
-    return colaboradores;
-  } catch (error) {
-    console.error("Erro ao buscar colaboradores:", error);
-    throw new Error('Não foi possível atualizar os colaboradores.');
-  }
-}
-
-// Para a edição
-export async function buscarColaboradorPorId(id: number) {
-  await exigirPerfil(id);
-  return await prisma.colaborador.findUnique({
-    where: { id }
+  const termo = busca.trim().slice(0, 120);
+  const cpf = termo.replace(/\D/g, '');
+  return prisma.colaborador.findMany({
+    where: {
+      ...(filtro === 'todos' ? {} : { inativadoEm: filtro === 'inativos' ? { not: null } : null }),
+      ...(termo ? { OR: [
+        { nome: { contains: termo, mode: 'insensitive' } },
+        ...(cpf && /^[\d.\s-]+$/.test(termo) ? [{ cpf: { contains: cpf } }] : []),
+      ] } : {}),
+    },
+    orderBy: [{ nome: 'asc' }, { id: 'asc' }],
+    select: { ...camposColaborador, userId: true },
   });
 }
 
-// FUNÇÃO 3: DELETAR
-export async function deletarColaborador(id: number) {
+export async function buscarColaboradorPorId(id: number) {
   await exigirUsuario(['ADMIN']);
+  return prisma.colaborador.findUnique({
+    where: { id },
+    select: { ...camposColaborador, user: { select: { email: true, role: true } } },
+  });
+}
+
+export async function inativarColaborador(id: number) {
+  const admin = await exigirUsuario(['ADMIN']);
   try {
-
-    await prisma.colaborador.delete({
-      where: {
-        id: id,
-      },
-    });
-
-    // Isso avisa ao Next.js para limpar o cache e mostrar a lista atualizada
-    revalidatePath("/colaboradores");
-
+    await prisma.$transaction(async tx => {
+      await bloquearAlteracoes(tx, admin.id);
+      const colaborador = await tx.colaborador.findUnique({
+        where: { id }, select: { inativadoEm: true, user: { select: { id: true, role: true } } },
+      });
+      if (!colaborador || colaborador.inativadoEm) throw new Error('Colaborador ativo não encontrado.');
+      if (colaborador.user?.role === 'ADMIN') await protegerUltimoAdmin(tx, colaborador.user.id);
+      await tx.colaborador.update({ where: { id }, data: { inativadoEm: new Date() } });
+    }, { timeout: 15000 });
+    revalidatePath(`${caminhoColaboradores}/${id}`);
     return { sucesso: true };
-  } catch (error) {
-    console.error("Erro ao deletar:", error);
-    return { sucesso: false, erro: "Não foi possível excluir o colaborador." };
+  } catch (erro) {
+    return { sucesso: false, erro: erroColaborador(erro, 'Não foi possível inativar o colaborador.') };
   }
 }
 
