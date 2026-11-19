@@ -2,6 +2,7 @@ import whatsapp from 'whatsapp-web.js';
 import { lerArquivo, salvarArquivo, removerAposEnvio } from './whatsapp-arquivos.mjs';
 import { criarFilaPrioritaria } from './whatsapp-fila.mjs';
 import { converterVoz } from './whatsapp-audio.mjs';
+import { prepararMidiaRecente } from './whatsapp-previas.mjs';
 import { obterCitacao } from '../lib/whatsapp/citacao.mjs';
 import { telefoneDoJid, variantesTelefone, nomeArquivo, statusAck } from '../lib/whatsapp/conteudo.mjs';
 
@@ -204,6 +205,7 @@ export function criarServicoMensagens({ prisma, client, conta, ativo, retryDelay
         if (message.midia && !message.midia.dados?.length) throw new Error("Anexo temporário indisponível.");
         if (message.midia && message.tipo === 'ptt') {
           const dados = await converterVoz(Buffer.from(message.midia.dados));
+          message.midia = { dados, mimeType: 'audio/mpeg', nome: 'gravacao.mp3' };
           // Keep exactly the transmitted file, not the original browser recording.
           if (message.chaveArquivo) await salvarArquivo(message.chaveArquivo, dados);
           await prisma.midiaWhatsApp.update({ where: { mensagemId: message.id }, data: { dados: message.chaveArquivo ? Buffer.alloc(0) : dados, mimeType: 'audio/mpeg', nome: 'gravacao.mp3' } });
@@ -219,6 +221,10 @@ export function criarServicoMensagens({ prisma, client, conta, ativo, retryDelay
           ...(message.citacao?.externaId ? { quotedMessageId: message.citacao.externaId, ignoreQuoteErrors: false } : {}),
           ...(message.midia ? { caption: message.texto, sendMediaAsDocument: message.midia.mimeType === 'application/pdf' || (message.midia.mimeType.startsWith('video/') && message.midia.dados.length > 60 * 1024 * 1024), sendAudioAsVoice: false } : {}) });
         if (!sent?.id?._serialized) throw new Error('Confirmação ausente');
+        if (message.midia) {
+          const { dados, mimeType, nome } = message.midia;
+          await prepararMidiaRecente(prisma, message, dados, mimeType, nome).catch(log);
+        }
         await prisma.mensagemWhatsApp.update({ where: { id: message.id }, data: { externaId: sent.id._serialized, ...(message.tipo === 'ptt' ? { tipo: 'audio' } : {}), status: statusAck(sent.ack), ack: Math.max(0, sent.ack || 0), erro: null } });
         if (message.chaveArquivo) removerAposEnvio(message.chaveArquivo);
       } catch (error) {

@@ -11,7 +11,7 @@ type Contexto = { params: Promise<{ id: string }> };
 const json = (body: unknown, status = 200) => Response.json(body, { status, headers: privado });
 const selecao = { id: true, externaId: true, citacao: true, texto: true, tipo: true, direcao: true, status: true, erro: true, enviadoEm: true,
   autor: { select: { colaborador: { select: { nome: true } } } },
-  midia: { select: { nome: true, mimeType: true } },
+  midia: { select: { nome: true, mimeType: true, preparadaEm: true } },
 } satisfies Prisma.MensagemWhatsAppSelect;
 
 export async function GET(request: Request, { params }: Contexto) {

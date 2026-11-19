@@ -6,18 +6,67 @@ import { Transform } from 'node:stream';
 import { createHash } from 'node:crypto';
 import { lerTransferencia, hashToken } from '../lib/whatsapp/transferencia.mjs';
 import { validarMidia, LIMITE_MIDIA, nomeArquivo } from '../lib/whatsapp/conteudo.mjs';
-import { caminhoArquivo, salvarArquivo, limparArquivos, espacoDisponivel } from './whatsapp-arquivos.mjs';
+import { caminhoArquivo, salvarArquivo, limparArquivos, espacoDisponivel, caminhoOriginalRecente,
+  limparOriginaisRecentes, RETENCAO_MIDIA } from './whatsapp-arquivos.mjs';
+import { obterMidiaWhatsApp, prepararMidiaRecente } from './whatsapp-previas.mjs';
 
 export function criarServidorMidia({ prisma, getClient, port = 3002 }) {
   let uploading = false, downloading = false;
   const locks = new Set();
   const cache = new Map();
+  const novasTentativas = new Map();
+  let preparando = false;
+  let downloadPrevia;
+
+  async function prepararProximo() {
+    const conexao = getClient();
+    if (!conexao || downloading || preparando) return;
+    preparando = true;
+    try {
+      for (const [id, prazo] of novasTentativas) if (prazo <= Date.now()) novasTentativas.delete(id);
+      const mensagem = await prisma.mensagemWhatsApp.findFirst({
+        where: {
+          id: { notIn: [...novasTentativas.keys()] }, conta: conexao.conta, externaId: { not: null },
+          enviadoEm: { gt: new Date(Date.now() - RETENCAO_MIDIA) }, midia: { preparadaEm: null },
+        },
+        orderBy: { enviadoEm: 'desc' },
+        select: { id: true, enviadoEm: true, externaId: true, midia: { select: { nome: true, mimeType: true } } },
+      });
+      if (!mensagem || downloading) return;
+      try {
+        downloading = true;
+        let midia;
+        try {
+          downloadPrevia = obterMidiaWhatsApp(conexao.client, mensagem.externaId, { somenteRecente: true, mimeType: mensagem.midia.mimeType });
+          midia = await downloadPrevia;
+        } finally {
+          downloadPrevia = undefined;
+          downloading = false;
+        }
+        if (midia) {
+          await prepararMidiaRecente(prisma, mensagem, midia.dados, midia.mimeType, nomeArquivo(midia.nome || mensagem.midia.nome));
+        } else {
+          await prisma.midiaWhatsApp.update({ where: { mensagemId: mensagem.id }, data: { preparadaEm: new Date() } });
+        }
+      } catch {
+        novasTentativas.set(mensagem.id, Date.now() + 15 * 60 * 1000);
+      }
+    } finally {
+      preparando = false;
+    }
+  }
+  const preparacao = setInterval(() => void prepararProximo().catch(error => {
+    console.warn('Falha ao preparar anexos recentes:', error.code || error.name);
+  }), 3000);
+  preparacao.unref();
   const cleanup = setInterval(() => {
     void limparArquivos().catch(() => {});
+    void limparOriginaisRecentes().catch(() => {});
     void prisma.$executeRaw`DELETE FROM "TransferenciaWhatsApp" WHERE "expiresAt" < NOW()`.catch(() => {});
     for (const [id, item] of cache) if (item.until < Date.now()) { cache.delete(id); void unlink(item.path).catch(() => {}); }
   }, 60000);
   cleanup.unref();
+  void limparOriginaisRecentes().catch(() => {});
   const server = http.createServer(async (req, res) => {
     res.setHeader('Cache-Control', 'private, no-store');
     res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -59,11 +108,13 @@ export function criarServidorMidia({ prisma, getClient, port = 3002 }) {
         return;
       }
       if (req.method !== 'GET' || p.acao !== 'download') { res.writeHead(405); res.end(); return; }
-      const [m] = await prisma.$queryRaw`SELECT m."externaId", m.conta, m."clienteId", a.nome, a."mimeType", a.dados, f.chave
+      const [m] = await prisma.$queryRaw`SELECT m."externaId", m.conta, m."clienteId", m."enviadoEm", a.nome, a."mimeType", a.dados, f.chave
         FROM "MensagemWhatsApp" m JOIN "MidiaWhatsApp" a ON a."mensagemId" = m.id
         LEFT JOIN "ArquivoWhatsApp" f ON f."mensagemId" = m.id WHERE m.id = ${p.mensagemId} AND m."clienteId" = ${p.clienteId}`;
       if (!m) { res.writeHead(404); res.end(); return; }
-      let file = m.chave ? caminhoArquivo(m.chave) : null;
+      let file = Date.now() - +m.enviadoEm < RETENCAO_MIDIA ? caminhoOriginalRecente(p.mensagemId) : null;
+      if (file && !await stat(file).catch(() => null)) file = null;
+      if (!file && m.chave) file = caminhoArquivo(m.chave);
       if (file && !await stat(file).catch(() => null)) file = null;
       let mime = m.mimeType, name = m.nome;
       const recent = cache.get(p.mensagemId);
@@ -80,21 +131,17 @@ export function criarServidorMidia({ prisma, getClient, port = 3002 }) {
         let cached = cache.get(p.mensagemId);
         if (cached && cached.until < Date.now()) { cache.delete(p.mensagemId); cached = null; }
         if (!cached) {
+          if (downloadPrevia) await downloadPrevia.catch(() => {});
           const connection = getClient();
           if (!connection || connection.conta !== m.conta) throw new Error('O WhatsApp da empresa está desconectado.');
           if (!m.externaId) throw new Error('Este anexo ainda não foi enviado ou o arquivo temporário expirou.');
           if (downloading) { res.writeHead(429); res.end('Outro arquivo está sendo preparado. Tente novamente em alguns segundos.'); return; }
           downloading = true;
           try {
-            const message = await connection.client.getMessageById(m.externaId);
-            if (Number(message?.rawData?.size) > LIMITE_MIDIA) throw new Error('Este arquivo ultrapassa o limite de 90 MB.');
-            const media = await message?.downloadMedia();
-            if (!media?.data) throw new Error('O WhatsApp não disponibiliza mais este arquivo. Peça ao cliente para reenviar.');
-            if (media.data.length > Math.ceil(LIMITE_MIDIA * 4 / 3) + 4) throw new Error('Este arquivo ultrapassa o limite de 90 MB.');
-            const data = Buffer.from(media.data, 'base64');
+            const { dados: data, mimeType, nome } = await obterMidiaWhatsApp(connection.client, m.externaId);
             await espacoDisponivel(data.length);
             await salvarArquivo(p.mensagemId, data);
-            cached = { path: caminhoArquivo(p.mensagemId), mime: media.mimetype.split(';')[0], name: nomeArquivo(media.filename || m.nome), until: Date.now() + 600000 };
+            cached = { path: caminhoArquivo(p.mensagemId), mime: mimeType, name: nomeArquivo(nome || m.nome), until: Date.now() + 600000 };
             cache.set(p.mensagemId, cached);
           } finally { downloading = false; }
         }
@@ -103,7 +150,7 @@ export function criarServidorMidia({ prisma, getClient, port = 3002 }) {
       const { size } = await stat(file);
       const inline = /^(image\/(jpeg|png|webp|gif)|audio\/(mpeg|mp4|ogg|wav|webm)|video\/(mp4|webm|quicktime))$/.test(mime);
       res.setHeader('Content-Type', inline ? mime : 'application/octet-stream');
-      res.setHeader('Content-Disposition', `${inline ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(name)}`);
+      res.setHeader('Content-Disposition', `${inline && !url.searchParams.has('baixar') ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(name)}`);
       res.setHeader('Accept-Ranges', 'bytes');
       let start = 0, end = size - 1;
       if (req.headers.range) {
@@ -125,5 +172,5 @@ export function criarServidorMidia({ prisma, getClient, port = 3002 }) {
   server.requestTimeout = 300000;
   server.headersTimeout = 15000;
   return { start: () => new Promise((resolve, reject) => { server.once('error', reject); server.listen(port, '127.0.0.1', resolve); }),
-    stop: () => { clearInterval(cleanup); server.closeAllConnections(); server.close(); } };
+    stop: () => { clearInterval(preparacao); clearInterval(cleanup); server.closeAllConnections(); server.close(); } };
 }

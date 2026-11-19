@@ -189,6 +189,7 @@ model MensagemWhatsApp {
   midia MidiaWhatsApp?
   @@unique([conta, externaId])
   @@index([clienteId, enviadoEm, id])
+  @@index([conta, enviadoEm])
   @@index([status, createdAt])
 }
 
@@ -196,6 +197,8 @@ model MidiaWhatsApp {
   mensagemId String @id
   mensagem MensagemWhatsApp @relation(fields: [mensagemId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   dados Bytes
+  previa Bytes?
+  preparadaEm DateTime?
   mimeType String
   nome String
 }

@@ -1,7 +1,41 @@
-import { mkdir, readFile, writeFile, readdir, stat, unlink } from 'node:fs/promises';
+import { mkdir, readFile, writeFile, readdir, stat, unlink, rename, utimes } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { sessionPath } from './whatsapp-caminhos.mjs';
 export const pastaArquivos = path.join(sessionPath, 'transferencias');
+export const RETENCAO_MIDIA = 72 * 60 * 60 * 1000;
+export const LIMITE_ORIGINAL_RETIDO = 2 * 1024 * 1024;
+const pastaRecentes = path.join(sessionPath, 'anexos-recentes');
+
+export function caminhoOriginalRecente(id) {
+  if (!/^[a-f0-9-]{36}$/.test(id)) throw new Error('Arquivo inválido.');
+  return path.join(pastaRecentes, id);
+}
+
+export async function guardarOriginalRecente(id, dados, enviadoEm) {
+  if (dados.length > LIMITE_ORIGINAL_RETIDO || Date.now() - +enviadoEm >= RETENCAO_MIDIA) return;
+  const destino = caminhoOriginalRecente(id);
+  const temporario = path.join(pastaRecentes, randomUUID() + '.part');
+  await mkdir(pastaRecentes, { recursive: true });
+  try {
+    await writeFile(temporario, dados, { flag: 'wx' });
+    await utimes(temporario, enviadoEm, enviadoEm);
+    await rename(temporario, destino);
+  } finally {
+    await unlink(temporario).catch(() => {});
+  }
+}
+
+export async function limparOriginaisRecentes() {
+  await mkdir(pastaRecentes, { recursive: true });
+  for (const nome of await readdir(pastaRecentes)) {
+    if (!/^[a-f0-9-]{36}(\.part)?$/.test(nome)) continue;
+    const arquivo = path.join(pastaRecentes, nome);
+    const info = await stat(arquivo).catch(() => null);
+    const prazo = nome.endsWith('.part') ? 3600000 : RETENCAO_MIDIA;
+    if (info && Date.now() - info.mtimeMs >= prazo) await unlink(arquivo).catch(() => {});
+  }
+}
 export function caminhoArquivo(chave) {
   if (!/^[a-f0-9-]{36}$/.test(chave)) throw new Error('Arquivo inválido.');
   return path.join(pastaArquivos, chave);
