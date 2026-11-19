@@ -4,6 +4,9 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { ArrowLeft, UserPlus, UserMinus, Paperclip, Send, RefreshCw, MoreVertical, Reply, X } from 'lucide-react';
 import GravarAudio from './GravarAudio';
 import AnexoMensagem from './AnexoMensagem';
+import MenuTextosRapidos from './MenuTextosRapidos';
+
+const LIMITE_TEXTO = 6000;
 
 type Mensagem = { id: string; texto: string; tipo: string; direcao: string; status: string; erro: string | null; enviadoEm: string;
   externaId: string | null; citacao: { externaId: string | null; texto: string; tipo: string; direcao: string | null } | null;
@@ -212,6 +215,22 @@ export default function Conversa({ cliente, onVoltar, onDetalhes, onLida, onAssu
     finally { setSincronizando(false); }
   }
 
+  function inserirTextoRapido(modelo: string) {
+    if (envioEmCurso.current || gravando || !podeEnviar) return;
+    const rascunho = texto.trimEnd();
+    const preenchido = rascunho ? `${rascunho}\n\n${modelo.trim()}` : modelo.trim();
+    if (preenchido.length > LIMITE_TEXTO) {
+      setErro('O texto rápido excede o limite da mensagem. Encurte o rascunho e tente novamente.');
+    } else {
+      pedido.current = null;
+      setTexto(preenchido);
+      setErro('');
+    }
+    const campo = entradaTexto.current;
+    campo?.focus();
+    if (campo) requestAnimationFrame(() => campo.setSelectionRange(campo.value.length, campo.value.length));
+  }
+
   async function enviar(event: React.FormEvent) {
     event.preventDefault();
     if (envioEmCurso.current || gravando || !podeEnviar || (!texto.trim() && !arquivo)) return;
@@ -355,9 +374,10 @@ export default function Conversa({ cliente, onVoltar, onDetalhes, onLida, onAssu
         {previewAudio && <audio aria-label="Ouvir áudio antes de enviar" controls src={previewAudio} className="mb-3 h-10 w-full max-w-sm" />}
         <div className="flex flex-wrap items-end gap-2"><label className="cursor-pointer rounded-lg p-3 text-secondary hover:bg-foreground/5" title="Anexar imagem, vídeo, áudio ou PDF"><Paperclip size={22} /><span className="sr-only">Anexar arquivo</span>
           <input ref={upload} type="file" disabled={enviando || gravando || !podeEnviar} className="sr-only" accept="image/jpeg,image/png,image/webp,image/gif,audio/ogg,audio/mpeg,audio/mp4,audio/wav,audio/webm,video/mp4,video/webm,video/quicktime,application/pdf" onChange={e => { const file = e.target.files?.[0]; if (file && file.size > 90 * 1024 * 1024) { setErro('O arquivo deve ter até 90 MB.'); e.target.value = ''; return; } setArquivo(file ?? null); setVoz(false); pedido.current = null; }} /></label>
+          <MenuTextosRapidos desabilitado={enviando || gravando || !podeEnviar} inserir={inserirTextoRapido} />
           <textarea ref={entradaTexto} hidden={gravando} value={texto} onChange={e => { setTexto(e.target.value); pedido.current = null; }} onKeyDown={e => {
             if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing && e.keyCode !== 229) { e.preventDefault(); if (!e.repeat) e.currentTarget.form?.requestSubmit(); }
-          }} disabled={enviando || gravando || !podeEnviar} maxLength={6000} rows={1} aria-label="Mensagem" placeholder="Digite sua mensagem…" className="min-w-0 flex-1 resize-none rounded-lg border border-transparent bg-surface-muted p-3 text-sm leading-5 text-foreground outline-none placeholder:text-muted focus:border-emerald-600" />
+          }} disabled={enviando || gravando || !podeEnviar} maxLength={LIMITE_TEXTO} rows={1} aria-label="Mensagem" placeholder="Digite sua mensagem…" className="min-w-0 flex-1 resize-none rounded-lg border border-transparent bg-surface-muted p-3 text-sm leading-5 text-foreground outline-none placeholder:text-muted focus:border-emerald-600" />
           <GravarAudio disabled={enviando || !podeEnviar || !!arquivo} onArquivo={file => { setArquivo(file); setVoz(true); pedido.current = null; }} onGravando={setGravando} onErro={setErro} />
           <button type="submit" disabled={enviando || gravando || !podeEnviar || (!texto.trim() && !arquivo)} className="flex items-center gap-2 rounded-full bg-chat-action px-4 py-3 text-sm font-semibold text-white disabled:opacity-40"><Send size={18} /><span className="hidden sm:inline">{enviando ? 'Salvando…' : 'Enviar'}</span><span className="sr-only sm:hidden">Enviar</span></button>
         </div><p className="mt-1 text-[10px] text-muted">Enter envia · Shift + Enter quebra linha · Ctrl + V ou arraste para anexar; confirme o envio quando terminar (até 90 MB).</p>
