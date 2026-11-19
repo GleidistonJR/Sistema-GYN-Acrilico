@@ -3,11 +3,16 @@
 import { useActionState, useEffect, type ReactNode } from 'react';
 import { alterarAtendimento } from './actions';
 
-export default function Formulario({ acao, clienteId, children, botao }: {
+export default function Formulario({ acao, clienteId, children, botao, aoSalvar }: {
   acao: string; clienteId?: string; children?: ReactNode; botao: string;
+  aoSalvar?: (resultado: Awaited<ReturnType<typeof alterarAtendimento>>) => void;
 }) {
   const [estado, action, pendente] = useActionState(alterarAtendimento, { sucesso: false, mensagem: '' });
-  useEffect(() => { if (estado.sucesso) window.dispatchEvent(new Event('atendimento:atualizar')); }, [estado]);
+  useEffect(() => {
+    if (!estado.sucesso) return;
+    aoSalvar?.(estado);
+    window.dispatchEvent(new Event('atendimento:atualizar'));
+  }, [estado, aoSalvar]);
   return <form action={action} className="space-y-3">
     <input type="hidden" name="acao" value={acao} />
     {clienteId && <input type="hidden" name="clienteId" value={clienteId} />}

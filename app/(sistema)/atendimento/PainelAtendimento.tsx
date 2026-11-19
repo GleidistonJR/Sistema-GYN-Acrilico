@@ -60,11 +60,17 @@ export default function PainelAtendimento({ usuario, etiquetas, filaInicial, cli
   }, []);
 
   const escolher = useCallback((cliente: Cliente | null) => {
+    entrada.current = undefined;
     setSelecionado(cliente);
     const url = new URL(window.location.href);
     if (cliente) url.searchParams.set('cliente', cliente.id); else url.searchParams.delete('cliente');
     window.history.replaceState(null, '', url);
   }, []);
+  const abrirClienteCriado = useCallback(({ clienteCriado }: Awaited<ReturnType<typeof alterarAtendimento>>) => {
+    if (!clienteCriado) return;
+    escolher({ ...clienteCriado, naoLida: false, responsavelNome: usuario.apelido || 'Você' });
+    setModal(null);
+  }, [escolher, usuario.apelido]);
   async function alterarResponsabilidade(acao: 'assumir' | 'desatribuir') {
     const cliente = selecionado;
     if (!cliente || (acao === 'assumir' ? !!cliente.responsavelId : cliente.responsavelId !== usuario.id)) return;
@@ -97,12 +103,16 @@ export default function PainelAtendimento({ usuario, etiquetas, filaInicial, cli
       setClientes(data.clientes); setMais(data.temMais); setErro('');
       setSelecionado(atual => atual ? data.clientes.find((c: Cliente) => c.id === atual.id) || atual : atual);
       if (entrada.current) {
-        const id = entrada.current; entrada.current = undefined;
+        const id = entrada.current;
         const local = data.clientes.find((c: Cliente) => c.id === id);
         if (local) escolher(local);
         else {
           const details = await fetch(`/api/atendimento/${encodeURIComponent(id)}/detalhes`, { signal: controller.signal });
-          if (details.ok && version === requestId.current) escolher({ ...(await details.json()).cliente, naoLida: false });
+          const dados = details.ok ? await details.json() : null;
+          if (version === requestId.current && entrada.current === id) {
+            entrada.current = undefined;
+            if (dados) escolher({ ...dados.cliente, naoLida: false });
+          }
         }
       }
     } catch (error) { if (!controller.signal.aborted) setErro(error instanceof Error ? error.message : 'Falha na atualização.'); }
@@ -203,7 +213,7 @@ export default function PainelAtendimento({ usuario, etiquetas, filaInicial, cli
         <div className="rounded-lg bg-emerald-50 p-3 text-sm"><strong>{usuario.apelido || 'Atendimento'}:</strong><br />Mensagem normal</div>
         <p className="text-xs text-slate-500">Esta configuração pertence ao seu login e funciona em todos os computadores.</p>
       </Formulario>}
-      {modal === 'cliente' && <Formulario acao="criarCliente" botao="Adicionar cliente"><label className="block text-sm">Nome<input name="nome" required maxLength={120} className={campo} autoFocus /></label><label className="block text-sm">WhatsApp com país e DDD<input name="telefone" required type="tel" className={campo} placeholder="+55 62 99999-9999" /></label></Formulario>}
+      {modal === 'cliente' && <Formulario acao="criarCliente" botao="Adicionar cliente" aoSalvar={abrirClienteCriado}><label className="block text-sm">Nome<input name="nome" required maxLength={120} className={campo} autoFocus /></label><label className="block text-sm">WhatsApp com país e DDD<input name="telefone" required type="tel" className={campo} placeholder="+55 62 99999-9999" /></label></Formulario>}
       {modal === 'etiqueta' && <Formulario acao="criarEtiqueta" botao="Criar etiqueta"><label className="block text-sm">Nome<input name="nome" required maxLength={40} className={campo} autoFocus /></label></Formulario>}
       {modal === 'detalhes' && <div className="space-y-6">{erroDetalhes ? <p role="alert" className="text-sm text-red-700">{erroDetalhes}</p> : !detalhes ? <p className="text-sm text-slate-500">Carregando…</p> : <>
         <div><h3 className="font-semibold">{detalhes.cliente.nome}</h3><p className="text-sm text-slate-500">{detalhes.cliente.telefone}</p></div>

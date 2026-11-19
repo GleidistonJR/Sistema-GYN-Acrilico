@@ -7,7 +7,8 @@ import { prisma } from '@/lib/prisma';
 import { validarApelido } from '@/lib/whatsapp/assinatura.mjs';
 import { normalizarTelefone, podeEditarCliente, validarTexto } from '@/lib/atendimento/regras';
 
-type Resultado = { sucesso: boolean; mensagem: string };
+type ClienteCriado = { id: string; nome: string; telefone: string | null; responsavelId: string | null };
+type Resultado = { sucesso: boolean; mensagem: string; clienteCriado?: ClienteCriado };
 
 export async function alterarAtendimento(_anterior: Resultado, form: FormData): Promise<Resultado> {
   // Every mutation validates the server session, including direct action requests.
@@ -19,10 +20,17 @@ export async function alterarAtendimento(_anterior: Resultado, form: FormData): 
       // Only the authenticated account can change its signature, never a posted user ID.
       await prisma.$executeRaw`UPDATE "User" SET apelido = ${apelido} WHERE id = ${usuario.id}`;
     } else if (acao === 'criarCliente') {
-      await prisma.cliente.create({ data: {
-        nome: validarTexto(form.get('nome'), 120),
-        telefone: normalizarTelefone(form.get('telefone')),
-      } });
+      const clienteCriado = await prisma.cliente.create({
+        data: {
+          nome: validarTexto(form.get('nome'), 120),
+          telefone: normalizarTelefone(form.get('telefone')),
+          responsavelId: usuario.id,
+          atribuicoes: { create: { atorId: usuario.id, novoId: usuario.id } },
+        },
+        select: { id: true, nome: true, telefone: true, responsavelId: true },
+      });
+      revalidatePath('/atendimento');
+      return { sucesso: true, mensagem: 'Cliente adicionado.', clienteCriado };
     } else if (acao === 'criarEtiqueta') {
       if (usuario.role !== 'ADMIN') throw new Error('Somente administradores podem criar etiquetas.');
       await prisma.etiqueta.create({ data: { nome: validarTexto(form.get('nome'), 40).toLocaleLowerCase('pt-BR') } });
