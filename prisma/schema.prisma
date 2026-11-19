@@ -205,6 +205,13 @@ model MidiaWhatsApp {
   nome String
 }
 
+model TextoRapido {
+  id String @id @default(uuid())
+  label String @db.VarChar(80)
+  texto String
+  ordem Int @default(autoincrement())
+}
+
 model Etiqueta {
   id String @id @default(uuid())
   nome String @unique @db.VarChar(40)

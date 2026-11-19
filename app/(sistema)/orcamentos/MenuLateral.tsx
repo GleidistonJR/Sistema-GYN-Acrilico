@@ -1,7 +1,8 @@
 "use client";
 import { useState } from 'react';
 import { ClipboardCopy, Check, ExternalLink } from 'lucide-react';
-import { textosRapidos } from '../components/textosRapidos';
+import { iconeTextoRapido } from '../components/textosRapidos';
+import { useTextosRapidos } from '../components/useTextosRapidos';
 
 interface MenuLateralProps {
   isOpen: boolean;
@@ -15,6 +16,7 @@ const consultasExternas = [
 
 export default function MenuLateral({ isOpen }: MenuLateralProps) {
   const [copiadoId, setCopiadoId] = useState<string | null>(null);
+  const { catalogo, erro } = useTextosRapidos(isOpen);
 
   const copiarTexto = (id: string, texto: string) => {
     navigator.clipboard.writeText(texto.trim())
@@ -37,7 +39,11 @@ export default function MenuLateral({ isOpen }: MenuLateralProps) {
       </p>
 
       <div className="space-y-2">
-        {textosRapidos.map(({ id, label, icone: Icone, texto }) => {
+        {erro && <p role="alert" className="text-sm text-danger-ink">{erro}</p>}
+        {!erro && !catalogo && <p role="status" className="text-sm text-muted">Carregando textos rápidos…</p>}
+        {catalogo?.textos.length === 0 && <p className="text-sm text-muted">Nenhum texto rápido cadastrado.</p>}
+        {catalogo?.textos.map(({ id, label, texto }) => {
+          const Icone = iconeTextoRapido(id);
           const copiado = copiadoId === id;
           return (
             <button
@@ -49,8 +55,8 @@ export default function MenuLateral({ isOpen }: MenuLateralProps) {
                   : 'bg-primary border-primary-ink text-white hover:bg-primary-hover hover:cursor-pointer'
               }`}
             >
-              {copiado ? <Check size={17} className="shrink-0" /> : <Icone size={17} className="shrink-0 text-warning-ink" />}
-              <span className="text-sm font-medium flex-1">{copiado ? 'Copiado!' : label}</span>
+              {copiado ? <Check size={17} className="shrink-0" /> : <Icone size={17} className="shrink-0 text-amber-300" />}
+              <span className="min-w-0 flex-1 break-words text-sm font-medium [overflow-wrap:anywhere]">{copiado ? 'Copiado!' : label}</span>
               {!copiado && <ClipboardCopy size={14} className="shrink-0 opacity-50" />}
             </button>
           );
