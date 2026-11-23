@@ -61,7 +61,7 @@ export default function CampoFoto({ fotoAtual, valor, onChange, onProcessando, d
           {preview && <button type="button" onClick={() => onChange(null)} className="flex min-h-11 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm text-danger-ink hover:bg-danger-soft"><Trash2 size={16} />Remover foto</button>}
         </div>
       </div>
-      <p className="text-xs text-muted">Uma foto por item. A imagem será reduzida automaticamente e salva junto com o cadastro. No celular, “Tirar foto” usa a câmera quando disponível.</p>
+      <p className="text-xs text-muted">A imagem é reduzida automaticamente. No celular, “Tirar foto” usa a câmera quando disponível.</p>
       {processando && <p role="status" className="text-sm text-secondary">Preparando foto...</p>}
       {erro && <p role="alert" className="text-sm text-danger-ink">{erro}</p>}
     </fieldset>

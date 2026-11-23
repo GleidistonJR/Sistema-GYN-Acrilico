@@ -20,7 +20,7 @@ Cada item aceita uma foto opcional pelo seletor de arquivos ou pela câmera do c
 
 As fotos ficam na tabela `FotoItem` do PostgreSQL, separadas dos cadastros. A listagem consulta apenas ID e data de atualização; o arquivo é entregue por `/api/fotos/[id]` com sessão autenticada e cache privado. Aplicar as migrações com `npx prisma migrate deploy` e gerar o cliente com `npx prisma generate` antes de publicar. Não é necessário configurar armazenamento externo ou gravar arquivos no disco do servidor.
 
-ADMIN pode gerenciar fotos de materiais e produtos. USER pode incluir foto ao criar um produto, mantendo a restrição de alterar somente descrição e estoque de produtos existentes.
+Quem tem acesso a Materiais e Produtos pode adicionar, trocar ou remover a foto pelo ícone da câmera ou pela imagem na lista. Clicar em uma foto abre a visualização ampliada. A edição dos demais dados do item segue as permissões de cada perfil.
 
 Este é um projeto [Next.js](https://nextjs.org) inicializado com [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 

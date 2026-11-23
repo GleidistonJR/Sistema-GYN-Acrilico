@@ -140,7 +140,8 @@ export default function ProdutosFinais() {
                     {produtosFiltrados.map((p) => (
                         <div key={p.id} className="grid grid-cols-2 lg:grid-cols-5 gap-3 lg:gap-0 p-4 lg:px-0 lg:py-2 border lg:border-0 lg:border-b rounded-xl lg:rounded-none border-line-strong bg-surface">
                             <div className="min-w-0 flex items-start gap-3 lg:px-2 col-span-2">
-                                <FotoItem foto={p.foto} nome={p.nome} />
+                                <FotoItem tipo="produto" itemId={p.id} foto={p.foto} nome={p.nome}
+                                    aoSalvar={foto => setProdutos(atuais => atuais.map(item => item.id === p.id ? { ...item, foto } : item))} />
                                 <div className="min-w-0 break-words">
                                 <h3 className="font-semibold">{p.nome}</h3>
                                 <p className="text-sm text-muted">{p.descricao}</p>

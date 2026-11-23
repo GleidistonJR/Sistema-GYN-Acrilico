@@ -71,7 +71,7 @@ export async function criarProduto(dados: DadosProduto) {
 export async function atualizarProduto(id: string, dados: DadosProduto) {
     const usuario = await exigirUsuario(PERFIS_COMERCIAIS);
     const admin = usuario.role === 'ADMIN';
-    const foto = admin ? await prepararFoto(dados.foto) : undefined;
+    const foto = await prepararFoto(dados.foto);
     // Explicit field lists prevent protected values from being overwritten by USER requests.
     return prisma.$transaction(async tx => {
         if (foto === null) await tx.fotoItem.deleteMany({ where: { produtoId: id } });
@@ -80,12 +80,12 @@ export async function atualizarProduto(id: string, dados: DadosProduto) {
             data: {
                 descricao: validarDescricao(dados.descricao),
                 estoque: dados.estoque === undefined ? undefined : validarQuantidade(dados.estoque),
+                foto: foto ? { upsert: { create: foto, update: foto } } : undefined,
                 ...(admin ? {
                     nome: dados.nome === undefined ? undefined : validarNome(dados.nome),
                     estoquePadrao: dados.estoquePadrao === undefined ? undefined : validarQuantidade(dados.estoquePadrao),
                     precoCusto: dados.precoCusto === undefined ? undefined : validarPreco(dados.precoCusto),
                     precoVenda: dados.precoVenda === undefined ? undefined : validarPreco(dados.precoVenda),
-                    foto: foto ? { upsert: { create: foto, update: foto } } : undefined,
                 } : {}),
             },
             include: { foto: selecaoFoto },

@@ -280,7 +280,9 @@ export default function Produtos() {
                         <div className={`grid grid-cols-1 gap-4 lg:gap-0 ${role === 'ADMIN' ? 'lg:grid-cols-5' : 'lg:grid-cols-4'} p-4 lg:px-0 lg:py-2 border lg:border-0 lg:border-b rounded-xl lg:rounded-none border-line-strong bg-surface`} key={m.id} >
 
                             <div className='min-w-0 flex items-start gap-3 lg:px-2 lg:col-span-2'>
-                                <FotoItem foto={m.foto} nome={[m.categoria.nome, m.nome, m.cor, m.espessura ? `${m.espessura}mm` : null].filter(Boolean).join(' ')} />
+                                <FotoItem tipo="material" itemId={m.id} foto={m.foto}
+                                    nome={[m.categoria.nome, m.nome, m.cor, m.espessura ? `${m.espessura}mm` : null].filter(Boolean).join(' ')}
+                                    aoSalvar={foto => setMateriais(atuais => atuais.map(item => item.id === m.id ? { ...item, foto } : item))} />
                                 <div className="min-w-0 break-words">
                                 <h3 className='font-semibold'>
                                     {[

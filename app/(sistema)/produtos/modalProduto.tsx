@@ -59,7 +59,8 @@ export default function ModalProduto({ isOpen, onClose, title, produtoInicial, d
     setErro('');
     try {
       const payload = administrador ? dados : {
-        ...(!editando ? { nome: dados.nome, foto: dados.foto } : {}),
+        ...(!editando ? { nome: dados.nome } : {}),
+        foto: dados.foto,
         descricao: dados.descricao,
         estoque: dados.estoque,
       };
@@ -93,7 +94,7 @@ export default function ModalProduto({ isOpen, onClose, title, produtoInicial, d
         </div>
 
         <div className="p-4 sm:p-6 space-y-4">
-          {(administrador || !editando) && <CampoFoto fotoAtual={duplicando ? null : produtoInicial?.foto} valor={dados.foto} onChange={foto => setDados(atuais => ({ ...atuais, foto }))} onProcessando={setFotoProcessando} desabilitado={salvando} />}
+          <CampoFoto fotoAtual={duplicando ? null : produtoInicial?.foto} valor={dados.foto} onChange={foto => setDados(atuais => ({ ...atuais, foto }))} onProcessando={setFotoProcessando} desabilitado={salvando} />
 
           <label className="block">
             Nome*
@@ -179,7 +180,7 @@ export default function ModalProduto({ isOpen, onClose, title, produtoInicial, d
             </label>
           </div>}
 
-          {!administrador && <p className="text-sm text-muted">{editando ? 'Você pode alterar o estoque e a descrição deste produto.' : 'Preços e estoque padrão começam em zero e serão definidos pelo administrador.'}</p>}
+          {!administrador && <p className="text-sm text-muted">{editando ? 'Você pode alterar a foto, o estoque e a descrição deste produto.' : 'Preços e estoque padrão começam em zero e serão definidos pelo administrador.'}</p>}
           {erro && <p role="alert" className="text-sm text-danger-ink">{erro}</p>}
 
           <div className="flex flex-wrap gap-3 justify-end pt-4">
