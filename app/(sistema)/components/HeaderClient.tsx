@@ -7,7 +7,7 @@ import { ChevronDown, Menu, X } from 'lucide-react';
 import { encerrarSessao } from '../login/actions';
 import { BotaoTema } from '@/app/tema';
 import AvisosAtendimento, { type HistoricoAvisos } from './AvisosAtendimento';
-import { permite, PERFIS_ATENDIMENTO, PERFIS_COMERCIAIS, PERFIS_REGISTRO_PONTO, PERFIS_RELATORIO_PONTO } from '@/lib/permissoes';
+import { permite, PERFIS_ATENDIMENTO, PERFIS_CHAT_INTERNO, PERFIS_COMERCIAIS, PERFIS_REGISTRO_PONTO, PERFIS_RELATORIO_PONTO } from '@/lib/permissoes';
 
 type UsuarioMenu = {
   id: string; role: string; userNome: string; userId: number | null;
@@ -32,6 +32,7 @@ function MenuNavegacao({ usuario, pathname, historicoAvisos }: {
   const equipe = role === 'ADMIN' || role === 'USER';
   const comercial = permite(PERFIS_COMERCIAIS, role);
   const atendimento = permite(PERFIS_ATENDIMENTO, role);
+  const chatInterno = permite(PERFIS_CHAT_INTERNO, role);
   const registrarPonto = permite(PERFIS_REGISTRO_PONTO, role);
   const verRelatorios = permite(PERFIS_RELATORIO_PONTO, role);
 
@@ -198,7 +199,7 @@ function MenuNavegacao({ usuario, pathname, historicoAvisos }: {
             }
 
           </nav>
-          {atendimento && usuario && <AvisosAtendimento usuarioId={usuario.id} historicoRef={historicoAvisos} chatInterno={equipe && userId !== null} />}
+          {(atendimento || chatInterno) && usuario && <AvisosAtendimento usuarioId={usuario.id} historicoRef={historicoAvisos} chatInterno={chatInterno} atendimento={atendimento} />}
           <BotaoTema />
           </div>
         </div>

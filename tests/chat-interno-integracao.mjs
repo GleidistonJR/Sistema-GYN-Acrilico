@@ -23,7 +23,9 @@ async function criarConta(role, nome, pessoal = true) {
   });
   usuarios.push({ id, colaboradorId: conta.colaborador?.id });
   return {
+    id,
     colaboradorId: conta.colaborador?.id,
+    chave: conta.colaborador ? String(conta.colaborador.id) : 'avulso-' + id,
     acessar(path, method = 'GET', body) {
       return fetch(base + path, {
         method, redirect: 'manual',
@@ -39,13 +41,15 @@ try {
   const admin = await criarConta('ADMIN', 'Administradora de teste');
   const outro = await criarConta('ADMIN', 'Outro administrador');
   const recepcao = await criarConta('RECEPCAO', '', false);
+  const producao = await criarConta('PONTO', '', false);
   const paraAdmin = '/api/chat-interno/' + admin.colaboradorId;
   const paraVendedor = '/api/chat-interno/' + vendedor.colaboradorId;
   const envio = { texto: 'Mensagem privada de validação', pedidoId: randomUUID() };
 
   assert.equal((await vendedor.acessar('/chat-interno')).status, 200);
-  assert.equal((await recepcao.acessar('/chat-interno')).status, 307);
-  assert.equal((await recepcao.acessar(paraAdmin)).status, 401);
+  assert.equal((await recepcao.acessar('/chat-interno')).status, 200);
+  assert.equal((await producao.acessar('/chat-interno')).status, 200);
+  assert.equal((await producao.acessar('/atendimento')).status, 307);
   const primeira = await vendedor.acessar(paraAdmin, 'POST', envio);
   assert.equal(primeira.status, 201, await primeira.clone().text());
   const mensagem = await primeira.json();
@@ -63,6 +67,25 @@ try {
   assert.equal(avisos[0].previa, 'Chegou depois');
   assert.equal((await admin.acessar(paraVendedor, 'PATCH', { ate: avisos[0].mensagemId })).status, 204);
   assert.deepEqual((await (await admin.acessar('/api/atendimento/nao-lidas')).json()).internas, []);
+
+  const { colegas } = await (await vendedor.acessar('/api/chat-interno/colegas')).json();
+  assert.ok(colegas.some(c => c.id === recepcao.chave && c.perfil === 'RECEPCAO' && c.disponivel));
+  assert.ok(colegas.some(c => c.id === producao.chave && c.perfil === 'PONTO' && c.disponivel));
+  const paraRecepcao = '/api/chat-interno/' + recepcao.chave;
+  const paraProducao = '/api/chat-interno/' + producao.chave;
+  assert.equal((await vendedor.acessar(paraRecepcao, 'POST', { texto: 'Pedido na recepção', pedidoId: randomUUID() })).status, 201);
+  assert.equal((await vendedor.acessar(paraProducao, 'POST', { texto: 'Pedido para produção', pedidoId: randomUUID() })).status, 201);
+  assert.deepEqual((await (await outro.acessar(paraRecepcao)).json()).mensagens, []);
+  assert.equal((await (await recepcao.acessar(paraVendedor)).json()).mensagens[0].texto, 'Pedido na recepção');
+  const avisosProducao = await (await producao.acessar('/api/atendimento/nao-lidas')).json();
+  assert.deepEqual(avisosProducao.conversas, []);
+  assert.equal(avisosProducao.internas[0].previa, 'Pedido para produção');
+  assert.equal((await producao.acessar(paraVendedor, 'PATCH', { ate: avisosProducao.internas[0].mensagemId })).status, 204);
+  assert.equal((await recepcao.acessar(paraVendedor, 'POST', { texto: 'Recebido na recepção', pedidoId: randomUUID() })).status, 201);
+  assert.equal((await (await vendedor.acessar(paraRecepcao)).json()).mensagens.length, 2);
+  await prisma.user.delete({ where: { id: recepcao.id } });
+  assert.equal((await vendedor.acessar(paraRecepcao, 'POST', { texto: 'Recepção revogada', pedidoId: randomUUID() })).status, 404);
+  assert.equal((await (await vendedor.acessar(paraRecepcao)).json()).mensagens.length, 2);
 
   await prisma.colaborador.update({ where: { id: admin.colaboradorId }, data: { inativadoEm: new Date() } });
   assert.equal((await vendedor.acessar(paraAdmin, 'POST', { ...envio, pedidoId: randomUUID() })).status, 404);

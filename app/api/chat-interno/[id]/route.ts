@@ -1,11 +1,10 @@
-import { Prisma } from '@prisma/client';
-import { PERFIS_CHAT_INTERNO, permite } from '@/lib/permissoes';
+import { contatosChat, identidadeChat } from '@/lib/chat-interno';
 import { prisma } from '@/lib/prisma';
 import { obterUsuarioSessao } from '@/lib/sessao';
 import { mesmaOrigem, privado } from '@/lib/whatsapp/acesso';
 
 type Contexto = { params: Promise<{ id: string }> };
-const selecao = { id: true, remetenteId: true, texto: true, criadaEm: true } as const;
+type Mensagem = { id: number; remetenteId: string; texto: string; criadaEm: Date };
 const erro = (mensagem: string, status: number) => Response.json({ erro: mensagem }, { status, headers: privado });
 
 function inteiro(valor: unknown) {
@@ -15,8 +14,12 @@ function inteiro(valor: unknown) {
 
 async function participantes({ params }: Contexto) {
   const usuario = await obterUsuarioSessao();
-  if (!usuario?.colaborador || !permite(PERFIS_CHAT_INTERNO, usuario.role)) return null;
-  return { eu: usuario.colaborador.id, colega: inteiro((await params).id) };
+  const eu = usuario && identidadeChat(usuario);
+  if (!eu) return null;
+  const { id } = await params;
+  const pessoal = inteiro(id);
+  const colega = pessoal ? String(pessoal) : /^avulso-[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/i.test(id) ? id : null;
+  return { eu, colega };
 }
 
 export async function GET(request: Request, contexto: Contexto) {
@@ -28,15 +31,15 @@ export async function GET(request: Request, contexto: Contexto) {
   const antes = inteiro(cursor);
   if (cursor !== null && !antes) return erro('Página inválida.', 400);
 
-  const mensagens = await prisma.mensagemInterna.findMany({
-    where: {
-      OR: [{ remetenteId: eu, destinatarioId: colega }, { remetenteId: colega, destinatarioId: eu }],
-      ...(antes ? { id: { lt: antes } } : {}),
-    },
-    orderBy: { id: 'desc' },
-    take: 51,
-    select: selecao,
-  });
+  const mensagens = await prisma.$queryRaw<Mensagem[]>`
+    SELECT id, "remetenteChave" AS "remetenteId", texto, "criadaEm"
+    FROM "MensagemInterna"
+    WHERE (("remetenteChave" = ${eu} AND "destinatarioChave" = ${colega})
+        OR ("remetenteChave" = ${colega} AND "destinatarioChave" = ${eu}))
+      AND (${antes}::int IS NULL OR id < ${antes}::int)
+    ORDER BY id DESC
+    LIMIT 51
+  `;
   return Response.json({ mensagens: mensagens.slice(0, 50).reverse(), anteriores: mensagens.length > 50 }, { headers: privado });
 }
 
@@ -54,16 +57,15 @@ export async function POST(request: Request, contexto: Contexto) {
     return erro('Identificador de envio inválido.', 400);
   }
 
-  const [mensagem] = await prisma.$queryRaw<Array<{
-    id: number; remetenteId: number; texto: string; criadaEm: Date;
-  }>>`
-    INSERT INTO "MensagemInterna" ("remetenteId", "destinatarioId", "pedidoId", texto)
-    SELECT ${eu}, c.id, ${pedidoId}::uuid, ${texto}
-    FROM "Colaborador" c JOIN "User" u ON u.id = c."userId"
-    WHERE c.id = ${colega} AND c."inativadoEm" IS NULL AND u.role IN (${Prisma.join(PERFIS_CHAT_INTERNO)})
-    ON CONFLICT ("remetenteId", "pedidoId") DO UPDATE SET "pedidoId" = EXCLUDED."pedidoId"
-    WHERE "MensagemInterna"."destinatarioId" = EXCLUDED."destinatarioId" AND "MensagemInterna".texto = EXCLUDED.texto
-    RETURNING id, "remetenteId", texto, "criadaEm"
+  const [mensagem] = await prisma.$queryRaw<Mensagem[]>`
+    WITH contatos AS (${contatosChat})
+    INSERT INTO "MensagemInterna" ("remetenteId", "destinatarioId", "remetenteAvulsoId", "destinatarioAvulsoId", "pedidoId", texto)
+    SELECT r."colaboradorId", d."colaboradorId", r."avulsoId", d."avulsoId", ${pedidoId}::uuid, ${texto}
+    FROM contatos r CROSS JOIN contatos d
+    WHERE r.id = ${eu} AND d.id = ${colega} AND r.disponivel AND d.disponivel
+    ON CONFLICT ("remetenteChave", "pedidoId") DO UPDATE SET "pedidoId" = EXCLUDED."pedidoId"
+    WHERE "MensagemInterna"."destinatarioChave" = EXCLUDED."destinatarioChave" AND "MensagemInterna".texto = EXCLUDED.texto
+    RETURNING id, "remetenteChave" AS "remetenteId", texto, "criadaEm"
   `;
   if (!mensagem) return erro('Este colega está indisponível.', 404);
   return Response.json(mensagem, { status: 201, headers: privado });
@@ -78,9 +80,9 @@ export async function PATCH(request: Request, contexto: Contexto) {
   const ate = inteiro(body?.ate);
   if (!colega || colega === eu || !ate) return erro('Leitura inválida.', 400);
 
-  await prisma.mensagemInterna.updateMany({
-    where: { destinatarioId: eu, remetenteId: colega, id: { lte: ate }, lidaEm: null },
-    data: { lidaEm: new Date() },
-  });
+  await prisma.$executeRaw`
+    UPDATE "MensagemInterna" SET "lidaEm" = CURRENT_TIMESTAMP
+    WHERE "destinatarioChave" = ${eu} AND "remetenteChave" = ${colega} AND id <= ${ate} AND "lidaEm" IS NULL
+  `;
   return new Response(null, { status: 204, headers: privado });
 }

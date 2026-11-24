@@ -1,9 +1,10 @@
 export const PERFIS_ATENDIMENTO = ['ADMIN', 'USER', 'RECEPCAO'] as const;
-export const PERFIS_CHAT_INTERNO = ['ADMIN', 'USER'] as const;
+export const PERFIS_CHAT_PESSOAL = ['ADMIN', 'USER'] as const;
 export const PERFIS_COMERCIAIS = [...PERFIS_ATENDIMENTO, 'COMERCIAL'] as const;
 export const PERFIS_REGISTRO_PONTO = ['PONTO', 'OUTRO'] as const;
 export const PERFIS_RELATORIO_PONTO = ['ADMIN', ...PERFIS_REGISTRO_PONTO] as const;
 export const PERFIS_AVULSOS = ['PONTO', 'COMERCIAL', 'RECEPCAO'] as const;
+export const PERFIS_CHAT_INTERNO = [...PERFIS_CHAT_PESSOAL, ...PERFIS_AVULSOS] as const;
 export type PerfilAvulso = (typeof PERFIS_AVULSOS)[number];
 
 export const ESCOPOS_AVULSOS: Record<PerfilAvulso, string> = {

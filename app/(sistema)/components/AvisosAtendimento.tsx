@@ -8,28 +8,29 @@ import { useEffect, useState, type RefObject } from 'react';
 type ConversaPendente = {
   clienteId: string; nomeCliente: string; mensagemId: string | null; recebidaEm: string | null; previa: string;
 };
-type AvisoInterno = { colegaId: number; nome: string; mensagemId: number; recebidaEm: string; previa: string };
+type AvisoInterno = { colegaId: string; nome: string; mensagemId: number; recebidaEm: string; previa: string };
 export type HistoricoAvisos = { usuarioId: string; consultadoEm: number; mensagens: Map<string, string | null> };
 const ModalChatInterno = dynamic(() => import('../chat-interno/ModalChatInterno'));
 const abrirChat = 'chat-interno:abrir';
 
-export default function AvisosAtendimento({ usuarioId, historicoRef, chatInterno }: {
+export default function AvisosAtendimento({ usuarioId, historicoRef, chatInterno, atendimento }: {
   usuarioId: string;
   historicoRef: RefObject<HistoricoAvisos | null>;
   chatInterno: boolean;
+  atendimento: boolean;
 }) {
   const chave = 'gyn:avisos-atendimento:' + usuarioId;
   const [ativos, setAtivos] = useState<boolean | null>(null);
   const [total, setTotal] = useState(0);
   const [totalInternas, setTotalInternas] = useState(0);
   const [permissao, setPermissao] = useState<NotificationPermission | null>(null);
-  const [janela, setJanela] = useState<{ colegaId: number | null } | null>(null);
+  const [janela, setJanela] = useState<{ colegaId: string | null } | null>(null);
   const janelaAberta = janela !== null;
 
   useEffect(() => {
     if (!chatInterno) return;
     function abrir(evento: Event) {
-      const { destinatario, colegaId } = (evento as CustomEvent<{ destinatario: string; colegaId: number }>).detail;
+      const { destinatario, colegaId } = (evento as CustomEvent<{ destinatario: string; colegaId: string }>).detail;
       if (destinatario === usuarioId) setJanela({ colegaId });
     }
     window.addEventListener(abrirChat, abrir);
@@ -166,13 +167,13 @@ export default function AvisosAtendimento({ usuarioId, historicoRef, chatInterno
       </button>}
       {chatInterno && janela && <ModalChatInterno colegaId={janela.colegaId}
         selecionar={colegaId => setJanela({ colegaId })} fechar={() => setJanela(null)} />}
-      <Link href="/atendimento?fila=meus" aria-label={aviso} title={aviso}
+      {atendimento && <Link href="/atendimento?fila=meus" aria-label={aviso} title={aviso}
         className={`relative grid size-9 place-items-center rounded-md hover:bg-surface-muted ${pendentes ? 'text-success-ink' : 'text-secondary'}`}>
         <Icone size={19} aria-hidden="true" />
         {pendentes > 0 && <span aria-hidden="true" className="absolute -right-0.5 -top-0.5 min-w-4 rounded-full bg-chat-action px-1 text-center text-[10px] leading-4 font-semibold text-white">
           {pendentes > 99 ? '99+' : pendentes}
         </span>}
-      </Link>
+      </Link>}
       {ativos && permissao === 'default' && (
         <button type="button" onClick={() => void permitirAvisos()} title="Permitir avisos no Windows"
           aria-label="Permitir avisos no Windows" className="grid size-9 place-items-center rounded-md text-warning-ink hover:bg-surface-muted">
@@ -182,7 +183,7 @@ export default function AvisosAtendimento({ usuarioId, historicoRef, chatInterno
       <span role="status" className="sr-only">{pendentes > 0 ? aviso : ''}</span>
       <label title={ativos ? 'Silenciar avisos de mensagens' : 'Ativar avisos de mensagens'}
         className="relative grid h-9 w-8 shrink-0 cursor-pointer place-items-center">
-        <input type="checkbox" role="switch" aria-label={chatInterno ? 'Avisos do Atendimento e do chat interno' : 'Avisos do Atendimento'} checked={ativos === true} disabled={ativos === null}
+        <input type="checkbox" role="switch" aria-label={atendimento ? 'Avisos do Atendimento e do chat interno' : 'Avisos do chat interno'} checked={ativos === true} disabled={ativos === null}
           className="peer sr-only" onChange={event => {
             const habilitados = event.target.checked;
             historicoRef.current = null;

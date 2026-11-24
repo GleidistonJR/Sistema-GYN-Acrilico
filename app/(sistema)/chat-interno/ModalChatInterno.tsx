@@ -4,10 +4,10 @@ import { X } from 'lucide-react';
 import { useEffect, useId, useRef, useState } from 'react';
 import PainelChatInterno, { type Colega } from './PainelChatInterno';
 
-type DadosChat = { eu: number; colegas: Colega[]; pendentes: number[] };
+type DadosChat = { eu: string; colegas: Colega[]; pendentes: string[] };
 
 export default function ModalChatInterno({ colegaId, selecionar, fechar }: {
-  colegaId: number | null; selecionar: (id: number | null) => void; fechar: () => void;
+  colegaId: string | null; selecionar: (id: string | null) => void; fechar: () => void;
 }) {
   const dialogo = useRef<HTMLDialogElement>(null);
   const titulo = useId();

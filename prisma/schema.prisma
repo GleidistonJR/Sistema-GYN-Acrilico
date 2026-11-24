@@ -25,18 +25,25 @@ model Colaborador {
 
 model MensagemInterna {
   id Int @id @default(autoincrement())
-  remetenteId Int
-  destinatarioId Int
+  remetenteId Int?
+  destinatarioId Int?
+  remetenteAvulsoId String?
+  destinatarioAvulsoId String?
+  remetenteChave String @default(dbgenerated())
+  destinatarioChave String @default(dbgenerated())
   pedidoId String @db.Uuid
   texto String @db.VarChar(4000)
   criadaEm DateTime @default(now())
   lidaEm DateTime?
-  remetente Colaborador @relation("RemetenteInterno", fields: [remetenteId], references: [id], onDelete: Cascade)
-  destinatario Colaborador @relation("DestinatarioInterno", fields: [destinatarioId], references: [id], onDelete: Cascade)
+  remetente Colaborador? @relation("RemetenteInterno", fields: [remetenteId], references: [id], onDelete: Cascade)
+  destinatario Colaborador? @relation("DestinatarioInterno", fields: [destinatarioId], references: [id], onDelete: Cascade)
 
   @@index([remetenteId, destinatarioId, id])
   @@index([destinatarioId, lidaEm, remetenteId, id])
   @@unique([remetenteId, pedidoId])
+  @@index([remetenteChave, destinatarioChave, id])
+  @@index([destinatarioChave, lidaEm, remetenteChave, id])
+  @@unique([remetenteChave, pedidoId])
 }
 
 model Ponto {

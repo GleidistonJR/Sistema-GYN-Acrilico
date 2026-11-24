@@ -4,11 +4,12 @@ import Link from 'next/link';
 import { ArrowLeft, MessageSquare, Send } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 
-export type Colega = { id: number; nome: string; disponivel: boolean };
-type Mensagem = { id: number; remetenteId: number; texto: string; criadaEm: string };
+export type Colega = { id: string; nome: string; disponivel: boolean; perfil: string | null };
+type Mensagem = { id: number; remetenteId: string; texto: string; criadaEm: string };
 type Historico = { mensagens: Mensagem[]; anteriores: boolean };
 const hora = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Sao_Paulo' });
 const limite = 4000;
+const perfisAvulsos = new Map([['RECEPCAO', 'Recepção'], ['COMERCIAL', 'Comercial'], ['PONTO', 'Ponto e relatórios']]);
 
 function mesclar(atuais: Mensagem[], novas: Mensagem[]) {
   const ids = new Set(atuais.map(item => item.id));
@@ -17,18 +18,18 @@ function mesclar(atuais: Mensagem[], novas: Mensagem[]) {
 }
 
 export default function PainelChatInterno({ eu, colegas, colega, pendentesIniciais, onSelecionar }: {
-  eu: number; colegas: Colega[]; colega?: Colega; pendentesIniciais: number[];
-  onSelecionar?: (id: number | null) => void;
+  eu: string; colegas: Colega[]; colega?: Colega; pendentesIniciais: string[];
+  onSelecionar?: (id: string | null) => void;
 }) {
   const [pendentes, setPendentes] = useState(pendentesIniciais);
 
   useEffect(() => {
-    const atualizar = (evento: Event) => setPendentes((evento as CustomEvent<number[]>).detail);
+    const atualizar = (evento: Event) => setPendentes((evento as CustomEvent<string[]>).detail);
     window.addEventListener('chat-interno:pendentes', atualizar);
     return () => window.removeEventListener('chat-interno:pendentes', atualizar);
   }, []);
 
-  const removerPendente = useCallback((id: number) => {
+  const removerPendente = useCallback((id: string) => {
     setPendentes(atuais => atuais.filter(colegaId => colegaId !== id));
     window.dispatchEvent(new Event('chat-interno:atualizar-avisos'));
   }, []);
@@ -49,6 +50,7 @@ export default function PainelChatInterno({ eu, colegas, colega, pendentesInicia
             <span className="min-w-0 flex-1">
               <span className={`block truncate text-sm ${naoLida ? 'font-bold' : 'font-medium'}`}>{item.nome}</span>
               {!item.disponivel && <span className="text-xs text-muted">Indisponível</span>}
+              {item.perfil && <span className="block text-xs text-muted">Acesso avulso · {perfisAvulsos.get(item.perfil)}</span>}
             </span>
             {naoLida && <span className="size-2.5 shrink-0 rounded-full bg-success-ink" role="img" aria-label="Mensagens não lidas" />}
           </>;
@@ -69,7 +71,7 @@ export default function PainelChatInterno({ eu, colegas, colega, pendentesInicia
 }
 
 function ConversaInterna({ eu, colega, onLida, onVoltar }: {
-  eu: number; colega: Colega; onLida: (id: number) => void; onVoltar?: () => void;
+  eu: string; colega: Colega; onLida: (id: string) => void; onVoltar?: () => void;
 }) {
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
   const [anteriores, setAnteriores] = useState(false);
