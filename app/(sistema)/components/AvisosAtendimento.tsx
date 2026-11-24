@@ -4,7 +4,9 @@ import Link from 'next/link';
 import { Bell, BellOff, Monitor } from 'lucide-react';
 import { useEffect, useState, type RefObject } from 'react';
 
-type ConversaPendente = { clienteId: string; mensagemId: string | null; recebidaEm: string | null };
+type ConversaPendente = {
+  clienteId: string; nomeCliente: string; mensagemId: string | null; recebidaEm: string | null; previa: string;
+};
 export type HistoricoAvisos = { usuarioId: string; consultadoEm: number; mensagens: Map<string, string | null> };
 
 export default function AvisosAtendimento({ usuarioId, historicoRef }: {
@@ -72,8 +74,8 @@ export default function AvisosAtendimento({ usuarioId, historicoRef }: {
         for (const conversa of dados.conversas) {
           if (!conversa.mensagemId || !conversa.recebidaEm || conversa.mensagemId === anterior.mensagens.get(conversa.clienteId)) continue;
           if (!anterior.mensagens.has(conversa.clienteId) && Date.parse(conversa.recebidaEm) < anterior.consultadoEm) continue;
-          const notificacao = new Notification('Nova mensagem no Atendimento', {
-            body: 'Um cliente atribuído a você enviou uma mensagem. Clique para abrir a conversa.',
+          const notificacao = new Notification(conversa.nomeCliente || 'Nova mensagem no Atendimento', {
+            body: conversa.previa || 'Enviou uma mensagem.',
             icon: '/favicon.ico',
             tag: 'gyn-atendimento:' + conversa.mensagemId,
           });
