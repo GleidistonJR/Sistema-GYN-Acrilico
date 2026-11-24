@@ -6,7 +6,7 @@ import { useEffect, useState, useRef } from 'react';
 import { ChevronDown, Menu, X } from 'lucide-react';
 import { encerrarSessao } from '../login/actions';
 import { BotaoTema } from '@/app/tema';
-import AvisosAtendimento from './AvisosAtendimento';
+import AvisosAtendimento, { type HistoricoAvisos } from './AvisosAtendimento';
 import { permite, PERFIS_ATENDIMENTO, PERFIS_COMERCIAIS, PERFIS_REGISTRO_PONTO, PERFIS_RELATORIO_PONTO } from '@/lib/permissoes';
 
 type UsuarioMenu = {
@@ -15,10 +15,13 @@ type UsuarioMenu = {
 
 export default function HeaderClient({ usuario }: { usuario: UsuarioMenu }) {
   const pathname = usePathname();
-  return <MenuNavegacao key={pathname} usuario={usuario} pathname={pathname} />;
+  const historicoAvisos = useRef<HistoricoAvisos | null>(null);
+  return <MenuNavegacao key={pathname} usuario={usuario} pathname={pathname} historicoAvisos={historicoAvisos} />;
 }
 
-function MenuNavegacao({ usuario, pathname }: { usuario: UsuarioMenu; pathname: string }) {
+function MenuNavegacao({ usuario, pathname, historicoAvisos }: {
+  usuario: UsuarioMenu; pathname: string; historicoAvisos: React.RefObject<HistoricoAvisos | null>;
+}) {
   const router = useRouter();
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -195,7 +198,7 @@ function MenuNavegacao({ usuario, pathname }: { usuario: UsuarioMenu; pathname: 
             }
 
           </nav>
-          {atendimento && usuario && <AvisosAtendimento usuarioId={usuario.id} />}
+          {atendimento && usuario && <AvisosAtendimento usuarioId={usuario.id} historicoRef={historicoAvisos} />}
           <BotaoTema />
           </div>
         </div>
