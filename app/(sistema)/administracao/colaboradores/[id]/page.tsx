@@ -1,11 +1,9 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { exigirPerfil } from '@/lib/autorizacao';
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
-import ModalAtestado from "./ModalAtestado";
-import ModalCriarPonto from "./ModalCriarPonto";
-import BotaoImprimir from "./BotaoImprimir";
-import TabelaHistoricoPonto from "./TabelaHistoricoPonto";
 import PainelPerfil from "./PainelPerfil";
 import AtualizacaoPagina from '@/app/(sistema)/components/AtualizacaoPagina';
 
@@ -64,6 +62,15 @@ export default async function DetalhesColaborador({ params, searchParams }: Deta
   });
 
   if (!colaborador) return notFound();
+
+  const colegas = usuario.role === 'ADMIN' ? await prisma.colaborador.findMany({
+    where: { inativadoEm: colaborador.inativadoEm ? { not: null } : null },
+    orderBy: [{ nome: 'asc' }, { id: 'asc' }],
+    select: { id: true, nome: true },
+  }) : [];
+  const posicao = colegas.findIndex(colega => colega.id === colaborador.id);
+  const anterior = posicao > 0 ? colegas[posicao - 1] : undefined;
+  const proximo = posicao >= 0 ? colegas[posicao + 1] : undefined;
 
   const pontosPorDia: { [data: string]: Date[] } = {};
   const minutosAtestadoPorDia: { [data: string]: number } = {};
@@ -132,10 +139,32 @@ export default async function DetalhesColaborador({ params, searchParams }: Deta
     <>
       <AtualizacaoPagina />
       <PainelPerfil role={usuario.role}
+        key={colaborador.id}
         colaborador={colaborador}
         linhasParaImpressao={linhasParaImpressao}
         diasUteisIniciais={diasUteisPadraoContados}
         mesInicialValue={mesInicialValue}
+        navegacao={anterior || proximo ? (
+          <nav aria-label="Navegar entre colaboradores" className="mb-4 grid grid-cols-2 gap-2">
+            {[anterior, proximo].map((destino, indice) => {
+              const voltar = indice === 0;
+              const Icone = voltar ? ChevronLeft : ChevronRight;
+              const rotulo = voltar ? 'Colaborador anterior' : 'Próximo colaborador';
+              return destino && (
+                <Link key={destino.id}
+                  href={{ pathname: `/administracao/colaboradores/${destino.id}`, query: { mes: mesInicialValue } }}
+                  aria-label={`${rotulo}: ${destino.nome}`}
+                  className={`row-start-1 flex min-h-11 min-w-0 items-center gap-2 rounded-lg border border-line px-3 py-2 text-sm text-secondary hover:bg-surface-muted ${voltar ? 'col-start-1 justify-self-start' : 'col-start-2 flex-row-reverse justify-self-end text-right'}`}>
+                  <Icone size={18} aria-hidden="true" className="shrink-0" />
+                  <span className="min-w-0">
+                    <span className="block text-xs text-muted">{rotulo}</span>
+                    <span className="block truncate font-medium">{destino.nome}</span>
+                  </span>
+                </Link>
+              );
+            })}
+          </nav>
+        ) : null}
       />
     </>
   );

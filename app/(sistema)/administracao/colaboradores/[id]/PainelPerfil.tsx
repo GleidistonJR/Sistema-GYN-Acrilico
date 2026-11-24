@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { LinhaRelatorio } from "./page";
 import BotaoImprimir from "./BotaoImprimir";
 import ModalCriarPonto from "./ModalCriarPonto";
@@ -14,6 +14,7 @@ interface PainelProps {
   linhasParaImpressao: LinhaRelatorio[];
   diasUteisIniciais: number;
   mesInicialValue: string;
+  navegacao: ReactNode;
 }
 
 export default function PainelPerfil({
@@ -21,7 +22,8 @@ export default function PainelPerfil({
   colaborador,
   linhasParaImpressao,
   diasUteisIniciais,
-  mesInicialValue
+  mesInicialValue,
+  navegacao
 }: PainelProps) {
 
   const [diasConsiderados, setDiasConsiderados] = useState<number>(diasUteisIniciais || 21);
@@ -150,6 +152,7 @@ export default function PainelPerfil({
               </form>
             </div>
           </div>
+          {navegacao}
           <p className="text-xl sm:text-2xl break-words font-bold text-foreground text-center mb-5">{colaborador.nome}</p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mb-8">
             <div className="min-w-0 break-words bg-surface p-4 sm:p-6 rounded-xl shadow-sm border md:col-span-1">
