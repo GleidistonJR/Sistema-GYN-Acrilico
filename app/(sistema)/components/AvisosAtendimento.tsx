@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { Bell, BellOff, MessageSquare, Monitor } from 'lucide-react';
 import { useEffect, useState, type RefObject } from 'react';
 
@@ -9,6 +10,8 @@ type ConversaPendente = {
 };
 type AvisoInterno = { colegaId: number; nome: string; mensagemId: number; recebidaEm: string; previa: string };
 export type HistoricoAvisos = { usuarioId: string; consultadoEm: number; mensagens: Map<string, string | null> };
+const ModalChatInterno = dynamic(() => import('../chat-interno/ModalChatInterno'));
+const abrirChat = 'chat-interno:abrir';
 
 export default function AvisosAtendimento({ usuarioId, historicoRef, chatInterno }: {
   usuarioId: string;
@@ -20,6 +23,18 @@ export default function AvisosAtendimento({ usuarioId, historicoRef, chatInterno
   const [total, setTotal] = useState(0);
   const [totalInternas, setTotalInternas] = useState(0);
   const [permissao, setPermissao] = useState<NotificationPermission | null>(null);
+  const [janela, setJanela] = useState<{ colegaId: number | null } | null>(null);
+  const janelaAberta = janela !== null;
+
+  useEffect(() => {
+    if (!chatInterno) return;
+    function abrir(evento: Event) {
+      const { destinatario, colegaId } = (evento as CustomEvent<{ destinatario: string; colegaId: number }>).detail;
+      if (destinatario === usuarioId) setJanela({ colegaId });
+    }
+    window.addEventListener(abrirChat, abrir);
+    return () => window.removeEventListener(abrirChat, abrir);
+  }, [chatInterno, usuarioId]);
 
   useEffect(() => {
     function sincronizar() {
@@ -54,7 +69,7 @@ export default function AvisosAtendimento({ usuarioId, historicoRef, chatInterno
   }
 
   useEffect(() => {
-    if (!ativos && !(ativos === false && chatInterno && window.location.pathname === '/chat-interno')) return;
+    if (!ativos && !(ativos === false && chatInterno && (janelaAberta || window.location.pathname === '/chat-interno'))) return;
     let requisicao: AbortController | undefined;
     let espera: ReturnType<typeof setTimeout>;
 
@@ -77,12 +92,14 @@ export default function AvisosAtendimento({ usuarioId, historicoRef, chatInterno
           ...dados.conversas.map(item => ({
             chave: 'atendimento:' + item.clienteId, id: item.mensagemId, recebidaEm: item.recebidaEm,
             titulo: item.nomeCliente || 'Nova mensagem no Atendimento', previa: item.previa,
-            destino: '/atendimento?fila=meus&cliente=' + encodeURIComponent(item.clienteId),
+            abrir: () => window.location.assign('/atendimento?fila=meus&cliente=' + encodeURIComponent(item.clienteId)),
           })),
           ...internas.map(item => ({
             chave: 'interno:' + item.colegaId, id: String(item.mensagemId), recebidaEm: item.recebidaEm,
             titulo: item.nome + ' · Chat interno', previa: item.previa,
-            destino: '/chat-interno?colega=' + item.colegaId,
+            abrir: () => window.dispatchEvent(new CustomEvent(abrirChat, {
+              detail: { destinatario: usuarioId, colegaId: item.colegaId },
+            })),
           })),
         ];
         const anterior = historicoRef.current;
@@ -101,7 +118,7 @@ export default function AvisosAtendimento({ usuarioId, historicoRef, chatInterno
           notificacao.onclick = () => {
             window.focus();
             notificacao.close();
-            window.location.assign(conversa.destino);
+            conversa.abrir();
           };
         }
       } catch {
@@ -127,7 +144,7 @@ export default function AvisosAtendimento({ usuarioId, historicoRef, chatInterno
       window.removeEventListener('atendimento:atualizar', agendar);
       window.removeEventListener('chat-interno:atualizar-avisos', agendar);
     };
-  }, [ativos, chatInterno, historicoRef, usuarioId]);
+  }, [ativos, chatInterno, historicoRef, janelaAberta, usuarioId]);
 
   const pendentes = ativos ? total : 0;
   const aviso = pendentes
@@ -139,13 +156,16 @@ export default function AvisosAtendimento({ usuarioId, historicoRef, chatInterno
 
   return (
     <div className="flex shrink-0 items-center gap-1">
-      {chatInterno && <Link href="/chat-interno" aria-label={avisoInterno} title={avisoInterno}
+      {chatInterno && <button type="button" aria-label={avisoInterno} title={avisoInterno} aria-haspopup="dialog"
+        onClick={() => setJanela({ colegaId: null })}
         className={`relative grid size-9 place-items-center rounded-md hover:bg-surface-muted ${pendentesInternas ? 'text-success-ink' : 'text-secondary'}`}>
         <MessageSquare size={19} aria-hidden="true" />
         {pendentesInternas > 0 && <span aria-hidden="true" className="absolute -right-0.5 -top-0.5 min-w-4 rounded-full bg-chat-action px-1 text-center text-[10px] leading-4 font-semibold text-white">
           {pendentesInternas > 99 ? '99+' : pendentesInternas}
         </span>}
-      </Link>}
+      </button>}
+      {chatInterno && janela && <ModalChatInterno colegaId={janela.colegaId}
+        selecionar={colegaId => setJanela({ colegaId })} fechar={() => setJanela(null)} />}
       <Link href="/atendimento?fila=meus" aria-label={aviso} title={aviso}
         className={`relative grid size-9 place-items-center rounded-md hover:bg-surface-muted ${pendentes ? 'text-success-ink' : 'text-secondary'}`}>
         <Icone size={19} aria-hidden="true" />

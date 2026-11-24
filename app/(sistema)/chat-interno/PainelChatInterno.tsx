@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { ArrowLeft, MessageSquare, Send } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 
-type Colega = { id: number; nome: string; disponivel: boolean };
+export type Colega = { id: number; nome: string; disponivel: boolean };
 type Mensagem = { id: number; remetenteId: number; texto: string; criadaEm: string };
 type Historico = { mensagens: Mensagem[]; anteriores: boolean };
 const hora = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Sao_Paulo' });
@@ -16,8 +16,9 @@ function mesclar(atuais: Mensagem[], novas: Mensagem[]) {
   return faltantes.length ? [...atuais, ...faltantes].sort((a, b) => a.id - b.id) : atuais;
 }
 
-export default function PainelChatInterno({ eu, colegas, colega, pendentesIniciais }: {
+export default function PainelChatInterno({ eu, colegas, colega, pendentesIniciais, onSelecionar }: {
   eu: number; colegas: Colega[]; colega?: Colega; pendentesIniciais: number[];
+  onSelecionar?: (id: number | null) => void;
 }) {
   const [pendentes, setPendentes] = useState(pendentesIniciais);
 
@@ -32,16 +33,16 @@ export default function PainelChatInterno({ eu, colegas, colega, pendentesInicia
     window.dispatchEvent(new Event('chat-interno:atualizar-avisos'));
   }, []);
 
-  return <div className="flex h-[calc(100dvh-4rem)] min-h-0 bg-chat-canvas text-foreground">
-    <aside className={`${colega ? 'hidden md:flex' : 'flex'} w-full shrink-0 flex-col border-r border-line bg-surface md:w-72 lg:w-80`} aria-label="Colegas">
-      <h1 className="border-b border-line px-5 py-5 text-xl font-semibold">Chat interno</h1>
+  return <div className={`flex min-h-0 bg-chat-canvas text-foreground ${onSelecionar ? 'flex-1' : 'h-[calc(100dvh-4rem)]'}`}>
+    <aside className={`${colega ? 'hidden md:flex' : 'flex'} w-full shrink-0 flex-col border-r border-line bg-surface md:w-64 lg:w-72`} aria-label="Colegas">
+      {!onSelecionar && <h1 className="border-b border-line px-5 py-5 text-xl font-semibold">Chat interno</h1>}
       <div className="min-h-0 overflow-y-auto p-2">
         {!colegas.length && <p className="px-3 py-4 text-sm text-muted">Nenhum colega disponível.</p>}
         {colegas.map(item => {
           const naoLida = pendentes.includes(item.id);
-          return <Link key={item.id} href={`/chat-interno?colega=${item.id}`}
-            aria-current={item.id === colega?.id ? 'page' : undefined}
-            className={`flex min-h-14 items-center gap-3 rounded-lg px-3 py-2 ${item.id === colega?.id ? 'bg-success-soft' : 'hover:bg-surface-muted'}`}>
+          const selecionado = item.id === colega?.id;
+          const classe = `flex min-h-14 w-full items-center gap-3 rounded-lg px-3 py-2 text-left ${selecionado ? 'bg-success-soft' : 'hover:bg-surface-muted'}`;
+          const conteudo = <>
             <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center rounded-full bg-chat-avatar text-sm font-semibold text-success-ink">
               {item.nome.charAt(0).toUpperCase()}
             </span>
@@ -50,11 +51,15 @@ export default function PainelChatInterno({ eu, colegas, colega, pendentesInicia
               {!item.disponivel && <span className="text-xs text-muted">Indisponível</span>}
             </span>
             {naoLida && <span className="size-2.5 shrink-0 rounded-full bg-success-ink" role="img" aria-label="Mensagens não lidas" />}
-          </Link>;
+          </>;
+          return onSelecionar
+            ? <button key={item.id} type="button" aria-current={selecionado || undefined} className={classe} onClick={() => onSelecionar(item.id)}>{conteudo}</button>
+            : <Link key={item.id} href={`/chat-interno?colega=${item.id}`} aria-current={selecionado ? 'page' : undefined} className={classe}>{conteudo}</Link>;
         })}
       </div>
     </aside>
-    {colega ? <ConversaInterna key={colega.id} eu={eu} colega={colega} onLida={removerPendente} /> : (
+    {colega ? <ConversaInterna key={colega.id} eu={eu} colega={colega} onLida={removerPendente}
+      onVoltar={onSelecionar ? () => onSelecionar(null) : undefined} /> : (
       <div className="hidden flex-1 flex-col items-center justify-center gap-3 text-muted md:flex">
         <MessageSquare size={32} aria-hidden="true" />
         <p className="text-sm">Selecione um colega para conversar.</p>
@@ -63,7 +68,9 @@ export default function PainelChatInterno({ eu, colegas, colega, pendentesInicia
   </div>;
 }
 
-function ConversaInterna({ eu, colega, onLida }: { eu: number; colega: Colega; onLida: (id: number) => void }) {
+function ConversaInterna({ eu, colega, onLida, onVoltar }: {
+  eu: number; colega: Colega; onLida: (id: number) => void; onVoltar?: () => void;
+}) {
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
   const [anteriores, setAnteriores] = useState(false);
   const [carregando, setCarregando] = useState(true);
@@ -176,7 +183,8 @@ function ConversaInterna({ eu, colega, onLida }: { eu: number; colega: Colega; o
 
   return <section className="flex min-h-0 min-w-0 flex-1 flex-col" aria-label={`Conversa com ${colega.nome}`}>
     <header className="flex min-h-16 shrink-0 items-center gap-3 border-b border-line bg-surface px-4">
-      <Link href="/chat-interno" aria-label="Voltar aos colegas" className="rounded-md p-2 text-secondary hover:bg-surface-muted md:hidden"><ArrowLeft size={20} /></Link>
+      {onVoltar ? <button type="button" onClick={onVoltar} aria-label="Voltar aos colegas" className="rounded-md p-2 text-secondary hover:bg-surface-muted md:hidden"><ArrowLeft size={20} /></button>
+        : <Link href="/chat-interno" aria-label="Voltar aos colegas" className="rounded-md p-2 text-secondary hover:bg-surface-muted md:hidden"><ArrowLeft size={20} /></Link>}
       <h2 className="truncate text-lg font-semibold">{colega.nome}</h2>
     </header>
     <div ref={lista} className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-5 sm:px-8"
