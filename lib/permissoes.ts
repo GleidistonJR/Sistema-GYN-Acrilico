@@ -1,4 +1,5 @@
 export const PERFIS_ATENDIMENTO = ['ADMIN', 'USER', 'RECEPCAO'] as const;
+export const PERFIS_CHAT_INTERNO = ['ADMIN', 'USER'] as const;
 export const PERFIS_COMERCIAIS = [...PERFIS_ATENDIMENTO, 'COMERCIAL'] as const;
 export const PERFIS_REGISTRO_PONTO = ['PONTO', 'OUTRO'] as const;
 export const PERFIS_RELATORIO_PONTO = ['ADMIN', ...PERFIS_REGISTRO_PONTO] as const;

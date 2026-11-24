@@ -198,7 +198,7 @@ function MenuNavegacao({ usuario, pathname, historicoAvisos }: {
             }
 
           </nav>
-          {atendimento && usuario && <AvisosAtendimento usuarioId={usuario.id} historicoRef={historicoAvisos} />}
+          {atendimento && usuario && <AvisosAtendimento usuarioId={usuario.id} historicoRef={historicoAvisos} chatInterno={equipe && userId !== null} />}
           <BotaoTema />
           </div>
         </div>

@@ -1,9 +1,10 @@
-import { permite, PERFIS_ATENDIMENTO } from '@/lib/permissoes';
+import { permite, PERFIS_ATENDIMENTO, PERFIS_CHAT_INTERNO } from '@/lib/permissoes';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { obterUsuarioSessao } from '@/lib/sessao';
 import { privado } from '@/lib/whatsapp/acesso';
 import { tiposAvisoInternoWhatsApp } from '@/lib/whatsapp/conteudo.mjs';
+import { avisosChatInterno } from '@/lib/chat-interno';
 
 const limitePrevia = 120;
 const previaAnexo: Partial<Record<string, string>> = {
@@ -21,7 +22,7 @@ export async function GET() {
     return new Response(null, { status: 401, headers: privado });
   }
 
-  const conversas = await prisma.$queryRaw<Array<{
+  const [conversas, internas] = await Promise.all([prisma.$queryRaw<Array<{
     clienteId: string; nomeCliente: string; mensagemId: string | null;
     recebidaEm: Date | null; texto: string | null; tipo: string | null;
   }>>`
@@ -41,7 +42,8 @@ export async function GET() {
     WHERE c."responsavelId" = ${usuario.id}
       AND c."ultimaMensagemEm" IS NOT NULL
       AND c."versaoEntrada" > GREATEST(COALESCE(l.versao, 0), c."versaoEntradaExcluida")
-  `;
+  `, usuario.colaborador && permite(PERFIS_CHAT_INTERNO, usuario.role)
+    ? avisosChatInterno(usuario.colaborador.id) : []]);
   const pendentes = conversas.map(({ texto, tipo, ...conversa }) => {
     const caracteres = Array.from(texto ?? '');
     const previa = caracteres.length > limitePrevia
@@ -49,5 +51,5 @@ export async function GET() {
       : texto || previaAnexo[tipo ?? ''] || 'Enviou uma mensagem.';
     return { ...conversa, previa };
   });
-  return Response.json({ total: pendentes.length, conversas: pendentes }, { headers: privado });
+  return Response.json({ total: pendentes.length, conversas: pendentes, internas }, { headers: privado });
 }

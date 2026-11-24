@@ -19,6 +19,24 @@ model Colaborador {
 
   userId String? @unique
   user   User?   @relation(fields: [userId], references: [id])
+  mensagensInternasEnviadas MensagemInterna[] @relation("RemetenteInterno")
+  mensagensInternasRecebidas MensagemInterna[] @relation("DestinatarioInterno")
+}
+
+model MensagemInterna {
+  id Int @id @default(autoincrement())
+  remetenteId Int
+  destinatarioId Int
+  pedidoId String @db.Uuid
+  texto String @db.VarChar(4000)
+  criadaEm DateTime @default(now())
+  lidaEm DateTime?
+  remetente Colaborador @relation("RemetenteInterno", fields: [remetenteId], references: [id], onDelete: Cascade)
+  destinatario Colaborador @relation("DestinatarioInterno", fields: [destinatarioId], references: [id], onDelete: Cascade)
+
+  @@index([remetenteId, destinatarioId, id])
+  @@index([destinatarioId, lidaEm, remetenteId, id])
+  @@unique([remetenteId, pedidoId])
 }
 
 model Ponto {

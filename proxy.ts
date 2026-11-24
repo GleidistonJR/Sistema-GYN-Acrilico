@@ -1,13 +1,14 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { obterUsuarioSessao, renovarSessaoPersistente } from '@/lib/sessao';
-import { PERFIS_ATENDIMENTO, PERFIS_COMERCIAIS, PERFIS_REGISTRO_PONTO, PERFIS_RELATORIO_PONTO } from '@/lib/permissoes';
+import { PERFIS_ATENDIMENTO, PERFIS_CHAT_INTERNO, PERFIS_COMERCIAIS, PERFIS_REGISTRO_PONTO, PERFIS_RELATORIO_PONTO } from '@/lib/permissoes';
 
 const regrasDeAcesso: { rota: string; rolesPermitidas: readonly string[] }[] = [
   { rota: '/administracao', rolesPermitidas: ['ADMIN'] },
   { rota: '/orcamentos', rolesPermitidas: PERFIS_COMERCIAIS },
   { rota: '/atendimento/conexao', rolesPermitidas: ['ADMIN'] },
   { rota: '/atendimento', rolesPermitidas: PERFIS_ATENDIMENTO },
+  { rota: '/chat-interno', rolesPermitidas: PERFIS_CHAT_INTERNO },
   { rota: '/produtos', rolesPermitidas: PERFIS_COMERCIAIS },
   { rota: '/materiais', rolesPermitidas: PERFIS_COMERCIAIS },
   { rota: '/baterPonto', rolesPermitidas: PERFIS_REGISTRO_PONTO },
@@ -65,6 +66,7 @@ export const config = {
     '/materiais/:path*',
     '/produtos/:path*',
     '/atendimento/:path*',
+    '/chat-interno/:path*',
     '/relatorioPontos/:path*',
     '/baterPonto/:path*'
   ],
