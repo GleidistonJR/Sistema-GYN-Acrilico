@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { ArrowLeft, UserPlus, UserMinus, Paperclip, Send, RefreshCw, MoreVertical, Reply, X } from 'lucide-react';
+import { ArrowLeft, ChevronDown, UserPlus, UserMinus, Paperclip, Send, RefreshCw, MoreVertical, Reply, X } from 'lucide-react';
 import GravarAudio from './GravarAudio';
 import AnexoMensagem from './AnexoMensagem';
 import MenuTextosRapidos from './MenuTextosRapidos';
@@ -38,6 +38,7 @@ export default function Conversa({ cliente, onVoltar, onDetalhes, onLida, onAssu
   const [salto, setSalto] = useState(0);
   const [localizando, setLocalizando] = useState(false);
   const [contexto, setContexto] = useState(false);
+  const [longeDoFim, setLongeDoFim] = useState(false);
   const emContexto = useRef(false);
   const navegacao = useRef<AbortController | null>(null);
   const destaqueTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -198,10 +199,26 @@ export default function Conversa({ cliente, onVoltar, onDetalhes, onLida, onAssu
 
   async function voltarAoFim() {
     navegacao.current?.abort(); setLocalizando(false); alvoPendente.current = null;
-    emContexto.current = false; setContexto(false); setDestacada(null);
-    versao.current = ''; carregouHistorico.current = false; seguirFim.current = true;
+    seguirFim.current = true;
+    setLongeDoFim(false);
+    setDestacada(null);
+    if (!emContexto.current) {
+      const el = lista.current;
+      if (el) el.scrollTop = el.scrollHeight;
+      void marcarLida().catch(() => {});
+      return;
+    }
+    emContexto.current = false; setContexto(false);
+    versao.current = ''; carregouHistorico.current = false;
     setMensagens([]); setCarregando(true);
     try { await atualizar(); } catch { setErro('Não foi possível carregar as mensagens recentes.'); setCarregando(false); }
+  }
+
+  function acompanharRolagem(el: HTMLDivElement) {
+    const distanciaDoFim = el.scrollHeight - el.scrollTop - el.clientHeight;
+    seguirFim.current = distanciaDoFim < 100;
+    setLongeDoFim(!seguirFim.current);
+    if (seguirFim.current) void marcarLida().catch(() => {});
   }
 
   async function sincronizar() {
@@ -339,7 +356,7 @@ export default function Conversa({ cliente, onVoltar, onDetalhes, onLida, onAssu
         finally { assumindoRef.current = false; setAssumindo(false); }
       }} className={`mr-1 flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-semibold text-white disabled:opacity-50 ${onDesatribuir ? 'bg-primary hover:bg-primary-hover' : 'bg-chat-action hover:bg-emerald-600'}`}>{onDesatribuir ? <UserMinus size={17} /> : <UserPlus size={17} />}<span>{assumindo ? 'Salvando…' : onDesatribuir ? 'Desatribuir' : <>Assumir<span className="hidden lg:inline"> cliente</span></>}</span></button>}<button onClick={sincronizar} disabled={sincronizando} aria-label="Sincronizar histórico" className="rounded-full p-2 text-secondary hover:bg-foreground/5 disabled:opacity-50" title="Buscar histórico recente no WhatsApp"><RefreshCw size={18} className={sincronizando ? 'animate-spin' : ''} /></button><button onClick={onDetalhes} aria-label="Organizar cliente" title="Etiquetas e responsável" className="rounded-full p-2 text-secondary hover:bg-foreground/5"><MoreVertical size={20} /></button></div>
     </header>
-    <div ref={lista} onScroll={() => { const el = lista.current; if (el) seguirFim.current = el.scrollHeight - el.scrollTop - el.clientHeight < 100; if (seguirFim.current) void marcarLida().catch(() => {}); }} className="min-h-0 flex-1 overflow-y-auto p-4 sm:px-8 lg:px-12 [scrollbar-width:thin] [scrollbar-color:var(--line-strong)_transparent]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, var(--chat-dot) 1px, transparent 0)', backgroundSize: '24px 24px' }}>
+    <div ref={lista} tabIndex={-1} onScroll={e => acompanharRolagem(e.currentTarget)} className="min-h-0 flex-1 overflow-y-auto p-4 sm:px-8 lg:px-12 [scrollbar-width:thin] [scrollbar-color:var(--line-strong)_transparent]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, var(--chat-dot) 1px, transparent 0)', backgroundSize: '24px 24px' }}>
       {!contexto && anteriores && <button onClick={async () => { seguirFim.current = false; try { await atualizar(mensagens[0]?.id); } catch { setErro('Não foi possível carregar mensagens anteriores.'); } }} className="mx-auto mb-5 block rounded-full bg-surface px-4 py-2 text-xs text-secondary shadow-sm">Carregar anteriores</button>}
       {carregando && <p className="p-8 text-center text-sm text-muted">Carregando conversa…</p>}
       {!carregando && !mensagens.length && <div className="mx-auto mt-10 max-w-md rounded-2xl border border-line bg-surface p-6 text-center"><h2 className="font-semibold">Comece a conversa</h2><p className="mt-2 text-sm text-muted">Envie uma mensagem abaixo ou use “Sincronizar histórico” para buscar mensagens recentes do WhatsApp.</p></div>}
@@ -359,7 +376,14 @@ export default function Conversa({ cliente, onVoltar, onDetalhes, onLida, onAssu
         {m.externaId && podeEnviar && <button type="button" disabled={enviando} aria-label="Responder esta mensagem" title="Responder" onClick={() => { setResponder(m); pedido.current = null; entradaTexto.current?.focus(); }} className="shrink-0 rounded-full p-2 text-secondary hover:bg-foreground/10 disabled:opacity-40"><Reply size={17} /></button>}
       </article>)}</div>
     </div>
-    {contexto && <div className="flex shrink-0 items-center justify-between gap-2 bg-surface-muted px-4 py-2 text-xs text-secondary"><span>Trecho da mensagem citada</span><button onClick={() => void voltarAoFim()} className="rounded px-3 py-2 font-semibold text-success-ink hover:bg-foreground/5">Voltar às mensagens recentes</button></div>}
+    {(contexto || longeDoFim) && <div className="relative h-0 shrink-0">
+      <button type="button" aria-label="Voltar às mensagens recentes" title="Voltar às mensagens recentes"
+        onClick={() => { lista.current?.focus({ preventScroll: true }); void voltarAoFim(); }}
+        className="absolute bottom-3 right-4 z-10 grid size-10 place-items-center rounded-full border border-line bg-surface text-secondary shadow-sm hover:bg-surface-muted sm:right-6">
+        <ChevronDown size={19} aria-hidden="true" />
+      </button>
+    </div>}
+    {contexto && <p className="shrink-0 bg-surface-muted px-4 py-2 text-xs text-secondary">Trecho da mensagem citada</p>}
     <footer className="shrink-0 border-t border-line bg-surface p-3 sm:px-5">
       {localizando && <p role="status" className="mb-2 text-xs text-success-ink">Localizando mensagem…</p>}
       {progressoAnexo && <p role="status" className="mb-2 text-sm text-success-ink">{progressoAnexo}</p>}
