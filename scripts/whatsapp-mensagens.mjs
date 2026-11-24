@@ -4,7 +4,7 @@ import { criarFilaPrioritaria } from './whatsapp-fila.mjs';
 import { converterVoz } from './whatsapp-audio.mjs';
 import { prepararMidiaRecente } from './whatsapp-previas.mjs';
 import { obterCitacao } from '../lib/whatsapp/citacao.mjs';
-import { telefoneDoJid, variantesTelefone, nomeArquivo, statusAck } from '../lib/whatsapp/conteudo.mjs';
+import { telefoneDoJid, variantesTelefone, nomeArquivo, statusAck, tiposAvisoInternoWhatsApp } from '../lib/whatsapp/conteudo.mjs';
 
 export function criarServicoMensagens({ prisma, client, conta, ativo, retryDelayMs = 5000 }) {
   const fila = criarFilaPrioritaria();
@@ -73,6 +73,7 @@ export function criarServicoMensagens({ prisma, client, conta, ativo, retryDelay
   }
 
   async function receber(message) {
+    if (tiposAvisoInternoWhatsApp.includes(message.type)) return;
     if (message.isStatus || message.broadcast || !message.id?._serialized) return;
     const jid = message.fromMe ? message.to : message.from;
     if (!/^\d+@(c\.us|lid)$/.test(jid)) return;

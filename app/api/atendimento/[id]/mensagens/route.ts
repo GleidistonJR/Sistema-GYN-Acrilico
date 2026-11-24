@@ -5,6 +5,7 @@ import { acessoConversa, mesmaOrigem, privado } from '@/lib/whatsapp/acesso';
 import { chamarWhatsApp } from '@/lib/whatsapp/bridge';
 import { apelidoEfetivo, assinarMensagem } from '@/lib/whatsapp/assinatura.mjs';
 import { lerTransferencia } from '@/lib/whatsapp/transferencia.mjs';
+import { tiposAvisoInternoWhatsApp } from '@/lib/whatsapp/conteudo.mjs';
 
 export const runtime = 'nodejs';
 type Contexto = { params: Promise<{ id: string }> };
@@ -18,15 +19,16 @@ export async function GET(request: Request, { params }: Contexto) {
   const { id } = await params;
   const acesso = await acessoConversa(id);
   if (!acesso) return json({ erro: 'Conversa não disponível para este usuário.' }, 403);
+  const historico = { clienteId: id, tipo: { notIn: tiposAvisoInternoWhatsApp } };
   const citadaPor = new URL(request.url).searchParams.get('citadaPor');
   if (citadaPor) {
-    const resposta = await prisma.mensagemWhatsApp.findFirst({ where: { id: citadaPor, clienteId: id }, select: { conta: true, citacao: true } });
+    const resposta = await prisma.mensagemWhatsApp.findFirst({ where: { ...historico, id: citadaPor }, select: { conta: true, citacao: true } });
     const citacao = resposta?.citacao as { externaId?: string } | null;
-    const alvo = citacao?.externaId ? await prisma.mensagemWhatsApp.findFirst({ where: { clienteId: id, conta: resposta!.conta, externaId: citacao.externaId }, select: selecao }) : null;
+    const alvo = citacao?.externaId ? await prisma.mensagemWhatsApp.findFirst({ where: { ...historico, conta: resposta!.conta, externaId: citacao.externaId }, select: selecao }) : null;
     if (!alvo) return json({ erro: 'A mensagem original não está disponível no histórico do sistema.' }, 404);
     const [anteriores, posteriores] = await Promise.all([
-      prisma.mensagemWhatsApp.findMany({ where: { clienteId: id, OR: [{ enviadoEm: { lt: alvo.enviadoEm } }, { enviadoEm: alvo.enviadoEm, id: { lt: alvo.id } }] }, orderBy: [{ enviadoEm: 'desc' }, { id: 'desc' }], take: 20, select: selecao }),
-      prisma.mensagemWhatsApp.findMany({ where: { clienteId: id, OR: [{ enviadoEm: { gt: alvo.enviadoEm } }, { enviadoEm: alvo.enviadoEm, id: { gt: alvo.id } }] }, orderBy: [{ enviadoEm: 'asc' }, { id: 'asc' }], take: 20, select: selecao }),
+      prisma.mensagemWhatsApp.findMany({ where: { ...historico, OR: [{ enviadoEm: { lt: alvo.enviadoEm } }, { enviadoEm: alvo.enviadoEm, id: { lt: alvo.id } }] }, orderBy: [{ enviadoEm: 'desc' }, { id: 'desc' }], take: 20, select: selecao }),
+      prisma.mensagemWhatsApp.findMany({ where: { ...historico, OR: [{ enviadoEm: { gt: alvo.enviadoEm } }, { enviadoEm: alvo.enviadoEm, id: { gt: alvo.id } }] }, orderBy: [{ enviadoEm: 'asc' }, { id: 'asc' }], take: 20, select: selecao }),
     ]);
     return json({ alvoId: alvo.id, mensagens: [...anteriores.reverse(), alvo, ...posteriores] });
   }
@@ -37,7 +39,7 @@ export async function GET(request: Request, { params }: Contexto) {
   }
   const cursor = antes ? await prisma.mensagemWhatsApp.findFirst({ where: { id: antes, clienteId: id }, select: { id: true, enviadoEm: true } }) : null;
   if (antes && !cursor) return json({ erro: 'Página inválida.' }, 400);
-  const mensagens = await prisma.mensagemWhatsApp.findMany({ where: { clienteId: id,
+  const mensagens = await prisma.mensagemWhatsApp.findMany({ where: { ...historico,
     ...(cursor ? { OR: [{ enviadoEm: { lt: cursor.enviadoEm } }, { enviadoEm: cursor.enviadoEm, id: { lt: cursor.id } }] } : {}),
   }, orderBy: [{ enviadoEm: 'desc' }, { id: 'desc' }], take: 101, select: selecao });
   return json({ mensagens: mensagens.slice(0, 100).reverse(), temAnteriores: mensagens.length > 100,
