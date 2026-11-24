@@ -6,10 +6,11 @@ import { useEffect, useState, useRef } from 'react';
 import { ChevronDown, Menu, X } from 'lucide-react';
 import { encerrarSessao } from '../login/actions';
 import { BotaoTema } from '@/app/tema';
+import AvisosAtendimento from './AvisosAtendimento';
 import { permite, PERFIS_ATENDIMENTO, PERFIS_COMERCIAIS, PERFIS_REGISTRO_PONTO, PERFIS_RELATORIO_PONTO } from '@/lib/permissoes';
 
 type UsuarioMenu = {
-  role: string; userNome: string; userId: number | null;
+  id: string; role: string; userNome: string; userId: number | null;
 } | null;
 
 export default function HeaderClient({ usuario }: { usuario: UsuarioMenu }) {
@@ -194,6 +195,7 @@ function MenuNavegacao({ usuario, pathname }: { usuario: UsuarioMenu; pathname: 
             }
 
           </nav>
+          {atendimento && usuario && <AvisosAtendimento usuarioId={usuario.id} />}
           <BotaoTema />
           </div>
         </div>
