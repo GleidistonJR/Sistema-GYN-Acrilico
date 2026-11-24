@@ -1,8 +1,11 @@
+import type { Metadata } from 'next';
 import { exigirUsuario } from '@/lib/autorizacao';
 import { PERFIS_ATENDIMENTO } from '@/lib/permissoes';
 import { prisma } from '@/lib/prisma';
 import PainelAtendimento from './PainelAtendimento';
 import { apelidoEfetivo } from '@/lib/whatsapp/assinatura.mjs';
+
+export const metadata: Metadata = { title: 'Atendimento' };
 
 export default async function Atendimento({ searchParams }: {
   searchParams: Promise<{ fila?: string; cliente?: string; etiqueta?: string }>;

@@ -1,5 +1,8 @@
+import type { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import { acessoConversa } from '@/lib/whatsapp/acesso';
+
+export const metadata: Metadata = { title: 'Conversa · Atendimento' };
 
 export default async function PaginaConversa({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

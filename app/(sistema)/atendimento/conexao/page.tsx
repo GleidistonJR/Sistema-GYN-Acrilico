@@ -1,6 +1,9 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { exigirUsuario } from '@/lib/autorizacao';
 import PainelConexao from './PainelConexao';
+
+export const metadata: Metadata = { title: 'Conectar WhatsApp' };
 
 export default async function ConexaoWhatsApp() {
   await exigirUsuario(['ADMIN']);

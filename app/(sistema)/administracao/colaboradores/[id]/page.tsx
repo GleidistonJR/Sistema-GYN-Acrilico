@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { exigirPerfil } from '@/lib/autorizacao';
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
@@ -21,6 +22,8 @@ export interface LinhaRelatorio {
   abono: number;
   statusDia: "TRABALHADO" | "FERIADO" | "FALTA" | "ATESTADO" | "FOLGA";
 }
+
+export const metadata: Metadata = { title: 'Detalhes do Colaborador' };
 
 export default async function DetalhesColaborador({ params, searchParams }: DetalhesProps) {
   const { id } = await params;
