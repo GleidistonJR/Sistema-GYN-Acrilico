@@ -53,7 +53,7 @@ export default function PainelConexao() {
   }
   const conectado = estado?.status === 'conectado';
   const aguardando = estado && ['iniciando', 'autenticando', 'encerrando'].includes(estado.status);
-  const podeConectar = estado && ['desconectado', 'erro'].includes(estado.status);
+  const podeConectar = estado && ['desconectado', 'erro', 'indisponivel'].includes(estado.status);
 
   return <div className="mt-8 grid gap-6 md:grid-cols-[1.1fr_1fr]">
     <section className="rounded-2xl border border-line bg-surface p-6 shadow-sm sm:p-8">
@@ -76,10 +76,10 @@ export default function PainelConexao() {
           <p className="text-sm text-secondary">{estado?.status === 'autenticando' ? 'Aguarde a confirmação do WhatsApp…' : 'Preparando a conexão…'}</p>
         </> : <>
           <QrCode className="mb-4 size-16 text-subtle" />
-          <p className="max-w-64 text-sm text-muted">{estado.status === 'qr' ? 'Aguardando um novo código…' : 'Clique em gerar QR Code para conectar o celular da empresa.'}</p>
+          <p className="max-w-64 text-sm text-muted">{estado.status === 'qr' ? 'Aguardando um novo código…' : 'Tente reconectar. Se o WhatsApp pedir um novo pareamento, o QR Code aparece aqui.'}</p>
         </>}
       </div>
-      {podeConectar && <button disabled={pendente} onClick={() => executar()} className="w-full rounded-xl bg-emerald-700 px-4 py-3 font-semibold text-white hover:bg-emerald-800 disabled:opacity-50">{pendente ? 'Iniciando…' : 'Gerar QR Code'}</button>}
+      {podeConectar && <button disabled={pendente} onClick={() => executar()} className="w-full rounded-xl bg-emerald-700 px-4 py-3 font-semibold text-white hover:bg-emerald-800 disabled:opacity-50">{pendente ? 'Iniciando…' : estado.status === 'desconectado' ? 'Gerar QR Code' : 'Tentar reconectar'}</button>}
       {conectado && !confirmarSaida && <button onClick={() => setConfirmarSaida(true)} className="w-full rounded-xl border border-line-strong px-4 py-3 text-sm font-semibold">Desconectar este aparelho</button>}
       {confirmarSaida && <div className="rounded-lg bg-warning-soft p-4 text-sm"><p>Encerrar a conexão deste sistema com o WhatsApp da empresa?</p>
         <div className="mt-3 flex gap-4"><button disabled={pendente} onClick={() => executar(true)} className="font-semibold text-danger-ink">Sim, desconectar</button><button onClick={() => setConfirmarSaida(false)}>Cancelar</button></div></div>}

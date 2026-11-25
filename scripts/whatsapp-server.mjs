@@ -6,15 +6,19 @@ import whatsapp from 'whatsapp-web.js';
 import QRCode from 'qrcode';
 import { WhatsAppClient } from './whatsapp-client.mjs';
 import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import pg from 'pg';
 import { criarServicoMensagens } from './whatsapp-mensagens.mjs';
 import { criarEventosAtendimento } from './whatsapp-eventos.mjs';
 import { criarFotosContatos } from './whatsapp-fotos.mjs';
-import { publicarEstadoServico } from '../lib/whatsapp/estado-servico.mjs';
+import { consumirComandoServico, publicarEstadoServico } from '../lib/whatsapp/estado-servico.mjs';
 import { sessionPath } from './whatsapp-caminhos.mjs';
 import { criarServidorMidia } from './whatsapp-midia-servidor.mjs';
 import { iniciarTunel } from './whatsapp-tunel.mjs';
 
-const prisma = new PrismaClient();
+const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL, max: 6, connectionTimeoutMillis: 8000 });
+pool.on('error', error => console.error('Conexão ociosa do WhatsApp encerrada:', error.code || error.name));
+const prisma = new PrismaClient({ adapter: new PrismaPg(pool) });
 let pararTunel;
 const servidorMidia = criarServidorMidia({ prisma, getClient: () => state.status === 'conectado' && client ? { client, conta: state.numero } : null });
 let mensagens = null;
@@ -54,6 +58,17 @@ function heartbeat() {
   return heartbeatChain;
 }
 const heartbeatTimer = setInterval(() => void heartbeat(), 30000);
+let consultandoComando = false;
+const comandoTimer = setInterval(async () => {
+  if (consultandoComando || busy) return;
+  consultandoComando = true;
+  try {
+    const comando = await consumirComandoServico(prisma);
+    if (comando === 'connect') void connect();
+    if (comando === 'disconnect') void disconnect();
+  } catch { /* A próxima consulta tenta novamente quando o banco voltar. */ }
+  finally { consultandoComando = false; }
+}, 3000);
 function update(values) { state = { ...state, ...values, atualizadoEm: new Date().toISOString() }; void heartbeat(); }
 function snapshot() {
   if (state.status === 'qr' && Date.now() - Date.parse(state.atualizadoEm) > 65000) {
@@ -248,6 +263,7 @@ async function stop() {
   automatic = false;
   clearTimeout(reconnectTimer);
   clearInterval(heartbeatTimer);
+  clearInterval(comandoTimer);
   update({ status: 'desconectado', numero: null, qr: null });
   await heartbeatChain.catch(() => {});
   ++generation;
@@ -258,6 +274,7 @@ async function stop() {
   await eventos.stop();
   await destroyCurrent(); // Preserve LocalAuth when stopping the process.
   await prisma.$disconnect();
+  await pool.end();
   process.exit(0);
 }
 process.on('SIGINT', stop);

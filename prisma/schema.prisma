@@ -1,5 +1,6 @@
 generator client {
   provider = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {
@@ -182,6 +183,11 @@ model EstadoServicoWhatsApp {
   status       String
   numero       String?
   atualizadoEm DateTime @default(now())
+  qr String?
+  qrExpiraEm DateTime?
+  mensagem String?
+  comando String?
+  comandoEm DateTime?
 }
 
 model IdentidadeWhatsApp {
