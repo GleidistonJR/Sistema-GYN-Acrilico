@@ -36,8 +36,8 @@ function PaginaPdf({ documento, numero, tamanho }: { documento: PDFDocumentProxy
   </>;
 }
 
-export default function AnexoPdf({ url, nome, usarLinkTemporario = false }: {
-  url: string; nome: string; usarLinkTemporario?: boolean;
+export default function AnexoPdf({ url, nome, urlVisualizacao = url }: {
+  url: string; nome: string; urlVisualizacao?: string;
 }) {
   const cartao = useRef<HTMLDivElement>(null);
   const modal = useRef<HTMLDialogElement>(null);
@@ -62,16 +62,10 @@ export default function AnexoPdf({ url, nome, usarLinkTemporario = false }: {
     const controller = new AbortController();
     let tarefa: PDFDocumentLoadingTask | undefined;
     async function carregar() {
-      let origem = url;
-      if (usarLinkTemporario) {
-        const resposta = await fetch(`${url}?link=1`, { signal: controller.signal });
-        if (!resposta.ok) throw new Error('PDF indisponível');
-        origem = (await resposta.json()).url;
-      }
       const pdfjs = await import('pdfjs-dist');
       if (controller.signal.aborted) return;
       pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
-      tarefa = pdfjs.getDocument({ url: origem, isEvalSupported: false });
+      tarefa = pdfjs.getDocument({ url: urlVisualizacao, isEvalSupported: false });
       const pdf = await tarefa.promise;
       if (!controller.signal.aborted) setDocumento(pdf);
     }
@@ -82,7 +76,7 @@ export default function AnexoPdf({ url, nome, usarLinkTemporario = false }: {
       controller.abort();
       void tarefa?.destroy().catch(() => {});
     };
-  }, [url, usarLinkTemporario, tentativa, visivel]);
+  }, [urlVisualizacao, tentativa, visivel]);
 
   function tentarNovamente() {
     setFalhou(false);

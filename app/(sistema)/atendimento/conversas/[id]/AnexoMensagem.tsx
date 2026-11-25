@@ -28,7 +28,7 @@ export default function AnexoMensagem({ id, midia }: { id: string; midia: Midia 
     if (imagem) modal.current?.showModal();
   }
 
-  if (midia.mimeType.split(';')[0].toLowerCase() === 'application/pdf') return <AnexoPdf key={id} url={base} nome={midia.nome} usarLinkTemporario />;
+  if (midia.mimeType.split(';')[0].toLowerCase() === 'application/pdf') return <AnexoPdf key={id} url={base} nome={midia.nome} urlVisualizacao={`${base}?visualizarPdf=1`} />;
 
   if (!imagem && !video && !audio) return <div className="mb-2 max-w-sm">
     <p className="break-all text-sm font-semibold">{midia.nome}</p>
