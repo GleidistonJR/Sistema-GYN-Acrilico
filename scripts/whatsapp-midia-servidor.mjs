@@ -7,7 +7,7 @@ import { createHash } from 'node:crypto';
 import { lerTransferencia, hashToken } from '../lib/whatsapp/transferencia.mjs';
 import { validarMidia, LIMITE_MIDIA, nomeArquivo } from '../lib/whatsapp/conteudo.mjs';
 import { caminhoArquivo, salvarArquivo, limparArquivos, espacoDisponivel, caminhoOriginalRecente,
-  limparOriginaisRecentes, RETENCAO_MIDIA } from './whatsapp-arquivos.mjs';
+  guardarOriginalRecente, limparOriginaisRecentes, JANELA_PREPARACAO_MIDIA, RETENCAO_ORIGINAIS } from './whatsapp-arquivos.mjs';
 import { obterMidiaWhatsApp, prepararMidiaRecente } from './whatsapp-previas.mjs';
 
 export function criarServidorMidia({ prisma, getClient, port = 3002 }) {
@@ -27,7 +27,7 @@ export function criarServidorMidia({ prisma, getClient, port = 3002 }) {
       const mensagem = await prisma.mensagemWhatsApp.findFirst({
         where: {
           id: { notIn: [...novasTentativas.keys()] }, conta: conexao.conta, externaId: { not: null },
-          enviadoEm: { gt: new Date(Date.now() - RETENCAO_MIDIA) }, midia: { preparadaEm: null },
+          enviadoEm: { gt: new Date(Date.now() - JANELA_PREPARACAO_MIDIA) }, midia: { preparadaEm: null },
         },
         orderBy: { enviadoEm: 'desc' },
         select: { id: true, enviadoEm: true, externaId: true, midia: { select: { nome: true, mimeType: true } } },
@@ -61,11 +61,12 @@ export function criarServidorMidia({ prisma, getClient, port = 3002 }) {
   preparacao.unref();
   const cleanup = setInterval(() => {
     void limparArquivos().catch(() => {});
-    void limparOriginaisRecentes().catch(() => {});
     void prisma.$executeRaw`DELETE FROM "TransferenciaWhatsApp" WHERE "expiresAt" < NOW()`.catch(() => {});
     for (const [id, item] of cache) if (item.until < Date.now()) { cache.delete(id); void unlink(item.path).catch(() => {}); }
   }, 60000);
   cleanup.unref();
+  const cleanupOriginais = setInterval(() => void limparOriginaisRecentes().catch(() => {}), 3600000);
+  cleanupOriginais.unref();
   void limparOriginaisRecentes().catch(() => {});
   const server = http.createServer(async (req, res) => {
     res.setHeader('Cache-Control', 'private, no-store');
@@ -112,7 +113,7 @@ export function criarServidorMidia({ prisma, getClient, port = 3002 }) {
         FROM "MensagemWhatsApp" m JOIN "MidiaWhatsApp" a ON a."mensagemId" = m.id
         LEFT JOIN "ArquivoWhatsApp" f ON f."mensagemId" = m.id WHERE m.id = ${p.mensagemId} AND m."clienteId" = ${p.clienteId}`;
       if (!m) { res.writeHead(404); res.end(); return; }
-      let file = Date.now() - +m.enviadoEm < RETENCAO_MIDIA ? caminhoOriginalRecente(p.mensagemId) : null;
+      let file = Date.now() - +m.enviadoEm < RETENCAO_ORIGINAIS ? caminhoOriginalRecente(p.mensagemId) : null;
       if (file && !await stat(file).catch(() => null)) file = null;
       if (!file && m.chave) file = caminhoArquivo(m.chave);
       if (file && !await stat(file).catch(() => null)) file = null;
@@ -139,10 +140,13 @@ export function criarServidorMidia({ prisma, getClient, port = 3002 }) {
           downloading = true;
           try {
             const { dados: data, mimeType, nome } = await obterMidiaWhatsApp(connection.client, m.externaId);
-            await espacoDisponivel(data.length);
-            await salvarArquivo(p.mensagemId, data);
-            cached = { path: caminhoArquivo(p.mensagemId), mime: mimeType, name: nomeArquivo(nome || m.nome), until: Date.now() + 600000 };
-            cache.set(p.mensagemId, cached);
+            if (mimeType === m.mimeType) file = await guardarOriginalRecente(p.mensagemId, data, m.enviadoEm);
+            if (!file) {
+              await espacoDisponivel(data.length);
+              await salvarArquivo(p.mensagemId, data);
+            }
+            cached = { path: file || caminhoArquivo(p.mensagemId), mime: mimeType, name: nomeArquivo(nome || m.nome), until: Date.now() + 600000 };
+            if (!file) cache.set(p.mensagemId, cached);
           } finally { downloading = false; }
         }
         file = cached.path; mime = cached.mime; name = cached.name;
@@ -172,5 +176,5 @@ export function criarServidorMidia({ prisma, getClient, port = 3002 }) {
   server.requestTimeout = 300000;
   server.headersTimeout = 15000;
   return { start: () => new Promise((resolve, reject) => { server.once('error', reject); server.listen(port, '127.0.0.1', resolve); }),
-    stop: () => { clearInterval(preparacao); clearInterval(cleanup); server.closeAllConnections(); server.close(); } };
+    stop: () => { clearInterval(preparacao); clearInterval(cleanup); clearInterval(cleanupOriginais); server.closeAllConnections(); server.close(); } };
 }
