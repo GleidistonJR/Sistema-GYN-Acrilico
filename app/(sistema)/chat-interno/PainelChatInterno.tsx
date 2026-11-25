@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { ArrowLeft, MessageSquare, Paperclip, Reply, Send, X } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type ClipboardEvent, type FormEvent } from 'react';
 import { FORMATOS_ANEXO_INTERNO, LIMITE_ANEXO_INTERNO } from '@/lib/chat-interno-midia';
 import GravarAudio from '../atendimento/conversas/[id]/GravarAudio';
 import AnexoInterno from './AnexoInterno';
@@ -231,6 +231,24 @@ function ConversaInterna({ eu, colega, onLida, onVoltar }: {
     setArquivo(novo);
   }
 
+  function colarImagem(evento: ClipboardEvent<HTMLTextAreaElement>) {
+    const { files, items } = evento.clipboardData;
+    const imagem = Array.from(files).find(file => file.type.startsWith('image/'))
+      ?? Array.from(items).find(item => item.kind === 'file' && item.type.startsWith('image/'))?.getAsFile();
+    if (!imagem) return;
+    evento.preventDefault();
+    if (enviandoRef.current || gravando) return;
+    if (arquivo) {
+      setErro('Remova o anexo atual antes de colar outra imagem.');
+      return;
+    }
+    if (!FORMATOS_ANEXO_INTERNO.includes(imagem.type)) {
+      setErro('Cole uma imagem PNG, JPEG, WebP ou GIF.');
+      return;
+    }
+    escolherArquivo(imagem);
+  }
+
   async function enviar(evento: FormEvent<HTMLFormElement>) {
     evento.preventDefault();
     if (enviandoRef.current || gravando || (!texto.trim() && !arquivo) || !colega.disponivel) return;
@@ -327,6 +345,7 @@ function ConversaInterna({ eu, colega, onLida, onVoltar }: {
           </button>
           <textarea ref={campoTexto} hidden={gravando} rows={2} maxLength={limite} aria-label="Mensagem interna" placeholder="Digite sua mensagem…"
             value={texto} readOnly={enviando} onChange={evento => { setTexto(evento.target.value); pedidoRef.current = null; }}
+            onPaste={colarImagem}
             onKeyDown={evento => {
               if (evento.key === 'Enter' && !evento.shiftKey && !evento.nativeEvent.isComposing) {
                 evento.preventDefault();
