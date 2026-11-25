@@ -1,10 +1,12 @@
 'use client';
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { ArrowLeft, ChevronDown, UserPlus, UserMinus, Paperclip, Send, RefreshCw, MoreVertical, Reply, X } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Forward, UserPlus, UserMinus, Paperclip, Send, RefreshCw, MoreVertical, Reply, X } from 'lucide-react';
 import GravarAudio from './GravarAudio';
 import AnexoMensagem from './AnexoMensagem';
 import MenuTextosRapidos from './MenuTextosRapidos';
+import EncaminharMensagem from './EncaminharMensagem';
+import { transferirAnexo } from './transferirAnexo';
 
 const LIMITE_TEXTO = 6000;
 
@@ -34,6 +36,7 @@ export default function Conversa({ cliente, onVoltar, onDetalhes, onLida, onAssu
   const anexoEnviado = useRef<{ arquivo: File; token: string } | null>(null);
   const [progressoAnexo, setProgressoAnexo] = useState('');
   const [responder, setResponder] = useState<Mensagem | null>(null);
+  const [encaminhar, setEncaminhar] = useState<Mensagem | null>(null);
   const [destacada, setDestacada] = useState<string | null>(null);
   const [salto, setSalto] = useState(0);
   const [localizando, setLocalizando] = useState(false);
@@ -262,21 +265,7 @@ export default function Conversa({ cliente, onVoltar, onDetalhes, onLida, onAssu
     try {
       if (arquivo) {
         if (anexoEnviado.current?.arquivo !== arquivo) {
-          setProgressoAnexo('Preparando anexo…');
-          const grant = await fetch(base + '/anexos', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nome: arquivo.name, mimeType: arquivo.type, tamanho: arquivo.size }) });
-          const ticket = await grant.json();
-          if (!grant.ok) throw new Error(ticket.erro || 'Não foi possível preparar o anexo.');
-          await new Promise<void>((resolve, reject) => {
-            const xhr = new XMLHttpRequest(); xhr.open('PUT', ticket.url); xhr.timeout = 300000;
-            xhr.setRequestHeader('Content-Type', 'application/octet-stream');
-            xhr.upload.onprogress = e => setProgressoAnexo(e.lengthComputable ? 'Transferindo anexo: ' + Math.round(e.loaded / e.total * 100) + '%' : 'Transferindo anexo…');
-            xhr.onload = () => xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(xhr.responseText || 'Falha ao transferir o anexo. Tente novamente.'));
-            xhr.onerror = () => reject(new Error('A conexão de arquivos falhou. Confira a internet e tente novamente.'));
-            xhr.ontimeout = () => reject(new Error('A transferência demorou demais. Tente novamente.'));
-            xhr.send(arquivo);
-          });
-          anexoEnviado.current = { arquivo, token: ticket.token };
+          anexoEnviado.current = { arquivo, token: await transferirAnexo(base, arquivo, setProgressoAnexo) };
         }
         form.set('uploadToken', anexoEnviado.current.token);
         setProgressoAnexo('Registrando mensagem…');
@@ -362,6 +351,28 @@ export default function Conversa({ cliente, onVoltar, onDetalhes, onLida, onAssu
       {!carregando && !mensagens.length && <div className="mx-auto mt-10 max-w-md rounded-2xl border border-line bg-surface p-6 text-center"><h2 className="font-semibold">Comece a conversa</h2><p className="mt-2 text-sm text-muted">Envie uma mensagem abaixo ou use “Sincronizar histórico” para buscar mensagens recentes do WhatsApp.</p></div>}
       <div className="space-y-3">{mensagens.map(m => <article key={m.id} data-mensagem-id={m.id} data-destacada={destacada === m.id ? "true" : undefined} tabIndex={-1} className={`rounded-lg outline-none flex items-start gap-2 ${m.direcao === 'SAIDA' ? 'justify-end' : 'justify-start'}`}>
         <div className={`transition-[filter,box-shadow] duration-300 ${destacada === m.id ? "ring-2 ring-emerald-300 brightness-125" : ""} max-w-[90%] rounded-2xl px-4 py-3 shadow-sm sm:max-w-[75%] ${m.direcao === 'SAIDA' ? 'rounded-tr-sm bg-chat-outgoing' : 'rounded-tl-sm bg-surface'}`}>
+          {podeEnviar && (m.externaId || (!['PENDENTE', 'ENVIANDO'].includes(m.status) && (m.texto || m.midia))) && <div className="mb-1 flex justify-end">
+            <button type="button" aria-label="Opções da mensagem" popoverTarget={`acoes-${m.id}`} disabled={enviando}
+              onClick={event => {
+                const botao = event.currentTarget.getBoundingClientRect();
+                const menu = document.getElementById(`acoes-${m.id}`);
+                if (!menu) return;
+                menu.style.left = `${Math.max(8, Math.min(botao.right - 200, window.innerWidth - 208))}px`;
+                menu.style.top = `${Math.max(8, Math.min(botao.bottom + 4, window.innerHeight - 144))}px`;
+              }} className="rounded p-1 text-secondary hover:bg-foreground/10 disabled:opacity-40">
+              <ChevronDown size={16} aria-hidden="true" />
+            </button>
+            <div id={`acoes-${m.id}`} popover="auto" className="fixed inset-auto m-0 w-[200px] rounded-lg border border-line bg-surface p-1 text-foreground shadow-lg">
+              {m.externaId && <button type="button" onClick={event => {
+                event.currentTarget.parentElement?.hidePopover();
+                setResponder(m); pedido.current = null; entradaTexto.current?.focus();
+              }} className="flex w-full items-center gap-2 rounded px-2 py-2 text-left text-sm hover:bg-surface-muted"><Reply size={16} />Responder</button>}
+              {(m.texto || m.midia) && !['PENDENTE', 'ENVIANDO'].includes(m.status) && <button type="button" onClick={event => {
+                event.currentTarget.parentElement?.hidePopover();
+                setEncaminhar(m);
+              }} className="flex w-full items-center gap-2 rounded px-2 py-2 text-left text-sm hover:bg-surface-muted"><Forward size={16} />Encaminhar</button>}
+            </div>
+          </div>}
           {m.citacao && <button type="button" onClick={() => void irParaCitacao(m)} title="Ir para a mensagem original" className="mb-2 block w-full max-w-full cursor-pointer text-left hover:bg-black/30 focus-visible:outline-2 focus-visible:outline-emerald-300 rounded border-l-4 border-emerald-400 bg-black/20 px-3 py-2 text-xs" aria-label="Mensagem citada">
             <p className="mb-1 font-semibold text-success-ink">{m.citacao.direcao === 'SAIDA' ? 'Empresa' : m.citacao.direcao === 'ENTRADA' ? cliente.nome : 'Mensagem original'}</p>
             <p className="line-clamp-3 whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{resumo(m.citacao)}</p>
@@ -373,9 +384,10 @@ export default function Conversa({ cliente, onVoltar, onDetalhes, onLida, onAssu
           <div className="mt-2 flex flex-wrap justify-end gap-2 text-[11px] text-muted"><time>{new Date(m.enviadoEm).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</time>
             {m.direcao === 'SAIDA' && <span className={m.status === 'LIDA' ? 'text-info-ink' : m.status === 'FALHOU' || m.status === 'INCERTO' ? 'text-warning-ink' : ''}>{m.autor?.colaborador?.nome ? m.autor.colaborador.nome + ' · ' : ''}{status[m.status] || m.status}</span>}</div>
         </div>
-        {m.externaId && podeEnviar && <button type="button" disabled={enviando} aria-label="Responder esta mensagem" title="Responder" onClick={() => { setResponder(m); pedido.current = null; entradaTexto.current?.focus(); }} className="shrink-0 rounded-full p-2 text-secondary hover:bg-foreground/10 disabled:opacity-40"><Reply size={17} /></button>}
       </article>)}</div>
     </div>
+    {encaminhar && <EncaminharMensagem original={encaminhar} origem={cliente.id} onFechar={() => setEncaminhar(null)}
+      onEnfileirar={destino => { setErro(''); setAviso(`Mensagem colocada na fila para ${destino}.`); }} />}
     {(contexto || longeDoFim) && <div className="relative h-0 shrink-0">
       <button type="button" aria-label="Voltar às mensagens recentes" title="Voltar às mensagens recentes"
         onClick={() => { lista.current?.focus({ preventScroll: true }); void voltarAoFim(); }}
