@@ -2,10 +2,12 @@
 
 import { FileText, X } from 'lucide-react';
 import { useRef, useState } from 'react';
+import AnexoPdf from '../AnexoPdf';
 
 export default function AnexoInterno({ url, anexo }: { url: string; anexo: { nome: string; mimeType: string } }) {
   const dialogo = useRef<HTMLDialogElement>(null);
   const [aberto, setAberto] = useState(false);
+  if (anexo.mimeType === 'application/pdf') return <AnexoPdf key={url} url={url} nome={anexo.nome} />;
   if (anexo.mimeType.startsWith('audio/')) return <audio controls preload="none" src={url} aria-label="Áudio da mensagem" className="w-64 max-w-full" />;
   if (anexo.mimeType.startsWith('video/')) return <video controls playsInline preload="metadata" src={url} className="max-h-64 max-w-full rounded-lg" />;
   if (!anexo.mimeType.startsWith('image/')) return <a href={url + '&baixar=1'} className="flex items-center gap-2 text-sm underline">

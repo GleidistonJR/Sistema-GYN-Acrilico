@@ -36,7 +36,9 @@ function PaginaPdf({ documento, numero, tamanho }: { documento: PDFDocumentProxy
   </>;
 }
 
-export default function AnexoPdf({ base, nome }: { base: string; nome: string }) {
+export default function AnexoPdf({ url, nome, usarLinkTemporario = false }: {
+  url: string; nome: string; usarLinkTemporario?: boolean;
+}) {
   const cartao = useRef<HTMLDivElement>(null);
   const modal = useRef<HTMLDialogElement>(null);
   const [visivel, setVisivel] = useState(false);
@@ -60,13 +62,16 @@ export default function AnexoPdf({ base, nome }: { base: string; nome: string })
     const controller = new AbortController();
     let tarefa: PDFDocumentLoadingTask | undefined;
     async function carregar() {
-      const resposta = await fetch(`${base}?link=1`, { signal: controller.signal });
-      if (!resposta.ok) throw new Error('PDF indisponível');
-      const { url } = await resposta.json();
+      let origem = url;
+      if (usarLinkTemporario) {
+        const resposta = await fetch(`${url}?link=1`, { signal: controller.signal });
+        if (!resposta.ok) throw new Error('PDF indisponível');
+        origem = (await resposta.json()).url;
+      }
       const pdfjs = await import('pdfjs-dist');
       if (controller.signal.aborted) return;
       pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
-      tarefa = pdfjs.getDocument({ url, isEvalSupported: false });
+      tarefa = pdfjs.getDocument({ url: origem, isEvalSupported: false });
       const pdf = await tarefa.promise;
       if (!controller.signal.aborted) setDocumento(pdf);
     }
@@ -77,7 +82,7 @@ export default function AnexoPdf({ base, nome }: { base: string; nome: string })
       controller.abort();
       void tarefa?.destroy().catch(() => {});
     };
-  }, [base, tentativa, visivel]);
+  }, [url, usarLinkTemporario, tentativa, visivel]);
 
   function tentarNovamente() {
     setFalhou(false);
@@ -96,13 +101,16 @@ export default function AnexoPdf({ base, nome }: { base: string; nome: string })
       <span className="block px-3 pb-2 text-xs underline">{falhou ? 'Abrir PDF · prévia indisponível' : 'Abrir PDF'}</span>
     </button>
 
-    <dialog ref={modal} aria-label={nome} onClose={() => setAberto(false)} onClick={event => {
+    <dialog ref={modal} aria-label={nome} onClose={event => {
+      event.stopPropagation();
+      setAberto(false);
+    }} onClick={event => {
       if (event.target === event.currentTarget) event.currentTarget.close();
     }} className="m-auto w-[min(94vw,56rem)] rounded-xl bg-surface text-foreground backdrop:bg-black/80">
       <div className="flex max-h-[92dvh] flex-col">
         <header className="flex flex-wrap items-center gap-3 border-b border-foreground/15 px-4 py-3">
           <p className="min-w-0 flex-1 break-all text-sm font-semibold">{nome}</p>
-          <a href={`${base}?baixar=1`} target="_blank" rel="noopener noreferrer" className="text-sm underline">Baixar PDF</a>
+          <a href={`${url}${url.includes('?') ? '&' : '?'}baixar=1`} target="_blank" rel="noopener noreferrer" className="text-sm underline">Baixar PDF</a>
           <button type="button" autoFocus onClick={() => modal.current?.close()} className="rounded-md bg-foreground/10 px-3 py-1 text-sm font-semibold">Fechar</button>
         </header>
         {aberto && <div className="min-h-24 overflow-auto p-3">
