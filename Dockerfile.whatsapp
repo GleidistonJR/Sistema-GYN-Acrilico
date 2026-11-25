@@ -1,0 +1,24 @@
+FROM cloudflare/cloudflared:2026.11.0 AS tunnel
+FROM node:22-bookworm-slim
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates chromium ffmpeg openssl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=tunnel /usr/local/bin/cloudflared /usr/local/bin/cloudflared
+WORKDIR /app
+COPY package.json package-lock.json ./
+COPY prisma/schema.prisma prisma/schema.prisma
+RUN CI=true PUPPETEER_SKIP_DOWNLOAD=true npm ci --omit=dev --ignore-scripts \
+    && npm exec --yes --package=prisma@5.22.0 -- prisma generate
+COPY scripts/ scripts/
+COPY lib/whatsapp/ lib/whatsapp/
+
+ENV WHATSAPP_BROWSER_PATH=/usr/bin/chromium \
+    WHATSAPP_CHROMIUM_CONTAINER=1 \
+    WHATSAPP_CLOUDFLARED_PATH=/usr/local/bin/cloudflared \
+    WHATSAPP_SESSION_PATH=/var/lib/gyn-whatsapp \
+    FFMPEG_PATH=/usr/bin/ffmpeg
+RUN install -d -o node -g node /var/lib/gyn-whatsapp
+USER node
+CMD ["node", "scripts/whatsapp-server.mjs"]

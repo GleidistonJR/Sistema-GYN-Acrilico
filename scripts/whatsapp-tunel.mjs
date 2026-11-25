@@ -9,7 +9,9 @@ export function iniciarTunel(prisma) {
   function start() {
     if (stopped) return;
     url = null;
-    child = spawn(path.join(sessionPath, 'bin', 'cloudflared.exe'), ['tunnel', '--no-autoupdate', '--url', 'http://127.0.0.1:3002', '--protocol', 'http2', '--edge-ip-version', '4'], { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    const executavel = process.env.WHATSAPP_CLOUDFLARED_PATH
+      || (process.platform === 'win32' ? path.join(sessionPath, 'bin', 'cloudflared.exe') : 'cloudflared');
+    child = spawn(executavel, ['tunnel', '--no-autoupdate', '--url', 'http://127.0.0.1:3002', '--protocol', 'http2', '--edge-ip-version', '4'], { windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
     let text = '';
     const output = chunk => {
       text = (text + chunk.toString()).slice(-8000);

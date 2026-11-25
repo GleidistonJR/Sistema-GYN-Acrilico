@@ -29,6 +29,7 @@ const { LocalAuth } = whatsapp;
 const token = process.env.WHATSAPP_BRIDGE_TOKEN;
 if (!token || token.length < 32) throw new Error('Configure WHATSAPP_BRIDGE_TOKEN com pelo menos 32 caracteres.');
 const port = Number(process.env.WHATSAPP_BRIDGE_PORT || 3001);
+const host = process.env.WHATSAPP_BRIDGE_HOST || '127.0.0.1';
 const dataPath = sessionPath;
 const executablePath = [
   process.env.WHATSAPP_BROWSER_PATH,
@@ -103,7 +104,11 @@ async function connect() {
     await destroyCurrent();
     const instance = new WhatsAppClient({
       authStrategy: new LocalAuth({ clientId: 'empresa', dataPath }),
-      puppeteer: { headless: true, ...(executablePath ? { executablePath } : {}) },
+      puppeteer: {
+        headless: true,
+        ...(executablePath ? { executablePath } : {}),
+        ...(process.env.WHATSAPP_CHROMIUM_CONTAINER === '1' ? { args: ['--no-sandbox', '--disable-dev-shm-usage'] } : {}),
+      },
       webVersionCache: { type: 'local', path: path.join(dataPath, 'cache') },
       authTimeoutMs: 60000,
       qrMaxRetries: 0,
@@ -249,9 +254,9 @@ const server = http.createServer((req, res) => {
 });
 server.requestTimeout = 10000;
 server.headersTimeout = 10000;
-server.listen(port, '127.0.0.1', () => {
+server.listen(port, host, () => {
   void servidorMidia.start().then(() => { pararTunel = iniciarTunel(prisma); }).catch(() => console.error('Não foi possível abrir o serviço de arquivos.'));
-  console.log(`Serviço WhatsApp disponível em 127.0.0.1:${port}`);
+  console.log(`Serviço WhatsApp disponível em ${host}:${port}`);
   // Restore only an existing profile. A first-time QR is requested from the admin screen.
   if (existsSync(path.join(dataPath, 'session-empresa'))) void connect();
 });
