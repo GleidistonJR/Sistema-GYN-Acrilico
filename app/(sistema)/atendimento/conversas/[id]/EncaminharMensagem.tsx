@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { transferirAnexo } from './transferirAnexo';
 
 type Contato = { id: string; nome: string; telefone: string | null };
 type Original = { id: string; texto: string; tipo: string; direcao: string; midia: { nome: string; mimeType: string } | null };
@@ -60,15 +59,14 @@ export default function EncaminharMensagem({ original, origem, onFechar, onEnfil
       const tentativa = envio.current;
       const base = '/api/atendimento/' + encodeURIComponent(destino.id);
       if (original.midia && !tentativa.token) {
-        setProgresso('Buscando anexo original…');
-        const link = await fetch('/api/atendimento/midia/' + encodeURIComponent(original.id) + '?link=1');
-        const dados = await link.json();
-        if (!link.ok) throw new Error(dados.erro || 'Anexo original indisponível.');
-        const resposta = await fetch(dados.url, { referrerPolicy: 'no-referrer' });
-        if (!resposta.ok) throw new Error('Não foi possível obter o anexo original. Tente novamente.');
-        const bytes = await resposta.blob();
-        const tipo = bytes.type && bytes.type !== 'application/octet-stream' ? bytes.type : original.midia.mimeType;
-        tentativa.token = await transferirAnexo(base, new File([bytes], original.midia.nome, { type: tipo }), setProgresso);
+        setProgresso('Preparando anexo original…');
+        const resposta = await fetch(base + '/anexos', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mensagemOrigemId: original.id }),
+        });
+        const dados = await resposta.json();
+        if (!resposta.ok) throw new Error(dados.erro || 'Não foi possível preparar o anexo original.');
+        tentativa.token = dados.token;
       }
       const texto = original.direcao === 'SAIDA' ? original.texto.replace(/^\*[^*\r\n]{1,40}:\*(?:\n|$)/, '') : original.texto;
       const form = new FormData();
@@ -86,7 +84,7 @@ export default function EncaminharMensagem({ original, origem, onFechar, onEnfil
       onEnfileirar(destino.nome);
       modal.current?.close();
     } catch (falha) {
-      setErro(falha instanceof Error ? falha.message : 'Não foi possível encaminhar.');
+      setErro(falha instanceof Error && !(falha instanceof TypeError) ? falha.message : 'Não foi possível encaminhar. Confira a conexão e tente novamente.');
     } finally {
       ocupado.current = false;
       setProgresso('');
