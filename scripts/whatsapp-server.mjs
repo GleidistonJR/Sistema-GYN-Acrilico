@@ -110,6 +110,7 @@ async function connect() {
         ...(process.env.WHATSAPP_CHROMIUM_CONTAINER === '1' ? { args: ['--no-sandbox', '--disable-dev-shm-usage'] } : {}),
       },
       webVersionCache: { type: 'local', path: path.join(dataPath, 'cache') },
+      ...(process.env.WHATSAPP_WEB_VERSION ? { webVersion: process.env.WHATSAPP_WEB_VERSION } : {}),
       authTimeoutMs: 60000,
       qrMaxRetries: 0,
       takeoverOnConflict: false,
