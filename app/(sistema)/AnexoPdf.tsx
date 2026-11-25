@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { Download } from 'lucide-react';
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
 
 function PaginaPdf({ documento, numero, tamanho }: { documento: PDFDocumentProxy; numero: number; tamanho: number }) {
@@ -104,7 +105,11 @@ export default function AnexoPdf({ url, nome, urlVisualizacao = url }: {
       <div className="flex max-h-[92dvh] flex-col">
         <header className="flex flex-wrap items-center gap-3 border-b border-foreground/15 px-4 py-3">
           <p className="min-w-0 flex-1 break-all text-sm font-semibold">{nome}</p>
-          <a href={`${url}${url.includes('?') ? '&' : '?'}baixar=1`} target="_blank" rel="noopener noreferrer" className="text-sm underline">Baixar PDF</a>
+          <a href={`${url}${url.includes('?') ? '&' : '?'}baixar=1`} target="_blank" rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-sm underline">
+            <Download size={16} aria-hidden="true" />
+            Baixar PDF
+          </a>
           <button type="button" autoFocus onClick={() => modal.current?.close()} className="rounded-md bg-foreground/10 px-3 py-1 text-sm font-semibold">Fechar</button>
         </header>
         {aberto && <div className="min-h-24 overflow-auto p-3">
