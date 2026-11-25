@@ -42,14 +42,18 @@ export async function avisosChatInterno(eu: string) {
     colegaId: string; nome: string; mensagemId: number; recebidaEm: Date; previa: string;
   }>>`
     WITH pendentes AS (
-      SELECT DISTINCT ON ("remetenteChave") id, "remetenteChave", "criadaEm", texto
+      SELECT DISTINCT ON ("remetenteChave") id, "remetenteChave", "criadaEm", texto, "anexoMime"
       FROM "MensagemInterna"
       WHERE "destinatarioChave" = ${eu} AND "lidaEm" IS NULL
       ORDER BY "remetenteChave", id DESC
     )
     SELECT m."remetenteChave" AS "colegaId", COALESCE(c.nome, 'Acesso avulso revogado') AS nome,
       m.id AS "mensagemId", m."criadaEm" AS "recebidaEm",
-      LEFT(BTRIM(REGEXP_REPLACE(m.texto, '[[:space:]]+', ' ', 'g')), 120) AS previa
+      COALESCE(NULLIF(LEFT(BTRIM(REGEXP_REPLACE(m.texto, '[[:space:]]+', ' ', 'g')), 120), ''),
+        CASE WHEN m."anexoMime" LIKE 'audio/%' THEN 'Enviou um áudio.'
+          WHEN m."anexoMime" LIKE 'image/%' THEN 'Enviou uma foto.'
+          WHEN m."anexoMime" LIKE 'video/%' THEN 'Enviou um vídeo.'
+          ELSE 'Enviou um arquivo.' END) AS previa
     FROM pendentes m LEFT JOIN (${contatosChat}) c ON c.id = m."remetenteChave"
   `;
 }

@@ -27,10 +27,11 @@ async function criarConta(role, nome, pessoal = true) {
     colaboradorId: conta.colaborador?.id,
     chave: conta.colaborador ? String(conta.colaborador.id) : 'avulso-' + id,
     acessar(path, method = 'GET', body) {
+      const multipart = body instanceof FormData;
       return fetch(base + path, {
         method, redirect: 'manual',
-        headers: { Cookie: 'sessao_segura=' + token, Origin: base, 'Content-Type': 'application/json' },
-        body: body === undefined ? undefined : JSON.stringify(body),
+        headers: { Cookie: 'sessao_segura=' + token, Origin: base, ...(multipart ? {} : { 'Content-Type': 'application/json' }) },
+        body: multipart || body === undefined ? body : JSON.stringify(body),
       });
     },
   };
@@ -90,6 +91,32 @@ try {
   await prisma.colaborador.update({ where: { id: admin.colaboradorId }, data: { inativadoEm: new Date() } });
   assert.equal((await vendedor.acessar(paraAdmin, 'POST', { ...envio, pedidoId: randomUUID() })).status, 404);
   assert.equal((await (await vendedor.acessar(paraAdmin)).json()).mensagens.length, 2);
+
+  const pdf = new FormData();
+  const bytes = Buffer.from('%PDF-1.7\n% Arquivo de validação\n%%EOF');
+  pdf.set('arquivo', new Blob([bytes], { type: 'application/pdf' }), 'Validação.pdf');
+  pdf.set('pedidoId', randomUUID());
+  pdf.set('citacaoId', String(mensagem.id));
+  const envioPdf = await vendedor.acessar(paraProducao, 'POST', pdf);
+  assert.equal(envioPdf.status, 404, 'Citação de outra conversa deve ser rejeitada');
+  pdf.delete('citacaoId');
+  const respostaPdf = await vendedor.acessar(paraProducao, 'POST', pdf);
+  assert.equal(respostaPdf.status, 201, await respostaPdf.clone().text());
+  const mensagemPdf = await respostaPdf.json();
+  assert.equal(mensagemPdf.anexo.nome, 'Validação.pdf');
+  assert.equal((await (await vendedor.acessar(paraProducao, 'POST', pdf)).json()).id, mensagemPdf.id);
+  const arquivo = await producao.acessar(paraVendedor + '?arquivo=' + mensagemPdf.id);
+  assert.equal(arquivo.status, 200);
+  assert.deepEqual(Buffer.from(await arquivo.arrayBuffer()), bytes);
+  assert.equal((await outro.acessar(paraVendedor + '?arquivo=' + mensagemPdf.id)).status, 404);
+  assert.equal((await outro.acessar(paraVendedor + '?alvo=' + mensagemPdf.id)).status, 404);
+  const respostaComCitacao = await producao.acessar(paraVendedor, 'POST',
+    { texto: 'Recebi o PDF', citacaoId: mensagemPdf.id, pedidoId: randomUUID() });
+  assert.equal(respostaComCitacao.status, 201);
+  assert.equal((await respostaComCitacao.json()).citacao.id, mensagemPdf.id);
+  const contexto = await producao.acessar(paraVendedor + '?alvo=' + mensagemPdf.id);
+  assert.ok((await contexto.json()).mensagens.some(item => item.id === mensagemPdf.id));
+
   console.log('Chat interno validado: acesso, privacidade, reenvio, avisos, leitura e histórico.');
 } finally {
   await prisma.colaborador.deleteMany({ where: { id: { in: usuarios.flatMap(u => u.colaboradorId ?? []) } } });

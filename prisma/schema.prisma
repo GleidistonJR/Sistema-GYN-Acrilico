@@ -36,6 +36,12 @@ model MensagemInterna {
   texto String @db.VarChar(4000)
   criadaEm DateTime @default(now())
   lidaEm DateTime?
+  citacaoId Int?
+  anexoNome String?
+  anexoMime String?
+  anexoDados Bytes?
+  citacao MensagemInterna? @relation("CitacaoInterna", fields: [citacaoId], references: [id], onDelete: SetNull)
+  respostas MensagemInterna[] @relation("CitacaoInterna")
   remetente Colaborador? @relation("RemetenteInterno", fields: [remetenteId], references: [id], onDelete: Cascade)
   destinatario Colaborador? @relation("DestinatarioInterno", fields: [destinatarioId], references: [id], onDelete: Cascade)
 
@@ -45,6 +51,7 @@ model MensagemInterna {
   @@index([remetenteChave, destinatarioChave, id])
   @@index([destinatarioChave, lidaEm, remetenteChave, id])
   @@unique([remetenteChave, pedidoId])
+  @@index([citacaoId])
 }
 
 model Ponto {
