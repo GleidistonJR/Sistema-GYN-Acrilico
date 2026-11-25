@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import AnexoPdf from './AnexoPdf';
 
 type Midia = { nome: string; mimeType: string; preparadaEm: string | null };
 
@@ -26,6 +27,8 @@ export default function AnexoMensagem({ id, midia }: { id: string; midia: Midia 
     setAberto(true);
     if (imagem) modal.current?.showModal();
   }
+
+  if (midia.mimeType.split(';')[0].toLowerCase() === 'application/pdf') return <AnexoPdf key={id} base={base} nome={midia.nome} />;
 
   if (!imagem && !video && !audio) return <div className="mb-2 max-w-sm">
     <p className="break-all text-sm font-semibold">{midia.nome}</p>
