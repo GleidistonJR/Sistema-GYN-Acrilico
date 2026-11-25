@@ -97,8 +97,8 @@ export default function PainelConexao() {
         </ol>
       </section>
       <section className="rounded-2xl border border-info-line bg-info-soft p-6 text-foreground">
-        <h2 className="font-semibold">Mantenha este computador ligado</h2>
-        <p className="mt-3 text-sm leading-relaxed text-subtle">A conexão funciona pelo serviço instalado neste computador. A sessão é salva para reconectar ao reiniciar o serviço.</p>
+        <h2 className="font-semibold">Conexão no servidor</h2>
+        <p className="mt-3 text-sm leading-relaxed text-subtle">O serviço do WhatsApp roda na VPS. A sessão fica salva no servidor para reconectar após reiniciar.</p>
         <p className="mt-3 text-sm leading-relaxed text-subtle">Com o aparelho conectado, abra um cliente em Atendimento para visualizar e enviar mensagens e anexos. As respostas automáticas ainda não estão ativas.</p>
       </section>
       <p className="px-1 text-xs leading-relaxed text-muted">Conexão via WhatsApp Web, usando uma integração não oficial. A conexão pode exigir novo pareamento quando o WhatsApp mudar.</p>

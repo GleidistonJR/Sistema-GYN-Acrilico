@@ -13,7 +13,7 @@ export async function GET() {
     return Response.json(await chamarWhatsApp('status'), { headers });
   } catch {
     return Response.json({ status: 'indisponivel', qr: null, numero: null,
-      mensagem: 'O serviço do WhatsApp está indisponível. Confira se o computador da empresa está ligado e com internet, depois tente reconectar.', atualizadoEm: new Date().toISOString(),
+      mensagem: 'O serviço do WhatsApp está indisponível no momento. Tente reconectar em instantes.', atualizadoEm: new Date().toISOString(),
     }, { status: 503, headers });
   }
 }
