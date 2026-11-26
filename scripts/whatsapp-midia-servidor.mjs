@@ -12,16 +12,16 @@ import { caminhoArquivo, salvarArquivo, limparArquivos, espacoDisponivel, caminh
 import { obterMidiaWhatsApp, prepararMidiaRecente } from './whatsapp-previas.mjs';
 
 export function criarServidorMidia({ prisma, getClient, port = 3002 }) {
-  let uploading = false, downloading = false;
+  let uploading = false;
   const locks = new Set();
   const cache = new Map();
+  const buscas = new Map();
   const novasTentativas = new Map();
   let preparando = false;
-  let downloadPrevia;
 
   async function prepararProximo() {
     const conexao = getClient();
-    if (!conexao || downloading || preparando) return;
+    if (!conexao || buscas.size || preparando) return;
     preparando = true;
     try {
       for (const [id, prazo] of novasTentativas) if (prazo <= Date.now()) novasTentativas.delete(id);
@@ -34,7 +34,7 @@ export function criarServidorMidia({ prisma, getClient, port = 3002 }) {
         select: { id: true, enviadoEm: true, externaId: true, direcao: true,
           arquivo: { select: { chave: true, tamanho: true } }, midia: { select: { nome: true, mimeType: true } } },
       });
-      if (!mensagem || downloading) return;
+      if (!mensagem || buscas.size) return;
       try {
         const { arquivo, midia: metadados } = mensagem;
         if (mensagem.direcao === 'SAIDA' && arquivo) {
@@ -51,15 +51,7 @@ export function criarServidorMidia({ prisma, getClient, port = 3002 }) {
             return;
           }
         }
-        downloading = true;
-        let midia;
-        try {
-          downloadPrevia = obterMidiaWhatsApp(conexao.client, mensagem.externaId, { somenteRecente: true, mimeType: mensagem.midia.mimeType });
-          midia = await downloadPrevia;
-        } finally {
-          downloadPrevia = undefined;
-          downloading = false;
-        }
+        const midia = await obterMidiaWhatsApp(conexao.client, mensagem.externaId, { somenteRecente: true });
         if (midia) {
           await prepararMidiaRecente(prisma, mensagem, midia.dados, midia.mimeType, nomeArquivo(midia.nome || mensagem.midia.nome));
         } else {
@@ -126,7 +118,7 @@ export function criarServidorMidia({ prisma, getClient, port = 3002 }) {
         return;
       }
       if (req.method !== 'GET' || p.acao !== 'download') { res.writeHead(405); res.end(); return; }
-      const [m] = await prisma.$queryRaw`SELECT m."externaId", m.conta, m."clienteId", m."enviadoEm", a.nome, a."mimeType", a.dados, f.chave
+      const [m] = await prisma.$queryRaw`SELECT m."externaId", m.conta, m."clienteId", m."enviadoEm", a.nome, a."mimeType", octet_length(a.dados) AS bytes, f.chave
         FROM "MensagemWhatsApp" m JOIN "MidiaWhatsApp" a ON a."mensagemId" = m.id
         LEFT JOIN "ArquivoWhatsApp" f ON f."mensagemId" = m.id WHERE m.id = ${p.mensagemId} AND m."clienteId" = ${p.clienteId}`;
       if (!m) { res.writeHead(404); res.end(); return; }
@@ -140,8 +132,9 @@ export function criarServidorMidia({ prisma, getClient, port = 3002 }) {
         file = recent.path; mime = recent.mime; name = recent.name;
       }
       // Older attachments remain readable; no file bytes travel through Vercel.
-      if (!file && m.dados?.length) {
-        await salvarArquivo(p.mensagemId, m.dados);
+      if (!file && m.bytes) {
+        const { dados } = await prisma.midiaWhatsApp.findUniqueOrThrow({ where: { mensagemId: p.mensagemId }, select: { dados: true } });
+        await salvarArquivo(p.mensagemId, dados);
         file = caminhoArquivo(p.mensagemId);
         cache.set(p.mensagemId, { path: file, mime, name, until: Date.now() + 600000 });
       }
@@ -149,22 +142,26 @@ export function criarServidorMidia({ prisma, getClient, port = 3002 }) {
         let cached = cache.get(p.mensagemId);
         if (cached && cached.until < Date.now()) { cache.delete(p.mensagemId); cached = null; }
         if (!cached) {
-          if (downloadPrevia) await downloadPrevia.catch(() => {});
           const connection = getClient();
           if (!connection || connection.conta !== m.conta) throw new Error('O WhatsApp da empresa está desconectado.');
           if (!m.externaId) throw new Error('Este anexo ainda não foi enviado ou o arquivo temporário expirou.');
-          if (downloading) { res.writeHead(429); res.end('Outro arquivo está sendo preparado. Tente novamente em alguns segundos.'); return; }
-          downloading = true;
-          try {
-            const { dados: data, mimeType, nome } = await obterMidiaWhatsApp(connection.client, m.externaId);
-            if (mimeType === m.mimeType) file = await guardarOriginalRecente(p.mensagemId, data, m.enviadoEm);
-            if (!file) {
-              await espacoDisponivel(data.length);
-              await salvarArquivo(p.mensagemId, data);
-            }
-            cached = { path: file || caminhoArquivo(p.mensagemId), mime: mimeType, name: nomeArquivo(nome || m.nome), until: Date.now() + 600000 };
-            if (!file) cache.set(p.mensagemId, cached);
-          } finally { downloading = false; }
+          let busca = buscas.get(p.mensagemId);
+          if (!busca) {
+            if (buscas.size) { res.writeHead(429); res.end('Outro arquivo está sendo preparado. Tente novamente em alguns segundos.'); return; }
+            busca = (async () => {
+              const { dados: data, mimeType, nome } = await obterMidiaWhatsApp(connection.client, m.externaId);
+              const retido = mimeType === m.mimeType ? await guardarOriginalRecente(p.mensagemId, data, m.enviadoEm) : null;
+              if (!retido) {
+                await espacoDisponivel(data.length);
+                await salvarArquivo(p.mensagemId, data);
+              }
+              const item = { path: retido || caminhoArquivo(p.mensagemId), mime: mimeType, name: nomeArquivo(nome || m.nome), until: Date.now() + 600000 };
+              if (!retido) cache.set(p.mensagemId, item);
+              return item;
+            })().finally(() => buscas.delete(p.mensagemId));
+            buscas.set(p.mensagemId, busca);
+          }
+          cached = await busca;
         }
         file = cached.path; mime = cached.mime; name = cached.name;
       }

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Download } from 'lucide-react';
+import BaixarAnexo from './BaixarAnexo';
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
 
 function PaginaPdf({ documento, numero, tamanho }: { documento: PDFDocumentProxy; numero: number; tamanho: number }) {
@@ -37,8 +38,8 @@ function PaginaPdf({ documento, numero, tamanho }: { documento: PDFDocumentProxy
   </>;
 }
 
-export default function AnexoPdf({ url, nome, urlVisualizacao = url }: {
-  url: string; nome: string; urlVisualizacao?: string;
+export default function AnexoPdf({ url, nome, urlVisualizacao = url, sobDemanda = false }: {
+  url: string; nome: string; urlVisualizacao?: string; sobDemanda?: boolean;
 }) {
   const cartao = useRef<HTMLDivElement>(null);
   const modal = useRef<HTMLDialogElement>(null);
@@ -50,13 +51,13 @@ export default function AnexoPdf({ url, nome, urlVisualizacao = url }: {
   const [falhou, setFalhou] = useState(false);
 
   useEffect(() => {
-    if (visivel || !cartao.current) return;
+    if (sobDemanda || visivel || !cartao.current) return;
     const observer = new IntersectionObserver(entries => {
       if (entries.some(entry => entry.isIntersecting)) setVisivel(true);
     });
     observer.observe(cartao.current);
     return () => observer.disconnect();
-  }, [visivel]);
+  }, [sobDemanda, visivel]);
 
   useEffect(() => {
     if (!visivel) return;
@@ -95,6 +96,7 @@ export default function AnexoPdf({ url, nome, urlVisualizacao = url }: {
       <span className="block break-words px-3 py-2 text-sm font-semibold">{nome}</span>
       <span className="block px-3 pb-2 text-xs underline">{falhou ? 'Abrir PDF · prévia indisponível' : 'Abrir PDF'}</span>
     </button>
+    {sobDemanda && <div className="mt-1"><BaixarAnexo url={url} nome={nome} rotulo="Baixar PDF" /></div>}
 
     <dialog ref={modal} aria-label={nome} onClose={event => {
       event.stopPropagation();
@@ -105,11 +107,11 @@ export default function AnexoPdf({ url, nome, urlVisualizacao = url }: {
       <div className="flex max-h-[92dvh] flex-col">
         <header className="flex flex-wrap items-center gap-3 border-b border-foreground/15 px-4 py-3">
           <p className="min-w-0 flex-1 break-all text-sm font-semibold">{nome}</p>
-          <a href={`${url}${url.includes('?') ? '&' : '?'}baixar=1`} target="_blank" rel="noopener noreferrer"
+          {sobDemanda ? <BaixarAnexo url={url} nome={nome} rotulo="Baixar PDF" /> : <a href={`${url}${url.includes('?') ? '&' : '?'}baixar=1`} target="_blank" rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 text-sm underline">
             <Download size={16} aria-hidden="true" />
             Baixar PDF
-          </a>
+          </a>}
           <button type="button" autoFocus onClick={() => modal.current?.close()} className="rounded-md bg-foreground/10 px-3 py-1 text-sm font-semibold">Fechar</button>
         </header>
         {aberto && <div className="min-h-24 overflow-auto p-3">

@@ -50,13 +50,14 @@ export async function prepararMidiaRecente(prisma, mensagem, dados, mimeType, no
   });
 }
 
-export async function obterMidiaWhatsApp(client, externaId, { somenteRecente = false, mimeType = '' } = {}) {
+export async function obterMidiaWhatsApp(client, externaId, { somenteRecente = false } = {}) {
   const message = await client.getMessageById(externaId);
   const tamanho = Number(message?.rawData?.size);
-  if (somenteRecente && (tamanho > LIMITE_MIDIA || (tamanho > LIMITE_ORIGINAL_RETIDO && !/^(image|video)\//.test(mimeType)))) return null;
+  if (somenteRecente && (!(tamanho > 0) || tamanho > LIMITE_ORIGINAL_RETIDO)) return null;
   if (tamanho > LIMITE_MIDIA) throw new Error('Este arquivo ultrapassa o limite de 90 MB.');
   const media = await message?.downloadMedia();
   if (!media?.data) throw new Error('O WhatsApp não disponibiliza mais este arquivo. Peça ao cliente para reenviar.');
+  if (somenteRecente && media.data.length > Math.ceil(LIMITE_ORIGINAL_RETIDO * 4 / 3) + 4) return null;
   if (media.data.length > Math.ceil(LIMITE_MIDIA * 4 / 3) + 4) throw new Error('Este arquivo ultrapassa o limite de 90 MB.');
   return { dados: Buffer.from(media.data, 'base64'), mimeType: media.mimetype.split(';')[0], nome: media.filename };
 }
