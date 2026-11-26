@@ -1,19 +1,21 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowLeft, MessageSquare, Paperclip, Reply, Send, X } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState, type ClipboardEvent, type FormEvent } from 'react';
-import { FORMATOS_ANEXO_INTERNO, LIMITE_ANEXO_INTERNO } from '@/lib/chat-interno-midia';
+import { ArrowLeft, ChevronDown, Download, Forward, MessageSquare, Paperclip, Reply, Send, Trash2, X } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState, type ClipboardEvent, type FormEvent, type ReactNode } from 'react';
+import { EXTENSOES_DOCUMENTO_INTERNO, FORMATOS_ANEXO_INTERNO, LIMITE_ANEXO_INTERNO } from '@/lib/chat-interno-midia';
 import GravarAudio from '../atendimento/conversas/[id]/GravarAudio';
 import AnexoInterno from './AnexoInterno';
+import BaixarAnexo from '../BaixarAnexo';
+import { acompanharTransferencia } from '../progressoTransferencia';
 
 export type Colega = { id: string; nome: string; disponivel: boolean; perfil: string | null };
 type Mensagem = {
-  id: number; remetenteId: string; texto: string; criadaEm: string;
-  anexo?: { nome: string; mimeType: string } | null;
+  id: number; remetenteId: string; texto: string; criadaEm: string; apagadaEm?: string | null; encaminhada?: boolean;
+  anexo?: { nome: string; mimeType: string; tamanho?: number } | null;
   citacao?: { id: number; remetenteId: string; texto: string } | null;
 };
-type Historico = { mensagens: Mensagem[]; anteriores: boolean };
+type Historico = { mensagens: Mensagem[]; anteriores: boolean; apagadas?: number[] };
 const hora = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Sao_Paulo' });
 const limite = 4000;
 const perfisAvulsos = new Map([['RECEPCAO', 'Recepção'], ['COMERCIAL', 'Comercial'], ['PONTO', 'Ponto e relatórios']]);
@@ -22,6 +24,24 @@ function mesclar(atuais: Mensagem[], novas: Mensagem[]) {
   const ids = new Set(atuais.map(item => item.id));
   const faltantes = novas.filter(item => !ids.has(item.id));
   return faltantes.length ? [...atuais, ...faltantes].sort((a, b) => a.id - b.id) : atuais;
+}
+
+function marcarApagadas(mensagens: Mensagem[], ids: number[]) {
+  if (!ids.length) return mensagens;
+  const apagadas = new Set(ids);
+  let alterou = false;
+  const resultado = mensagens.map(mensagem => {
+    if (!mensagem.apagadaEm && apagadas.has(mensagem.id)) {
+      alterou = true;
+      return { ...mensagem, apagadaEm: new Date().toISOString(), texto: '', anexo: null, citacao: null };
+    }
+    if (mensagem.citacao && apagadas.has(mensagem.citacao.id) && mensagem.citacao.texto !== 'Mensagem apagada') {
+      alterou = true;
+      return { ...mensagem, citacao: { ...mensagem.citacao, texto: 'Mensagem apagada' } };
+    }
+    return mensagem;
+  });
+  return alterou ? resultado : mensagens;
 }
 
 export default function PainelChatInterno({ eu, colegas, colega, pendentesIniciais, onSelecionar }: {
@@ -67,7 +87,7 @@ export default function PainelChatInterno({ eu, colegas, colega, pendentesInicia
         })}
       </div>
     </aside>
-    {colega ? <ConversaInterna key={colega.id} eu={eu} colega={colega} onLida={removerPendente}
+    {colega ? <ConversaInterna key={colega.id} eu={eu} colega={colega} colegas={colegas} onLida={removerPendente}
       onVoltar={onSelecionar ? () => onSelecionar(null) : undefined} /> : (
       <div className="hidden flex-1 flex-col items-center justify-center gap-3 text-muted md:flex">
         <MessageSquare size={32} aria-hidden="true" />
@@ -77,8 +97,8 @@ export default function PainelChatInterno({ eu, colegas, colega, pendentesInicia
   </div>;
 }
 
-function ConversaInterna({ eu, colega, onLida, onVoltar }: {
-  eu: string; colega: Colega; onLida: (id: string) => void; onVoltar?: () => void;
+function ConversaInterna({ eu, colega, colegas, onLida, onVoltar }: {
+  eu: string; colega: Colega; colegas: Colega[]; onLida: (id: string) => void; onVoltar?: () => void;
 }) {
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
   const [anteriores, setAnteriores] = useState(false);
@@ -94,6 +114,15 @@ function ConversaInterna({ eu, colega, onLida, onVoltar }: {
   const [salto, setSalto] = useState<{ id: number } | null>(null);
   const [localizando, setLocalizando] = useState(false);
   const [previewAudio, setPreviewAudio] = useState('');
+  const [progresso, setProgresso] = useState('');
+  const [apagando, setApagando] = useState<number | null>(null);
+  const [encaminhar, setEncaminhar] = useState<Mensagem | null>(null);
+  const [destino, setDestino] = useState('');
+  const [encaminhando, setEncaminhando] = useState(false);
+  const [erroEncaminhar, setErroEncaminhar] = useState('');
+  const modalEncaminhar = useRef<HTMLDialogElement>(null);
+  const pedidoEncaminhar = useRef<string | null>(null);
+  const uploadAtivo = useRef<XMLHttpRequest | null>(null);
   const lista = useRef<HTMLDivElement>(null);
   const campoArquivo = useRef<HTMLInputElement>(null);
   const campoTexto = useRef<HTMLTextAreaElement>(null);
@@ -131,7 +160,12 @@ function ConversaInterna({ eu, colega, onLida, onVoltar }: {
         if (!resposta.ok) throw new Error('Não foi possível atualizar a conversa.');
         const dados: Historico = await resposta.json();
         if (controller.signal.aborted) return;
-        setMensagens(atuais => mesclar(atuais, dados.mensagens));
+        const apagadas = dados.apagadas ?? [];
+        setMensagens(atuais => marcarApagadas(mesclar(atuais, dados.mensagens), apagadas));
+        if (apagadas.length) {
+          setContexto(atual => atual && marcarApagadas(atual, apagadas));
+          setResponder(atual => atual && apagadas.includes(atual.id) ? null : atual);
+        }
         if (!carregou.current) { setAnteriores(dados.anteriores); setErro(''); }
         carregou.current = true;
         setCarregando(false);
@@ -153,6 +187,8 @@ function ConversaInterna({ eu, colega, onLida, onVoltar }: {
       document.removeEventListener('visibilitychange', atualizar);
     };
   }, [base]);
+
+  useEffect(() => () => { uploadAtivo.current?.abort(); }, []);
 
   useEffect(() => {
     const el = lista.current;
@@ -224,11 +260,12 @@ function ConversaInterna({ eu, colega, onLida, onVoltar }: {
     if (campoArquivo.current) campoArquivo.current.value = '';
     if (novo && (!novo.size || novo.size > LIMITE_ANEXO_INTERNO)) {
       setErro('Escolha um arquivo de até 4 MB.');
-      return;
+      return false;
     }
     pedidoRef.current = null;
     setErro('');
     setArquivo(novo);
+    return true;
   }
 
   function colarImagem(evento: ClipboardEvent<HTMLTextAreaElement>) {
@@ -249,9 +286,8 @@ function ConversaInterna({ eu, colega, onLida, onVoltar }: {
     escolherArquivo(imagem);
   }
 
-  async function enviar(evento: FormEvent<HTMLFormElement>) {
-    evento.preventDefault();
-    if (enviandoRef.current || gravando || (!texto.trim() && !arquivo) || !colega.disponivel) return;
+  async function enviar(arquivoSelecionado = arquivo) {
+    if (enviandoRef.current || gravando || (!texto.trim() && !arquivoSelecionado) || !colega.disponivel) return;
     enviandoRef.current = true;
     setEnviando(true);
     setErro('');
@@ -260,11 +296,37 @@ function ConversaInterna({ eu, colega, onLida, onVoltar }: {
       const formulario = new FormData();
       formulario.set('texto', texto);
       formulario.set('pedidoId', pedidoId);
-      if (arquivo) formulario.set('arquivo', arquivo);
+      if (arquivoSelecionado) formulario.set('arquivo', arquivoSelecionado);
       if (responder) formulario.set('citacaoId', String(responder.id));
-      const resposta = await fetch(base, { method: 'POST', body: formulario });
-      const dados = await resposta.json();
-      if (!resposta.ok) throw new Error(dados.erro || 'Não foi possível enviar a mensagem.');
+      let dados: Mensagem;
+      if (arquivoSelecionado) {
+        const medicao = acompanharTransferencia('Enviando arquivo', 'Iniciando upload…', setProgresso);
+        try {
+          dados = await new Promise<Mensagem>((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            uploadAtivo.current = xhr;
+            xhr.open('POST', base);
+            xhr.responseType = 'json';
+            xhr.timeout = 120000;
+            xhr.upload.onprogress = medicao.atualizar;
+            xhr.onload = () => xhr.status === 201 && xhr.response?.id ? resolve(xhr.response)
+              : reject(new Error(xhr.response?.erro || 'Não foi possível enviar o arquivo.'));
+            xhr.onerror = () => reject(new Error('A conexão caiu durante o envio.'));
+            xhr.ontimeout = () => reject(new Error('O envio demorou demais. Tente novamente.'));
+            xhr.onabort = () => reject(new Error('Envio cancelado.'));
+            xhr.send(formulario);
+          });
+        } finally {
+          medicao.encerrar();
+          uploadAtivo.current = null;
+          setProgresso('');
+        }
+      } else {
+        const resposta = await fetch(base, { method: 'POST', body: formulario });
+        const resultado = await resposta.json();
+        if (!resposta.ok) throw new Error(resultado.erro || 'Não foi possível enviar a mensagem.');
+        dados = resultado;
+      }
       voltarAoFim();
       setMensagens(atuais => mesclar(atuais, [dados]));
       setTexto('');
@@ -275,7 +337,49 @@ function ConversaInterna({ eu, colega, onLida, onVoltar }: {
     finally { enviandoRef.current = false; setEnviando(false); }
   }
 
-  return <section className="flex min-h-0 min-w-0 flex-1 flex-col" aria-label={`Conversa com ${colega.nome}`}>
+  async function apagar(mensagem: Mensagem) {
+    if (apagando || !window.confirm('Apagar esta mensagem para todos no chat interno?')) return;
+    setApagando(mensagem.id);
+    setErro('');
+    try {
+      const resposta = await fetch(`${base}?mensagem=${mensagem.id}`, { method: 'DELETE' });
+      if (!resposta.ok) throw new Error((await resposta.json()).erro || 'Não foi possível apagar.');
+      setMensagens(atual => marcarApagadas(atual, [mensagem.id]));
+      setContexto(atual => atual && marcarApagadas(atual, [mensagem.id]));
+      setResponder(atual => atual?.id === mensagem.id ? null : atual);
+    } catch (falha) { setErro(falha instanceof Error ? falha.message : 'Não foi possível apagar.'); }
+    finally { setApagando(null); }
+  }
+
+  async function enviarEncaminhamento(evento: FormEvent<HTMLFormElement>) {
+    evento.preventDefault();
+    if (!encaminhar || !destino || encaminhando) return;
+    setEncaminhando(true);
+    setErroEncaminhar('');
+    try {
+      const pedidoId = pedidoEncaminhar.current ??= crypto.randomUUID();
+      const resposta = await fetch(`/api/chat-interno/${destino}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ encaminharId: encaminhar.id, colegaOrigem: colega.id, pedidoId }),
+      });
+      const dados = await resposta.json();
+      if (!resposta.ok) throw new Error(dados.erro || 'Não foi possível encaminhar.');
+      if (destino === colega.id) setMensagens(atuais => mesclar(atuais, [dados]));
+      modalEncaminhar.current?.close();
+    } catch (falha) { setErroEncaminhar(falha instanceof Error ? falha.message : 'Não foi possível encaminhar.'); }
+    finally { setEncaminhando(false); }
+  }
+
+  return <section className="flex min-h-0 min-w-0 flex-1 flex-col" aria-label={`Conversa com ${colega.nome}`}
+    onDragOver={evento => { if (evento.dataTransfer.types.includes('Files')) evento.preventDefault(); }}
+    onDrop={evento => {
+      if (!evento.dataTransfer.types.includes('Files')) return;
+      evento.preventDefault();
+      if (enviandoRef.current || !colega.disponivel || gravando) return;
+      const [novo] = evento.dataTransfer.files;
+      if (arquivo || evento.dataTransfer.files.length > 1) { setErro('Envie um arquivo por vez.'); return; }
+      if (novo && escolherArquivo(novo)) void enviar(novo);
+    }}>
     <header className="flex min-h-16 shrink-0 items-center gap-3 border-b border-line bg-surface px-4">
       {onVoltar ? <button type="button" onClick={onVoltar} aria-label="Voltar aos colegas" className="rounded-md p-2 text-secondary hover:bg-surface-muted md:hidden"><ArrowLeft size={20} /></button>
         : <Link href="/chat-interno" aria-label="Voltar aos colegas" className="rounded-md p-2 text-secondary hover:bg-surface-muted md:hidden"><ArrowLeft size={20} /></Link>}
@@ -293,36 +397,86 @@ function ConversaInterna({ eu, colega, onLida, onVoltar }: {
         className="mx-auto block rounded-full bg-surface px-4 py-2 text-xs text-secondary shadow-sm">
         {carregandoAnteriores ? 'Carregando…' : 'Carregar anteriores'}
       </button>}
-      {(contexto ?? mensagens).map(mensagem => (
-        <article key={mensagem.id} data-mensagem-id={mensagem.id} tabIndex={-1}
+      {(contexto ?? mensagens).map(mensagem => {
+        const url = `${base}?arquivo=${mensagem.id}`;
+        const renderMensagem = (baixar?: () => void, baixando = false, feedback?: ReactNode) => <article key={mensagem.id} data-mensagem-id={mensagem.id} tabIndex={-1}
           className={`flex items-start gap-1 rounded-lg outline-none ${salto?.id === mensagem.id ? 'ring-2 ring-success-ink' : ''} ${mensagem.remetenteId === eu ? 'justify-end' : ''}`}>
           <div className={`min-w-0 max-w-[85%] rounded-2xl px-4 py-2.5 shadow-sm sm:max-w-[75%] ${mensagem.remetenteId === eu ? 'rounded-tr-sm bg-chat-outgoing' : 'rounded-tl-sm bg-surface'}`}>
+            {!mensagem.apagadaEm && <div className="flex justify-end">
+              <button type="button" aria-label="Opções da mensagem" popoverTarget={`chat-interno-acoes-${mensagem.id}`}
+                onClick={event => {
+                  const botao = event.currentTarget.getBoundingClientRect();
+                  const menu = document.getElementById(`chat-interno-acoes-${mensagem.id}`);
+                  if (!menu) return;
+                  menu.style.left = `${Math.max(8, Math.min(botao.right - 200, window.innerWidth - 208))}px`;
+                  menu.style.top = `${Math.max(8, Math.min(botao.bottom + 4, window.innerHeight - 168))}px`;
+                }} className="rounded p-1 text-secondary hover:bg-foreground/10"><ChevronDown size={16} aria-hidden="true" /></button>
+              <div id={`chat-interno-acoes-${mensagem.id}`} popover="auto" className="fixed inset-auto m-0 w-[200px] rounded-lg border border-line bg-surface p-1 text-foreground shadow-lg">
+                {colega.disponivel && <button type="button" disabled={enviando} onClick={event => {
+                  event.currentTarget.parentElement?.hidePopover();
+                  setResponder(mensagem); pedidoRef.current = null; campoTexto.current?.focus();
+                }} className="flex w-full items-center gap-2 rounded px-2 py-2 text-left text-sm hover:bg-surface-muted"><Reply size={16} />Responder</button>}
+                <button type="button" onClick={event => {
+                  event.currentTarget.parentElement?.hidePopover();
+                  setEncaminhar(mensagem); setDestino(''); setErroEncaminhar(''); pedidoEncaminhar.current = null;
+                  modalEncaminhar.current?.showModal();
+                }} className="flex w-full items-center gap-2 rounded px-2 py-2 text-left text-sm hover:bg-surface-muted"><Forward size={16} />Encaminhar</button>
+                {baixar && <button type="button" disabled={baixando} onClick={event => {
+                  event.currentTarget.parentElement?.hidePopover(); baixar();
+                }} className="flex w-full items-center gap-2 rounded px-2 py-2 text-left text-sm hover:bg-surface-muted disabled:opacity-50"><Download size={16} />Baixar arquivo</button>}
+                {mensagem.remetenteId === eu && <button type="button" disabled={!!apagando} onClick={event => {
+                  event.currentTarget.parentElement?.hidePopover(); void apagar(mensagem);
+                }} className="flex w-full items-center gap-2 rounded px-2 py-2 text-left text-sm text-danger-ink hover:bg-surface-muted"><Trash2 size={16} />Apagar para todos</button>}
+              </div>
+            </div>}
+            {mensagem.encaminhada && !mensagem.apagadaEm && <p className="mb-1 flex items-center gap-1 text-xs italic text-muted"><Forward size={14} />Encaminhada</p>}
             {mensagem.citacao && <button type="button" disabled={localizando} onClick={() => void irParaCitacao(mensagem.citacao!.id)}
               title="Ir para a mensagem original" aria-label="Ir para a mensagem citada"
               className="mb-2 block w-full rounded border-l-4 border-success-ink bg-foreground/5 px-2 py-1 text-left text-xs hover:bg-foreground/10">
               <span className="font-semibold text-success-ink">{mensagem.citacao.remetenteId === eu ? 'Você' : colega.nome}</span>
               <span className="line-clamp-2 break-words">{mensagem.citacao.texto}</span>
             </button>}
-            {mensagem.anexo && <AnexoInterno url={`${base}?arquivo=${mensagem.id}`} anexo={mensagem.anexo} />}
-            {mensagem.texto && <p className="whitespace-pre-wrap text-sm [overflow-wrap:anywhere]">{mensagem.texto}</p>}
+            {mensagem.anexo && baixar && <AnexoInterno url={url} anexo={mensagem.anexo} baixar={baixar} baixando={baixando} />}
+            {feedback}
+            {mensagem.apagadaEm && <p className="text-sm italic text-muted">Mensagem apagada</p>}
+            {mensagem.texto && mensagem.texto.trim() !== mensagem.anexo?.nome.trim() && <p className="whitespace-pre-wrap text-sm [overflow-wrap:anywhere]">{mensagem.texto}</p>}
             <time dateTime={mensagem.criadaEm} className="mt-1 block text-right text-[11px] text-muted">{hora.format(new Date(mensagem.criadaEm))}</time>
           </div>
-          {colega.disponivel && <button type="button" disabled={enviando} onClick={() => {
-            setResponder(mensagem); pedidoRef.current = null; campoTexto.current?.focus();
-          }} aria-label="Responder esta mensagem" title="Responder" className="shrink-0 rounded-full p-2 text-secondary hover:bg-foreground/10">
-            <Reply size={17} aria-hidden="true" />
-          </button>}
-        </article>
-      ))}
+        </article>;
+        return mensagem.anexo ? <BaixarAnexo key={mensagem.id} url={url} nome={mensagem.anexo.nome} direto>{renderMensagem}</BaixarAnexo> : renderMensagem();
+      })}
     </div>
+    <dialog ref={modalEncaminhar} aria-label="Encaminhar mensagem" onClose={evento => {
+      evento.stopPropagation(); setEncaminhar(null);
+    }} onCancel={evento => { if (encaminhando) evento.preventDefault(); }}
+      className="m-auto w-[min(92vw,24rem)] rounded-xl border border-line bg-surface p-4 text-foreground shadow-xl backdrop:bg-black/65">
+      <form onSubmit={enviarEncaminhamento} className="space-y-3">
+        <h3 className="font-semibold">Encaminhar mensagem</h3>
+        <label className="block text-sm">Enviar para
+          <select autoFocus value={destino} disabled={encaminhando} onChange={evento => {
+            setDestino(evento.target.value); pedidoEncaminhar.current = null; setErroEncaminhar('');
+          }} className="mt-1 block w-full rounded border border-line bg-surface-muted p-2">
+            <option value="">Selecione um colega</option>
+            {colegas.filter(item => item.disponivel).map(item => <option key={item.id} value={item.id}>{item.nome}</option>)}
+          </select>
+        </label>
+        {erroEncaminhar && <p role="alert" className="text-sm text-danger-ink">{erroEncaminhar}</p>}
+        <div className="flex justify-end gap-2">
+          <button type="button" disabled={encaminhando} onClick={() => modalEncaminhar.current?.close()} className="rounded px-3 py-2 text-sm">Cancelar</button>
+          <button type="submit" disabled={!destino || encaminhando} className="rounded bg-chat-action px-3 py-2 text-sm text-white disabled:opacity-50">{encaminhando ? 'Encaminhando…' : 'Encaminhar'}</button>
+        </div>
+      </form>
+    </dialog>
     <footer className="shrink-0 border-t border-line bg-surface p-3 sm:px-5">
       {contexto && <div className="mb-2 flex items-center justify-between gap-2 rounded bg-surface-muted px-2 py-1 text-xs text-muted">
         <span>Trecho da mensagem citada</span>
         <button type="button" onClick={voltarAoFim} className="p-2 font-semibold text-success-ink">Voltar às recentes</button>
       </div>}
       {erro && <p role="alert" className="mb-2 text-sm text-danger-ink">{erro}</p>}
+      {progresso && <p role="status" className="mb-2 text-sm text-success-ink">{progresso}{' '}
+        <button type="button" onClick={() => uploadAtivo.current?.abort()} className="underline">Cancelar envio</button></p>}
       {!colega.disponivel ? <p className="text-sm text-muted">Este colega está indisponível para receber mensagens.</p> : (
-        <form onSubmit={enviar} className="space-y-2">
+        <form onSubmit={evento => { evento.preventDefault(); void enviar(); }} className="space-y-2">
           {responder && <div className="flex items-center gap-2 rounded border-l-4 border-success-ink bg-surface-muted p-2 text-xs">
             <div className="min-w-0 flex-1">
               <p className="font-semibold text-success-ink">Respondendo a {responder.remetenteId === eu ? 'você' : colega.nome}</p>
@@ -337,7 +491,7 @@ function ConversaInterna({ eu, colega, onLida, onVoltar }: {
             {previewAudio && <audio src={previewAudio} controls aria-label="Ouvir áudio antes de enviar" className="h-9 w-64 max-w-full" />}
           </div>}
           <div className="flex flex-wrap items-end gap-1">
-          <input type="file" hidden ref={campoArquivo} accept={FORMATOS_ANEXO_INTERNO.join(',')}
+          <input type="file" hidden ref={campoArquivo} accept={[...FORMATOS_ANEXO_INTERNO, ...EXTENSOES_DOCUMENTO_INTERNO].join(',')}
             onChange={evento => escolherArquivo(evento.target.files?.[0] ?? null)} />
           <button type="button" disabled={enviando || gravando || !!arquivo} onClick={() => campoArquivo.current?.click()}
             aria-label="Anexar arquivo" title="Anexar arquivo (até 4 MB)" className="rounded-full p-2.5 text-secondary hover:bg-foreground/5 disabled:opacity-40">

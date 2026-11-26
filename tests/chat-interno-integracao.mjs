@@ -104,6 +104,7 @@ try {
   assert.equal(respostaPdf.status, 201, await respostaPdf.clone().text());
   const mensagemPdf = await respostaPdf.json();
   assert.equal(mensagemPdf.anexo.nome, 'Validação.pdf');
+  assert.equal(mensagemPdf.anexo.tamanho, bytes.length);
   assert.equal((await (await vendedor.acessar(paraProducao, 'POST', pdf)).json()).id, mensagemPdf.id);
   const arquivo = await producao.acessar(paraVendedor + '?arquivo=' + mensagemPdf.id);
   assert.equal(arquivo.status, 200);
@@ -116,6 +117,24 @@ try {
   assert.equal((await respostaComCitacao.json()).citacao.id, mensagemPdf.id);
   const contexto = await producao.acessar(paraVendedor + '?alvo=' + mensagemPdf.id);
   assert.ok((await contexto.json()).mensagens.some(item => item.id === mensagemPdf.id));
+
+  const envioEncaminhado = { encaminharId: mensagemPdf.id, colegaOrigem: vendedor.chave, pedidoId: randomUUID() };
+  assert.equal((await outro.acessar(paraProducao, 'POST', envioEncaminhado)).status, 404);
+  const encaminhadoResponse = await producao.acessar('/api/chat-interno/' + outro.chave, 'POST', envioEncaminhado);
+  assert.equal(encaminhadoResponse.status, 201, await encaminhadoResponse.clone().text());
+  const encaminhado = await encaminhadoResponse.json();
+  assert.equal(encaminhado.encaminhada, true);
+  const copia = await outro.acessar(paraProducao + '?arquivo=' + encaminhado.id + '&baixar=1');
+  assert.equal(copia.status, 200);
+  assert.deepEqual(Buffer.from(await copia.arrayBuffer()), bytes);
+  assert.equal((await producao.acessar(paraVendedor + '?mensagem=' + mensagemPdf.id, 'DELETE')).status, 404);
+  assert.equal((await vendedor.acessar(paraProducao + '?mensagem=' + mensagemPdf.id, 'DELETE')).status, 204);
+  const depois = await (await producao.acessar(paraVendedor)).json();
+  assert.ok(depois.apagadas.includes(mensagemPdf.id));
+  assert.equal(depois.mensagens.find(item => item.id === mensagemPdf.id).anexo, null);
+  assert.equal(depois.mensagens.find(item => item.citacao?.id === mensagemPdf.id).citacao.texto, 'Mensagem apagada');
+  assert.equal((await producao.acessar(paraVendedor + '?arquivo=' + mensagemPdf.id)).status, 404);
+  assert.equal((await producao.acessar('/api/chat-interno/' + outro.chave, 'POST', { ...envioEncaminhado, pedidoId: randomUUID() })).status, 404);
 
   console.log('Chat interno validado: acesso, privacidade, reenvio, avisos, leitura e histórico.');
 } finally {

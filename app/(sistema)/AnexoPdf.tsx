@@ -39,8 +39,8 @@ function PaginaPdf({ documento, numero, tamanho }: { documento: PDFDocumentProxy
   </>;
 }
 
-export default function AnexoPdf({ url, nome, urlVisualizacao = url, sobDemanda = false, tamanho }: {
-  url: string; nome: string; urlVisualizacao?: string; sobDemanda?: boolean; tamanho?: number | null;
+export default function AnexoPdf({ url, nome, urlVisualizacao = url, sobDemanda = false, tamanho, downloadDireto }: {
+  url: string; nome: string; urlVisualizacao?: string; sobDemanda?: boolean; tamanho?: number | null; downloadDireto?: boolean;
 }) {
   const cartao = useRef<HTMLDivElement>(null);
   const modal = useRef<HTMLDialogElement>(null);
@@ -115,7 +115,7 @@ export default function AnexoPdf({ url, nome, urlVisualizacao = url, sobDemanda 
       <div className="flex max-h-[92dvh] flex-col">
         <header className="flex flex-wrap items-center gap-3 border-b border-foreground/15 px-4 py-3">
           <p className="min-w-0 flex-1 break-all text-sm font-semibold">{nome}</p>
-          {sobDemanda ? <BaixarAnexo url={url} nome={nome} rotulo="Baixar PDF" /> : <a href={`${url}${url.includes('?') ? '&' : '?'}baixar=1`} target="_blank" rel="noopener noreferrer"
+          {sobDemanda ? <BaixarAnexo url={url} nome={nome} rotulo="Baixar PDF" direto={downloadDireto} /> : <a href={`${url}${url.includes('?') ? '&' : '?'}baixar=1`} target="_blank" rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 text-sm underline">
             <Download size={16} aria-hidden="true" />
             Baixar PDF

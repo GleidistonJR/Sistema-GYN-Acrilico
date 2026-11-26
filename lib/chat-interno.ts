@@ -44,7 +44,7 @@ export async function avisosChatInterno(eu: string) {
     WITH pendentes AS (
       SELECT DISTINCT ON ("remetenteChave") id, "remetenteChave", "criadaEm", texto, "anexoMime"
       FROM "MensagemInterna"
-      WHERE "destinatarioChave" = ${eu} AND "lidaEm" IS NULL
+      WHERE "destinatarioChave" = ${eu} AND "lidaEm" IS NULL AND "apagadaEm" IS NULL
       ORDER BY "remetenteChave", id DESC
     )
     SELECT m."remetenteChave" AS "colegaId", COALESCE(c.nome, 'Acesso avulso revogado') AS nome,

@@ -4,8 +4,8 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Download } from 'lucide-react';
 import { acompanharTransferencia } from './progressoTransferencia';
 
-export default function BaixarAnexo({ url, nome, rotulo = 'Baixar arquivo', children }: {
-  url: string; nome: string; rotulo?: string;
+export default function BaixarAnexo({ url, nome, rotulo = 'Baixar arquivo', direto = false, children }: {
+  url: string; nome: string; rotulo?: string; direto?: boolean;
   children?: (baixar: () => void, baixando: boolean, feedback: ReactNode) => ReactNode;
 }) {
   const requisicao = useRef<AbortController | null>(null);
@@ -21,11 +21,14 @@ export default function BaixarAnexo({ url, nome, rotulo = 'Baixar arquivo', chil
     requisicao.current = controller;
     const medicao = acompanharTransferencia('Baixando', 'Buscando arquivo no servidor…', setProgresso);
     try {
-      const resposta = await fetch(`${url}${url.includes('?') ? '&' : '?'}baixar=1&link=1`, {
-        signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]),
-      });
-      if (!resposta.ok) throw new Error('O arquivo está indisponível. Tente baixar novamente.');
-      const destino = (await resposta.json()).url as string;
+      let destino = `${url}${url.includes('?') ? '&' : '?'}baixar=1`;
+      if (!direto) {
+        const resposta = await fetch(destino + '&link=1', {
+          signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]),
+        });
+        if (!resposta.ok) throw new Error('O arquivo está indisponível. Tente baixar novamente.');
+        destino = (await resposta.json()).url as string;
+      }
       controller.signal.throwIfAborted();
       const arquivo = await new Promise<Blob>((resolve, reject) => {
         const xhr = new XMLHttpRequest();

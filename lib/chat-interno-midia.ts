@@ -4,3 +4,4 @@ export const FORMATOS_ANEXO_INTERNO = [
   'audio/ogg', 'audio/mpeg', 'audio/mp4', 'audio/wav', 'audio/webm',
   'video/mp4', 'video/webm', 'video/quicktime',
 ];
+export const EXTENSOES_DOCUMENTO_INTERNO = ['.cdr', '.zip'];

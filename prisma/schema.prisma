@@ -40,6 +40,8 @@ model MensagemInterna {
   anexoNome String?
   anexoMime String?
   anexoDados Bytes?
+  apagadaEm DateTime?
+  encaminhada Boolean @default(false)
   citacao MensagemInterna? @relation("CitacaoInterna", fields: [citacaoId], references: [id], onDelete: SetNull)
   respostas MensagemInterna[] @relation("CitacaoInterna")
   remetente Colaborador? @relation("RemetenteInterno", fields: [remetenteId], references: [id], onDelete: Cascade)

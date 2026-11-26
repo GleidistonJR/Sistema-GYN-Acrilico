@@ -1,5 +1,5 @@
 import { contatosChat, identidadeChat } from '@/lib/chat-interno';
-import { LIMITE_ANEXO_INTERNO } from '@/lib/chat-interno-midia';
+import { EXTENSOES_DOCUMENTO_INTERNO, LIMITE_ANEXO_INTERNO } from '@/lib/chat-interno-midia';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { obterUsuarioSessao } from '@/lib/sessao';
@@ -8,15 +8,16 @@ import { nomeArquivo, validarMidia } from '@/lib/whatsapp/conteudo.mjs';
 
 type Contexto = { params: Promise<{ id: string }> };
 type Mensagem = {
-  id: number; remetenteId: string; texto: string; criadaEm: Date;
-  anexo: { nome: string; mimeType: string } | null;
+  id: number; remetenteId: string; texto: string; criadaEm: Date; apagadaEm: Date | null; encaminhada: boolean;
+  anexo: { nome: string; mimeType: string; tamanho: number } | null;
   citacao: { id: number; remetenteId: string; texto: string } | null;
 };
 const erro = (mensagem: string, status: number) => Response.json({ erro: mensagem }, { status, headers: privado });
-const campos = Prisma.sql`m.id, m."remetenteChave" AS "remetenteId", m.texto, m."criadaEm",
-  CASE WHEN m."anexoMime" IS NOT NULL THEN jsonb_build_object('nome', m."anexoNome", 'mimeType', m."anexoMime") END AS anexo,
+const campos = Prisma.sql`m.id, m."remetenteChave" AS "remetenteId", m.texto, m."criadaEm", m."apagadaEm", m.encaminhada,
+  CASE WHEN m."anexoMime" IS NOT NULL THEN jsonb_build_object('nome', m."anexoNome", 'mimeType', m."anexoMime", 'tamanho', octet_length(m."anexoDados")) END AS anexo,
   CASE WHEN c.id IS NOT NULL THEN jsonb_build_object('id', c.id, 'remetenteId', c."remetenteChave",
-    'texto', COALESCE(NULLIF(LEFT(c.texto, 120), ''), c."anexoNome", 'Mensagem')) END AS citacao`;
+    'texto', CASE WHEN c."apagadaEm" IS NOT NULL THEN 'Mensagem apagada'
+      ELSE COALESCE(NULLIF(LEFT(c.texto, 120), ''), c."anexoNome", 'Mensagem') END) END AS citacao`;
 const mesmaConversa = (eu: string, colega: string) => Prisma.sql`
   ((m."remetenteChave" = ${eu} AND m."destinatarioChave" = ${colega})
    OR (m."remetenteChave" = ${colega} AND m."destinatarioChave" = ${eu}))`;
@@ -31,9 +32,13 @@ async function participantes({ params }: Contexto) {
   const eu = usuario && identidadeChat(usuario);
   if (!eu) return null;
   const { id } = await params;
+  return { eu, colega: chaveColega(id) };
+}
+
+function chaveColega(id: unknown) {
   const pessoal = inteiro(id);
-  const colega = pessoal ? String(pessoal) : /^avulso-[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/i.test(id) ? id : null;
-  return { eu, colega };
+  if (pessoal) return String(pessoal);
+  return typeof id === 'string' && /^avulso-[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/i.test(id) ? id : null;
 }
 
 export async function GET(request: Request, contexto: Contexto) {
@@ -70,13 +75,16 @@ export async function GET(request: Request, contexto: Contexto) {
   const antes = inteiro(cursor);
   if (cursor !== null && !antes) return erro('Página inválida.', 400);
 
-  const mensagens = await prisma.$queryRaw<Mensagem[]>`
+  const [mensagens, apagadas] = await Promise.all([prisma.$queryRaw<Mensagem[]>`
     SELECT ${campos} FROM "MensagemInterna" m LEFT JOIN "MensagemInterna" c ON c.id = m."citacaoId"
     WHERE ${mesmaConversa(eu, colega)} AND (${antes}::int IS NULL OR m.id < ${antes}::int)
     ORDER BY m.id DESC
     LIMIT 51
-  `;
-  return Response.json({ mensagens: mensagens.slice(0, 50).reverse(), anteriores: mensagens.length > 50 }, { headers: privado });
+  `, cursor === null ? prisma.$queryRaw<Array<{ id: number }>>`
+    SELECT m.id FROM "MensagemInterna" m WHERE ${mesmaConversa(eu, colega)} AND m."apagadaEm" IS NOT NULL
+  ` : []]);
+  return Response.json({ mensagens: mensagens.slice(0, 50).reverse(), anteriores: mensagens.length > 50,
+    apagadas: apagadas.map(m => m.id) }, { headers: privado });
 }
 
 export async function POST(request: Request, contexto: Contexto) {
@@ -90,13 +98,26 @@ export async function POST(request: Request, contexto: Contexto) {
   catch { return erro('Envio inválido. O arquivo deve ter até 4 MB.', 400); }
   const texto = typeof body?.texto === 'string' ? body.texto.replaceAll('\u0000', '').trim() : '';
   const arquivo = body?.arquivo instanceof File ? body.arquivo : null;
-  if ((!texto && !arquivo) || texto.length > 4000) return erro('Digite uma mensagem de até 4.000 caracteres ou escolha um arquivo.', 400);
+  const encaminharId = inteiro(body?.encaminharId);
+  const origem = chaveColega(body?.colegaOrigem);
+  if (body?.encaminharId != null && (!encaminharId || !origem || origem === eu || texto || arquivo || body.citacaoId != null)) {
+    return erro('Encaminhamento inválido.', 400);
+  }
+  if ((!texto && !arquivo && !encaminharId) || texto.length > 4000) return erro('Digite uma mensagem de até 4.000 caracteres ou escolha um arquivo.', 400);
   if (arquivo && (!arquivo.size || arquivo.size > LIMITE_ANEXO_INTERNO)) return erro('O arquivo deve ter até 4 MB.', 400);
   const dados = arquivo ? Buffer.from(await arquivo.arrayBuffer()) : null;
   let mime: string | null = null;
   if (dados && arquivo) {
-    try { mime = validarMidia(dados, arquivo.type); }
-    catch { return erro('Envie uma imagem, um vídeo, um áudio ou um PDF válido.', 400); }
+    const extensao = arquivo.name.match(/\.[^.]+$/)?.[0].toLowerCase();
+    if (extensao && EXTENSOES_DOCUMENTO_INTERNO.includes(extensao)) {
+      const zip = /^PK(?:\x03\x04|\x05\x06|\x07\x08)/.test(dados.subarray(0, 4).toString('latin1'));
+      const cdr = extensao === '.cdr' && dados.toString('ascii', 0, 4) === 'RIFF' && dados.toString('ascii', 8, 11) === 'CDR';
+      if (!zip && !cdr) return erro('O documento não tem um formato ZIP ou CDR reconhecido.', 400);
+      mime = 'application/octet-stream';
+    } else {
+      try { mime = validarMidia(dados, arquivo.type); }
+      catch { return erro('Envie uma imagem, vídeo, áudio, PDF, ZIP ou CDR válido.', 400); }
+    }
   }
   const nome = arquivo ? nomeArquivo(arquivo.name) : null;
   const citacao = inteiro(body?.citacaoId);
@@ -108,23 +129,32 @@ export async function POST(request: Request, contexto: Contexto) {
 
   const [mensagem] = await prisma.$queryRaw<Mensagem[]>`
     WITH contatos AS (${contatosChat}), original AS (
-      SELECT m.id, m."remetenteChave", m.texto, m."anexoNome" FROM "MensagemInterna" m
-      WHERE m.id = ${citacao}::int AND ${mesmaConversa(eu, colega)}
+      SELECT m.id, m."remetenteChave", m.texto, m."anexoNome", m."apagadaEm" FROM "MensagemInterna" m
+      WHERE m.id = ${citacao}::int AND ${mesmaConversa(eu, colega)} AND m."apagadaEm" IS NULL
+    ), encaminhamento AS (
+      SELECT m.texto, m."anexoNome", m."anexoMime", m."anexoDados" FROM "MensagemInterna" m
+      WHERE m.id = ${encaminharId}::int AND ${mesmaConversa(eu, origem || eu)} AND m."apagadaEm" IS NULL
+      FOR SHARE
     ), gravada AS (
       INSERT INTO "MensagemInterna" ("remetenteId", "destinatarioId", "remetenteAvulsoId", "destinatarioAvulsoId",
-        "pedidoId", texto, "citacaoId", "anexoNome", "anexoMime", "anexoDados")
-      SELECT r."colaboradorId", d."colaboradorId", r."avulsoId", d."avulsoId", ${pedidoId}::uuid, ${texto},
-        (SELECT id FROM original), ${nome}, ${mime}, ${dados}::bytea
+        "pedidoId", texto, "citacaoId", "anexoNome", "anexoMime", "anexoDados", encaminhada)
+      SELECT r."colaboradorId", d."colaboradorId", r."avulsoId", d."avulsoId", ${pedidoId}::uuid,
+        COALESCE((SELECT texto FROM encaminhamento), ${texto}), (SELECT id FROM original),
+        COALESCE((SELECT "anexoNome" FROM encaminhamento), ${nome}),
+        COALESCE((SELECT "anexoMime" FROM encaminhamento), ${mime}),
+        COALESCE((SELECT "anexoDados" FROM encaminhamento), ${dados}::bytea), ${!!encaminharId}
       FROM contatos r CROSS JOIN contatos d
       WHERE r.id = ${eu} AND d.id = ${colega} AND r.disponivel AND d.disponivel
         AND (${citacao}::int IS NULL OR EXISTS (SELECT 1 FROM original))
+        AND (${encaminharId}::int IS NULL OR EXISTS (SELECT 1 FROM encaminhamento))
       ON CONFLICT ("remetenteChave", "pedidoId") DO UPDATE SET "pedidoId" = EXCLUDED."pedidoId"
       WHERE "MensagemInterna"."destinatarioChave" = EXCLUDED."destinatarioChave" AND "MensagemInterna".texto = EXCLUDED.texto
+        AND "MensagemInterna"."apagadaEm" IS NULL AND "MensagemInterna".encaminhada = EXCLUDED.encaminhada
         AND "MensagemInterna"."citacaoId" IS NOT DISTINCT FROM EXCLUDED."citacaoId"
         AND "MensagemInterna"."anexoNome" IS NOT DISTINCT FROM EXCLUDED."anexoNome"
         AND "MensagemInterna"."anexoMime" IS NOT DISTINCT FROM EXCLUDED."anexoMime"
         AND "MensagemInterna"."anexoDados" IS NOT DISTINCT FROM EXCLUDED."anexoDados"
-      RETURNING id, "remetenteChave", texto, "criadaEm", "citacaoId", "anexoNome", "anexoMime"
+      RETURNING id, "remetenteChave", texto, "criadaEm", "citacaoId", "anexoNome", "anexoMime", "anexoDados", "apagadaEm", encaminhada
     )
     SELECT ${campos} FROM gravada m LEFT JOIN original c ON c.id = m."citacaoId"
   `;
@@ -156,13 +186,13 @@ function responderArquivo(request: Request, anexo: { nome: string; mime: string;
   headers.set('Content-Type', anexo.mime);
   headers.set('Accept-Ranges', 'bytes');
   const nome = encodeURIComponent(anexo.nome.toWellFormed()).replace(/[!'()*]/g, c => '%' + c.charCodeAt(0).toString(16));
-  headers.set('Content-Disposition', `${baixar || anexo.mime === 'application/pdf' ? 'attachment' : 'inline'}; filename*=UTF-8''${nome}`);
+  headers.set('Content-Disposition', `${baixar || !/^(image|video|audio)\//.test(anexo.mime) ? 'attachment' : 'inline'}; filename*=UTF-8''${nome}`);
   const dados = new Uint8Array(anexo.dados);
   const tamanho = dados.byteLength;
   const range = request.headers.get('range');
   if (range) {
     const match = /^bytes=(\d*)-(\d*)$/.exec(range);
-    const inicio = !match ? -1 : match[1] ? Number(match[1]) : Math.max(0, tamanho - Number(match[2]));
+    const inicio = !match || !(match[1] || match[2]) ? -1 : match[1] ? Number(match[1]) : Math.max(0, tamanho - Number(match[2]));
     const fim = match?.[1] && match[2] ? Math.min(tamanho - 1, Number(match[2])) : tamanho - 1;
     if (inicio < 0 || inicio > fim) {
       headers.set('Content-Range', `bytes */${tamanho}`);
@@ -190,4 +220,19 @@ export async function PATCH(request: Request, contexto: Contexto) {
     WHERE "destinatarioChave" = ${eu} AND "remetenteChave" = ${colega} AND id <= ${ate} AND "lidaEm" IS NULL
   `;
   return new Response(null, { status: 204, headers: privado });
+}
+
+export async function DELETE(request: Request, contexto: Contexto) {
+  if (!mesmaOrigem(request)) return erro('Origem inválida.', 403);
+  const ids = await participantes(contexto);
+  if (!ids) return erro('Acesso não autorizado.', 401);
+  const { eu, colega } = ids;
+  const id = inteiro(new URL(request.url).searchParams.get('mensagem'));
+  if (!colega || colega === eu || !id) return erro('Mensagem inválida.', 400);
+  const [apagada] = await prisma.$queryRaw<Array<{ id: number }>>`
+    UPDATE "MensagemInterna" SET "apagadaEm" = COALESCE("apagadaEm", CURRENT_TIMESTAMP),
+      texto = '', "anexoNome" = NULL, "anexoMime" = NULL, "anexoDados" = NULL, "citacaoId" = NULL
+    WHERE id = ${id} AND "remetenteChave" = ${eu} AND "destinatarioChave" = ${colega}
+    RETURNING id`;
+  return apagada ? new Response(null, { status: 204, headers: privado }) : erro('Só é possível apagar mensagens que você enviou.', 404);
 }
