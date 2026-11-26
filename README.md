@@ -87,3 +87,12 @@ Rode se o editor não reconhecer os novos campos.
 ## pm2 status
 ## pm2 stop 'nome'
 ## pm2 start 'nome'
+## Publicar o site na VPS
+
+O GitHub Actions compila e testa a imagem do site a cada push na `main`. O Dokploy mantém o serviço de produção com a publicação automática por Git desativada. Para publicar um build aprovado, rode no PowerShell com o GitHub autenticado no Git Credential Manager e o atalho SSH `gyn-vps` disponível:
+
+```powershell
+.\scripts\publicar-web-vps.ps1
+```
+
+O comando baixa a imagem do commit atual, confere sua integridade, transfere para a VPS e atualiza o serviço existente. O build fica disponível no GitHub Actions por sete dias. Para publicar outro commit aprovado, passe o SHA completo em `-Revisao`. Mudanças de banco continuam exigindo que as migrações sejam aplicadas antes de ativar uma imagem dependente delas.

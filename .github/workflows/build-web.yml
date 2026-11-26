@@ -1,0 +1,36 @@
+name: Build externo do site
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  imagem:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Compilar imagem do site
+        run: |
+          docker build --file Dockerfile.web --platform linux/amd64 \
+            --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+            --tag "gyn-web:$GITHUB_SHA" .
+      - name: Testar a imagem
+        run: |
+          docker run --detach --name gyn-web-teste --publish 127.0.0.1:3000:3000 "gyn-web:$GITHUB_SHA"
+          trap 'docker logs gyn-web-teste; docker rm -f gyn-web-teste' EXIT
+          curl --fail --silent --show-error --retry 15 --retry-all-errors --retry-delay 2 http://127.0.0.1:3000/ --output /dev/null
+          curl --fail --silent --show-error http://127.0.0.1:3000/pdf.worker.min.mjs --output /dev/null
+      - name: Empacotar imagem
+        run: docker save "gyn-web:$GITHUB_SHA" | gzip -1 > gyn-web.tar.gz
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: gyn-web-${{ github.sha }}
+          path: gyn-web.tar.gz
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7

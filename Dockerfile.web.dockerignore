@@ -1,0 +1,16 @@
+*
+!app/
+!lib/
+!prisma/
+!public/
+!scripts/
+!scripts/preparar-pdf-worker.mjs
+!package.json
+!package-lock.json
+!next.config.ts
+!postcss.config.mjs
+!tailwind.config.js
+!tsconfig.json
+!proxy.ts
+**/.env*
+**/*.pem
