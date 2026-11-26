@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { ArrowLeft, ChevronDown, Download, Forward, UserPlus, UserMinus, Paperclip, Send, RefreshCw, MoreVertical, Reply, Trash2, X } from 'lucide-react';
 import BaixarAnexo from '../../../BaixarAnexo';
+import AvatarContato from '../../AvatarContato';
 import GravarAudio from './GravarAudio';
 import AnexoMensagem from './AnexoMensagem';
 import MenuTextosRapidos from './MenuTextosRapidos';
@@ -24,14 +25,18 @@ function TextoMensagem({ texto }: { texto: string }) {
   return assinatura ? <><strong>{assinatura[1]}</strong>{texto.length > assinatura[0].length && <><br />{texto.slice(assinatura[0].length)}</>}</> : <>{texto}</>;
 }
 
-export default function Conversa({ cliente, usuario, onVoltar, onDetalhes, onLida, onAssumir, onDesatribuir }: {
+export default function Conversa({ cliente, fotoUrl, usuario, onVoltar, onDetalhes, onLida, onAssumir, onDesatribuir }: {
   cliente: { id: string; nome: string; telefone: string | null };
+  fotoUrl?: string | null;
   usuario: { id: string; role: string };
   onAssumir?: () => Promise<void>;
   onDesatribuir?: () => Promise<void>;
   onVoltar: () => void; onDetalhes: () => void; onLida: (id: string) => void;
 }) {
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
+  const dialogoFoto = useRef<HTMLDialogElement>(null);
+  const [fotoExpandida, setFotoExpandida] = useState(false);
+  const [fotoIndisponivel, setFotoIndisponivel] = useState<string | null>(null);
   const [texto, setTexto] = useState('');
   const [assumindo, setAssumindo] = useState(false);
   const assumindoRef = useRef(false);
@@ -358,8 +363,12 @@ export default function Conversa({ cliente, usuario, onVoltar, onDetalhes, onLid
     onDrop={soltarArquivo} className="relative flex h-full min-h-0 flex-1 flex-col bg-chat-canvas text-foreground">
     {arrastando && <div role="status" className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center border-2 border-dashed border-emerald-400 bg-chat-canvas/95 p-6 text-center"><div><Paperclip size={40} className="mx-auto mb-4 text-success-ink" /><p className="text-lg font-semibold">{enviando || gravando || !podeEnviar || arquivo ? 'Aguarde para enviar um arquivo' : `Solte para anexar na conversa com ${cliente.nome}`}</p><p className="mt-2 text-sm text-muted">Um arquivo por vez · até 90 MB</p></div></div>}
     <header className="flex h-[72px] shrink-0 items-center justify-between gap-3 border-b border-line bg-surface px-3 sm:px-6">
-      <div className="flex min-w-0 items-center gap-3"><button onClick={onVoltar} aria-label="Voltar aos clientes" className="rounded-lg p-2 hover:bg-foreground/5 md:hidden"><ArrowLeft size={20} /></button>
-        <span className="hidden size-10 shrink-0 items-center justify-center rounded-full bg-chat-avatar text-sm font-semibold text-success-ink sm:flex">{cliente.nome.slice(0, 1).toUpperCase()}</span>
+      <div className="flex min-w-0 items-center gap-1 sm:gap-3"><button onClick={onVoltar} aria-label="Voltar aos clientes" className="shrink-0 rounded-lg p-2 hover:bg-foreground/5 md:hidden"><ArrowLeft size={20} /></button>
+        {fotoUrl ? <button type="button" aria-label={`Ampliar foto de ${cliente.nome}`} onClick={() => {
+          setFotoIndisponivel(null); setFotoExpandida(true); dialogoFoto.current?.showModal();
+        }} className="shrink-0 cursor-zoom-in rounded-full focus-visible:outline-2 focus-visible:outline-emerald-400">
+          <AvatarContato nome={cliente.nome} url={fotoUrl} compacto />
+        </button> : <AvatarContato nome={cliente.nome} compacto />}
         <div className="min-w-0"><h2 className="truncate font-semibold">{cliente.nome}</h2><p className="mt-0.5 truncate text-xs text-muted">{cliente.telefone || 'Contato do WhatsApp'}</p></div></div>
       <div className="flex shrink-0 items-center gap-1">{(onAssumir || onDesatribuir) && <button type="button" disabled={assumindo} aria-label={onDesatribuir ? "Desatribuir cliente" : "Assumir cliente"} title={onDesatribuir ? "Remover minha responsabilidade por este cliente" : "Atribuir este cliente a mim"} onClick={async () => {
         if (assumindoRef.current) return;
@@ -369,6 +378,20 @@ export default function Conversa({ cliente, usuario, onVoltar, onDetalhes, onLid
         finally { assumindoRef.current = false; setAssumindo(false); }
       }} className={`mr-1 flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-xs font-semibold text-white disabled:opacity-50 ${onDesatribuir ? 'bg-primary hover:bg-primary-hover' : 'bg-chat-action hover:bg-emerald-600'}`}>{onDesatribuir ? <UserMinus size={17} /> : <UserPlus size={17} />}<span>{assumindo ? 'Salvando…' : onDesatribuir ? 'Desatribuir' : <>Assumir<span className="hidden lg:inline"> cliente</span></>}</span></button>}<button onClick={sincronizar} disabled={sincronizando} aria-label="Sincronizar histórico" className="rounded-full p-2 text-secondary hover:bg-foreground/5 disabled:opacity-50" title="Buscar histórico recente no WhatsApp"><RefreshCw size={18} className={sincronizando ? 'animate-spin' : ''} /></button><button onClick={onDetalhes} aria-label="Organizar cliente" title="Etiquetas e responsável" className="rounded-full p-2 text-secondary hover:bg-foreground/5"><MoreVertical size={20} /></button></div>
     </header>
+    <dialog ref={dialogoFoto} aria-label={`Foto de ${cliente.nome}`} onClose={() => setFotoExpandida(false)}
+      onClick={evento => { if (evento.target === evento.currentTarget) evento.currentTarget.close(); }}
+      className="m-auto w-[min(90vw,30rem)] rounded-xl bg-surface p-3 text-foreground shadow-xl backdrop:bg-black/75">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <p className="min-w-0 truncate text-sm font-semibold">{cliente.nome}</p>
+        <button type="button" autoFocus aria-label="Fechar foto" className="shrink-0 rounded p-2 hover:bg-foreground/10"
+          onClick={() => dialogoFoto.current?.close()}><X size={19} /></button>
+      </div>
+      {fotoExpandida && (fotoUrl && fotoIndisponivel !== fotoUrl
+        // eslint-disable-next-line @next/next/no-img-element -- Reutiliza a mesma foto do avatar, sem outro carregador.
+        ? <img src={fotoUrl} alt={`Foto de ${cliente.nome}`} referrerPolicy="no-referrer"
+          onError={() => setFotoIndisponivel(fotoUrl)} className="mx-auto max-h-[72dvh] w-full rounded-lg object-contain" />
+        : <p role="status" className="p-4 text-sm text-muted">Foto indisponível.</p>)}
+    </dialog>
     <div ref={lista} tabIndex={-1} onScroll={e => acompanharRolagem(e.currentTarget)} className="min-h-0 flex-1 overflow-y-auto p-4 sm:px-8 lg:px-12 [scrollbar-width:thin] [scrollbar-color:var(--line-strong)_transparent]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, var(--chat-dot) 1px, transparent 0)', backgroundSize: '24px 24px' }}>
       {!contexto && anteriores && <button onClick={async () => { seguirFim.current = false; try { await atualizar(mensagens[0]?.id); } catch { setErro('Não foi possível carregar mensagens anteriores.'); } }} className="mx-auto mb-5 block rounded-full bg-surface px-4 py-2 text-xs text-secondary shadow-sm">Carregar anteriores</button>}
       {carregando && <p className="p-8 text-center text-sm text-muted">Carregando conversa…</p>}

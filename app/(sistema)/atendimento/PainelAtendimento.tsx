@@ -3,7 +3,7 @@
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Search, Plus, UserRound, MessageCircle, Tags, Settings2, X, ChevronLeft, ChevronRight, SlidersHorizontal, MoreVertical, GripVertical, Pin, PinOff, ArrowUp, ArrowDown } from 'lucide-react';
+import { Search, Plus, UserRound, MessageCircle, Tags, Settings2, X, ChevronLeft, ChevronRight, SlidersHorizontal, MoreVertical, GripVertical, Pin, PinOff } from 'lucide-react';
 import Formulario from './Formulario';
 import GerenciarEtiquetas from './GerenciarEtiquetas';
 import EtiquetasCliente from './EtiquetasCliente';
@@ -31,8 +31,8 @@ export default function PainelAtendimento({ usuario, etiquetas: etiquetasIniciai
 }) {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [etiquetas, setEtiquetas] = useState(etiquetasIniciais);
-  const fotos = useFotosContatos(clientes.map(c => c.id));
   const [selecionado, setSelecionado] = useState<Cliente | null>(null);
+  const fotos = useFotosContatos(clientes.map(c => c.id), selecionado?.id);
   const [fila, setFila] = useState(filaInicial);
   const [busca, setBusca] = useState('');
   const [etiqueta, setEtiqueta] = useState(etiquetaInicial ?? '');
@@ -253,7 +253,7 @@ export default function PainelAtendimento({ usuario, etiquetas: etiquetasIniciai
         {erro && <p role="alert" className="px-5 py-3 text-xs text-warning-ink">{erro}</p>}
         {carregando && <p className="p-8 text-center text-sm text-muted">Carregando clientes…</p>}
         {!carregando && !clientes.length && <p className="p-8 text-center text-sm text-muted">Nenhum cliente nesta lista.</p>}
-        {clientes.map((c, indice) => <div key={c.id}
+        {clientes.map(c => <div key={c.id}
           onDragOver={evento => {
             if (fila !== 'meus' || !arrastado || arrastado === c.id || salvandoFixacao) return;
             evento.preventDefault();
@@ -299,12 +299,6 @@ export default function PainelAtendimento({ usuario, etiquetas: etiquetasIniciai
               className="flex items-center gap-2 rounded-md bg-surface px-3 py-2 text-sm text-success-ink hover:bg-foreground/10">
               {c.fixado ? <PinOff size={16} /> : <Pin size={16} />}{c.fixado ? 'Desafixar conversa' : 'Fixar conversa'}
             </button>}
-            {fila === 'meus' && c.fixado && clientes[indice - 1]?.fixado && <button type="button" disabled={salvandoFixacao}
-              onClick={() => void organizarFixados(c.id, 'antes', clientes[indice - 1].id)}
-              className="flex items-center gap-1 rounded-md bg-surface px-2 py-2 text-sm hover:bg-foreground/10"><ArrowUp size={15} />Subir</button>}
-            {fila === 'meus' && c.fixado && clientes[indice + 1]?.fixado && <button type="button" disabled={salvandoFixacao}
-              onClick={() => void organizarFixados(c.id, 'depois', clientes[indice + 1].id)}
-              className="flex items-center gap-1 rounded-md bg-surface px-2 py-2 text-sm hover:bg-foreground/10"><ArrowDown size={15} />Descer</button>}
             <button type="button" onClick={() => abrirDetalhes(c.id)}
               className="rounded-md bg-surface px-3 py-2 text-sm text-primary-ink hover:bg-foreground/10">
               Organizar cliente
@@ -325,7 +319,7 @@ export default function PainelAtendimento({ usuario, etiquetas: etiquetasIniciai
       </div>
     </aside>
     <main className={`${selecionado ? 'flex' : 'hidden md:flex'} min-h-0 min-w-0 flex-1 flex-col`}>
-      {selecionado ? <Conversa key={selecionado.id} cliente={selecionado} usuario={usuario} onAssumir={selecionado.responsavelId !== usuario.id ? () => alterarResponsabilidade('assumir') : undefined} onDesatribuir={selecionado.responsavelId === usuario.id ? () => alterarResponsabilidade('desatribuir') : undefined} onVoltar={() => escolher(null)} onDetalhes={() => abrirDetalhes(selecionado.id)} onLida={marcarLida} /> : <div className="flex h-full flex-col items-center justify-center border-b-4 border-chat-action bg-surface-soft p-8 text-center"><div className="mb-6 rounded-full bg-surface-muted p-7"><MessageCircle size={56} strokeWidth={1.2} className="text-chat-action" /></div><h2 className="text-2xl font-light text-foreground">Suas conversas, em um só lugar</h2><p className="mt-3 max-w-sm text-sm leading-relaxed text-muted">Selecione um cliente à esquerda para conversar.<br />A bolinha verde indica mensagens ainda não visualizadas.</p></div>}
+      {selecionado ? <Conversa key={selecionado.id} cliente={selecionado} fotoUrl={fotos[selecionado.id]} usuario={usuario} onAssumir={selecionado.responsavelId !== usuario.id ? () => alterarResponsabilidade('assumir') : undefined} onDesatribuir={selecionado.responsavelId === usuario.id ? () => alterarResponsabilidade('desatribuir') : undefined} onVoltar={() => escolher(null)} onDetalhes={() => abrirDetalhes(selecionado.id)} onLida={marcarLida} /> : <div className="flex h-full flex-col items-center justify-center border-b-4 border-chat-action bg-surface-soft p-8 text-center"><div className="mb-6 rounded-full bg-surface-muted p-7"><MessageCircle size={56} strokeWidth={1.2} className="text-chat-action" /></div><h2 className="text-2xl font-light text-foreground">Suas conversas, em um só lugar</h2><p className="mt-3 max-w-sm text-sm leading-relaxed text-muted">Selecione um cliente à esquerda para conversar.<br />A bolinha verde indica mensagens ainda não visualizadas.</p></div>}
     </main>
     {modal && <Dialogo titulo={modal === 'apelido' ? 'Meu apelido' : modal === 'cliente' ? 'Novo cliente' : modal === 'etiqueta' ? 'Gerenciar etiquetas' : modal === 'excluir' ? 'Excluir conversa' : 'Organizar cliente'} fechar={() => setModal(null)}>
       {modal === 'excluir' && clienteParaExcluir && <Formulario acao="excluirConversa" clienteId={clienteParaExcluir.id}

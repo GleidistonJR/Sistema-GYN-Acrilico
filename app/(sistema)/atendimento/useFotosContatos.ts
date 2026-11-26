@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 
 type Foto = { url: string | null; proxima: number; tentativas: number };
 
-export function useFotosContatos(ids: string[]) {
+export function useFotosContatos(ids: string[], idAberto?: string) {
   const cache = useRef(new Map<string, Foto>());
   const [urls, setUrls] = useState<Record<string, string | null>>({});
   const chave = ids.join(',');
@@ -15,7 +15,8 @@ export function useFotosContatos(ids: string[]) {
     let debounce: ReturnType<typeof setTimeout>;
     async function carregar() {
       if (busy || document.visibilityState !== 'visible') return;
-      const ids = [...visible].filter(id => (cache.current.get(id)?.proxima || 0) <= Date.now()).slice(0, 50);
+      const candidatos = new Set(idAberto ? [idAberto, ...visible] : visible);
+      const ids = [...candidatos].filter(id => (cache.current.get(id)?.proxima || 0) <= Date.now()).slice(0, 50);
       if (!ids.length) return;
       busy = true;
       try {
@@ -43,8 +44,9 @@ export function useFotosContatos(ids: string[]) {
       clearTimeout(debounce); debounce = setTimeout(() => void carregar(), 250);
     });
     document.querySelectorAll('[data-cliente-id]').forEach(el => observer.observe(el));
+    if (idAberto) debounce = setTimeout(() => void carregar(), 250);
     const timer = setInterval(() => void carregar(), 10000);
     return () => { observer.disconnect(); controller.abort(); clearTimeout(debounce); clearInterval(timer); };
-  }, [chave]);
+  }, [chave, idAberto]);
   return urls;
 }
