@@ -25,8 +25,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   }
   try {
     const ponte = await urlPonte(prisma);
+    // Behind Dokploy, request.url can use localhost while Host retains the browser's authority.
+    const origem = new URL(`${consulta.protocol}//${request.headers.get('host') || consulta.host}`).origin;
     const token = await emitirTransferencia(prisma, { acao: 'download', mensagemId: id, clienteId: mensagem.clienteId,
-      userId: acesso.usuario.id, sessionHash: hashToken((await cookies()).get('sessao_segura')!.value), origem: new URL(request.url).origin });
+      userId: acesso.usuario.id, sessionHash: hashToken((await cookies()).get('sessao_segura')!.value), origem });
     const url = ponte + '/arquivo?token=' + token + (consulta.searchParams.has('baixar') ? '&baixar=1' : '');
     if (visualizarPdf) {
       const headersEnvio = new Headers({ 'Accept-Encoding': 'identity' });
