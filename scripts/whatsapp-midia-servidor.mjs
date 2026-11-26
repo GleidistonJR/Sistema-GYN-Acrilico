@@ -118,7 +118,7 @@ export function criarServidorMidia({ prisma, getClient, port = 3002 }) {
         return;
       }
       if (req.method !== 'GET' || p.acao !== 'download') { res.writeHead(405); res.end(); return; }
-      const [m] = await prisma.$queryRaw`SELECT m."externaId", m.conta, m."clienteId", m."enviadoEm", a.nome, a."mimeType", octet_length(a.dados) AS bytes, f.chave
+      const [m] = await prisma.$queryRaw`SELECT m."externaId", m.conta, m."clienteId", m."enviadoEm", a.nome, a."mimeType", a.tamanho, octet_length(a.dados) AS bytes, f.chave
         FROM "MensagemWhatsApp" m JOIN "MidiaWhatsApp" a ON a."mensagemId" = m.id
         LEFT JOIN "ArquivoWhatsApp" f ON f."mensagemId" = m.id WHERE m.id = ${p.mensagemId} AND m."clienteId" = ${p.clienteId}`;
       if (!m) { res.writeHead(404); res.end(); return; }
@@ -166,6 +166,9 @@ export function criarServidorMidia({ prisma, getClient, port = 3002 }) {
         file = cached.path; mime = cached.mime; name = cached.name;
       }
       const { size } = await stat(file);
+      if (m.tamanho == null && size > 0 && size <= 2147483647) {
+        await prisma.$executeRaw`UPDATE "MidiaWhatsApp" SET tamanho = ${size} WHERE "mensagemId" = ${p.mensagemId} AND tamanho IS NULL`;
+      }
       const inline = /^(image\/(jpeg|png|webp|gif)|audio\/(mpeg|mp4|ogg|wav|webm)|video\/(mp4|webm|quicktime))$/.test(mime);
       res.setHeader('Content-Type', inline ? mime : 'application/octet-stream');
       res.setHeader('Content-Disposition', `${inline && !url.searchParams.has('baixar') ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(name)}`);

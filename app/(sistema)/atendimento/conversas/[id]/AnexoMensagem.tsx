@@ -3,7 +3,7 @@
 import { useRef, useState } from 'react';
 import AnexoPdf from '../../../AnexoPdf';
 
-type Midia = { nome: string; mimeType: string; preparadaEm: string | null };
+type Midia = { nome: string; mimeType: string; preparadaEm: string | null; tamanho?: number | null };
 
 export default function AnexoMensagem({ id, midia }: { id: string; midia: Midia }) {
   const modal = useRef<HTMLDialogElement>(null);
@@ -28,7 +28,7 @@ export default function AnexoMensagem({ id, midia }: { id: string; midia: Midia 
     if (imagem) modal.current?.showModal();
   }
 
-  if (midia.mimeType.split(';')[0].toLowerCase() === 'application/pdf') return <AnexoPdf key={id} url={base} nome={midia.nome} urlVisualizacao={`${base}?visualizarPdf=1`} sobDemanda />;
+  if (midia.mimeType.split(';')[0].toLowerCase() === 'application/pdf') return <AnexoPdf key={id} url={base} nome={midia.nome} tamanho={midia.tamanho} urlVisualizacao={`${base}?visualizarPdf=1`} sobDemanda />;
 
   if (!imagem && !video && !audio) return <div className="mb-2 max-w-sm">
     <p className="break-all text-sm font-semibold">{midia.nome}</p>

@@ -12,7 +12,7 @@ type Contexto = { params: Promise<{ id: string }> };
 const json = (body: unknown, status = 200) => Response.json(body, { status, headers: privado });
 const selecao = { id: true, autorId: true, externaId: true, citacao: true, texto: true, tipo: true, direcao: true, status: true, erro: true, enviadoEm: true,
   autor: { select: { colaborador: { select: { nome: true } } } },
-  midia: { select: { nome: true, mimeType: true, preparadaEm: true } },
+  midia: { select: { nome: true, mimeType: true, preparadaEm: true, tamanho: true } },
 } satisfies Prisma.MensagemWhatsAppSelect;
 
 export async function GET(request: Request, { params }: Contexto) {
@@ -77,7 +77,7 @@ export async function POST(request: Request, { params }: Contexto) {
     const voz = form.get('voz') === 'true';
     const responderId = String(form.get('responderId') || '');
     if (responderId.length > 100) return json({ erro: 'Mensagem citada inválida.' }, 400);
-    const midia = transferencia ? { dados: Buffer.alloc(0), nome: String(transferencia.nome), mimeType: String(transferencia.mimeType) } : undefined;
+    const midia = transferencia ? { dados: Buffer.alloc(0), nome: String(transferencia.nome), mimeType: String(transferencia.mimeType), tamanho: Number(transferencia.tamanho) } : undefined;
     if (!texto && !midia) return json({ erro: 'Digite uma mensagem ou selecione um arquivo.' }, 400);
     if (voz && !midia?.mimeType.startsWith('audio/')) return json({ erro: 'A mensagem de voz precisa de um arquivo de áudio.' }, 400);
     const conteudoHash = createHash('sha256').update(JSON.stringify([texto, midia?.nome, midia?.mimeType])).update(transferencia?.sha256 ?? '').update(voz ? ':voz' : '').update(responderId ? ':resposta:' + responderId : '').digest('hex');

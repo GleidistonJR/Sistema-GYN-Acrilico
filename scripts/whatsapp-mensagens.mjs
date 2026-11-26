@@ -73,6 +73,12 @@ export function criarServicoMensagens({ prisma, client, conta, ativo, retryDelay
     return media;
   }
 
+  async function registrarTamanho(db, mensagemId, message) {
+    const tamanho = Number(message.rawData?.size);
+    if (!Number.isSafeInteger(tamanho) || tamanho <= 0 || tamanho > 2147483647) return;
+    await db.$executeRaw`UPDATE "MidiaWhatsApp" SET tamanho = ${tamanho} WHERE "mensagemId" = ${mensagemId} AND tamanho IS NULL`;
+  }
+
   async function receber(message) {
     if (tiposAvisoInternoWhatsApp.includes(message.type)) return;
     if (message.isStatus || message.broadcast || !message.id?._serialized) return;
@@ -85,6 +91,7 @@ export function criarServicoMensagens({ prisma, client, conta, ativo, retryDelay
       const media = !exists.midia && metadadosMidia(message);
       if (media) {
         await prisma.midiaWhatsApp.upsert({ where: { mensagemId: exists.id }, create: { mensagemId: exists.id, ...media }, update: {} });
+        await registrarTamanho(prisma, exists.id, message);
         await prisma.mensagemWhatsApp.updateMany({ where: { id: exists.id, erro: { startsWith: 'Anexo indisponível' } }, data: { erro: null } });
       }
       if (message.hasQuotedMsg && !exists.citacao) {
@@ -105,7 +112,8 @@ export function criarServicoMensagens({ prisma, client, conta, ativo, retryDelay
     await prisma.$transaction(async tx => {
       const [cliente] = await tx.$queryRaw`SELECT "conversaExcluidaEm" FROM "Cliente" WHERE id = ${clienteId} FOR UPDATE`;
       if (!cliente || (cliente.conversaExcluidaEm && enviadoEm <= cliente.conversaExcluidaEm)) return;
-      await tx.mensagemWhatsApp.upsert({ where: { conta_externaId: external }, create: { ...data, ...(media ? { midia: { create: media } } : {}) }, update: {} });
+      const gravada = await tx.mensagemWhatsApp.upsert({ where: { conta_externaId: external }, create: { ...data, ...(media ? { midia: { create: media } } : {}) }, update: {} });
+      if (media) await registrarTamanho(tx, gravada.id, message);
       await tx.cliente.updateMany({ where: { id: clienteId, OR: [{ ultimaMensagemEm: null }, { ultimaMensagemEm: { lt: enviadoEm } }] }, data: { ultimaMensagemEm: enviadoEm } });
     }, { timeout: 15000 });
   }

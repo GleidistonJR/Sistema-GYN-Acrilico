@@ -242,6 +242,7 @@ model MidiaWhatsApp {
   preparadaEm DateTime?
   mimeType String
   nome String
+  tamanho Int?
 }
 
 model TextoRapido {
