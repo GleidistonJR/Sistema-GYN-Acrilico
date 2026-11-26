@@ -13,7 +13,7 @@ const LIMITE_TEXTO = 6000;
 
 type Mensagem = { id: string; texto: string; tipo: string; direcao: string; status: string; erro: string | null; enviadoEm: string;
   externaId: string | null; autorId: string | null; citacao: { externaId: string | null; texto: string; tipo: string; direcao: string | null } | null;
-  autor: { colaborador: { nome: string } | null } | null; midia: { nome: string; mimeType: string; tamanho?: number | null } | null;
+  autor: { colaborador: { nome: string } | null } | null; midia: { nome: string; mimeType: string; preparadaEm: string | null; tamanho?: number | null } | null;
 };
 const status: Record<string, string> = { PENDENTE: 'Na fila', ENVIANDO: 'Enviando…', ENVIADA: 'Enviada', ENTREGUE: 'Entregue ✓✓', LIDA: 'Lida ✓✓', FALHOU: 'Falha', INCERTO: 'Sem confirmação', RECEBIDA: 'Recebida' };
 const tipos: Record<string, string> = { image: 'Imagem', audio: 'Áudio', ptt: 'Áudio', document: 'Documento', video: 'Vídeo', sticker: 'Figurinha', chat: 'Mensagem', indisponivel: 'Mensagem original indisponível' };

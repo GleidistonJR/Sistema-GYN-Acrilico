@@ -9,7 +9,7 @@ import { validarMidia, LIMITE_MIDIA, nomeArquivo } from '../lib/whatsapp/conteud
 import { caminhoArquivo, salvarArquivo, limparArquivos, espacoDisponivel, caminhoOriginalRecente,
   guardarOriginalRecente, limparOriginaisRecentes, JANELA_PREPARACAO_MIDIA, RETENCAO_ORIGINAIS,
   lerArquivo, LIMITE_ORIGINAL_RETIDO } from './whatsapp-arquivos.mjs';
-import { obterMidiaWhatsApp, prepararMidiaRecente } from './whatsapp-originais.mjs';
+import { obterMidiaWhatsApp, prepararMidiaRecente } from './whatsapp-previas.mjs';
 
 export function criarServidorMidia({ prisma, getClient, port = 3002 }) {
   let uploading = false;
