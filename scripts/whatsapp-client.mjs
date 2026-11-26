@@ -9,6 +9,28 @@ export function erroDeNavegacao(error) {
 // Navigation can invalidate an evaluate() while logout/QR renewal is in progress.
 // Keep the workaround outside node_modules and covered by regression tests.
 export class WhatsAppClient extends whatsapp.Client {
+  async revogarMensagem(externaId) {
+    return this.pupPage.evaluate(async id => {
+      const { Msg, Chat } = window.require('WAWebCollections');
+      const msg = Msg.get(id) || (await Msg.getMessagesById([id]))?.messages?.[0];
+      if (!msg || !msg.id.fromMe) return false;
+      if (msg.type === 'revoked') return true;
+      // Message.delete(true) can fall back to deleting only on this device.
+      if (!window.require('WAWebMsgActionCapability').canSenderRevokeMsg(msg)) return false;
+      const chat = Chat.get(msg.id.remote) || await Chat.find(msg.id.remote);
+      const { Cmd } = window.require('WAWebCmd');
+      const moderno = window.WWebJS.compareWwebVersions(window.Debug.VERSION, '>=', '2.3000.0');
+      const resultado = await Cmd.sendRevokeMsgs(chat, moderno ? { list: [msg], type: 'message' } : [msg],
+        { clearMedia: true });
+      if (resultado === false) return false;
+      for (let tentativa = 0; tentativa < 20; tentativa++) {
+        if (msg.type === 'revoked' || Msg.get(id)?.type === 'revoked') return true;
+        await new Promise(resolve => setTimeout(resolve, 250));
+      }
+      throw new Error('O WhatsApp ainda não confirmou a exclusão.');
+    }, externaId);
+  }
+
   async assegurarEventosMensagens() {
     return this.pupPage.evaluate(instalarPonteMensagens);
   }

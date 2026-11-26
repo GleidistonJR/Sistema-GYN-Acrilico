@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
-import { ArrowLeft, ChevronDown, Download, Forward, UserPlus, UserMinus, Paperclip, Send, RefreshCw, MoreVertical, Reply, X } from 'lucide-react';
+import { ArrowLeft, ChevronDown, Download, Forward, UserPlus, UserMinus, Paperclip, Send, RefreshCw, MoreVertical, Reply, Trash2, X } from 'lucide-react';
 import BaixarAnexo from '../../../BaixarAnexo';
 import GravarAudio from './GravarAudio';
 import AnexoMensagem from './AnexoMensagem';
@@ -12,7 +12,7 @@ import { transferirAnexo } from './transferirAnexo';
 const LIMITE_TEXTO = 6000;
 
 type Mensagem = { id: string; texto: string; tipo: string; direcao: string; status: string; erro: string | null; enviadoEm: string;
-  externaId: string | null; citacao: { externaId: string | null; texto: string; tipo: string; direcao: string | null } | null;
+  externaId: string | null; autorId: string | null; citacao: { externaId: string | null; texto: string; tipo: string; direcao: string | null } | null;
   autor: { colaborador: { nome: string } | null } | null; midia: { nome: string; mimeType: string; preparadaEm: string | null } | null;
 };
 const status: Record<string, string> = { PENDENTE: 'Na fila', ENVIANDO: 'Enviando…', ENVIADA: 'Enviada', ENTREGUE: 'Entregue ✓✓', LIDA: 'Lida ✓✓', FALHOU: 'Falha', INCERTO: 'Sem confirmação', RECEBIDA: 'Recebida' };
@@ -24,8 +24,9 @@ function TextoMensagem({ texto }: { texto: string }) {
   return assinatura ? <><strong>{assinatura[1]}</strong>{texto.length > assinatura[0].length && <><br />{texto.slice(assinatura[0].length)}</>}</> : <>{texto}</>;
 }
 
-export default function Conversa({ cliente, onVoltar, onDetalhes, onLida, onAssumir, onDesatribuir }: {
+export default function Conversa({ cliente, usuario, onVoltar, onDetalhes, onLida, onAssumir, onDesatribuir }: {
   cliente: { id: string; nome: string; telefone: string | null };
+  usuario: { id: string; role: string };
   onAssumir?: () => Promise<void>;
   onDesatribuir?: () => Promise<void>;
   onVoltar: () => void; onDetalhes: () => void; onLida: (id: string) => void;
@@ -38,6 +39,7 @@ export default function Conversa({ cliente, onVoltar, onDetalhes, onLida, onAssu
   const [progressoAnexo, setProgressoAnexo] = useState('');
   const [responder, setResponder] = useState<Mensagem | null>(null);
   const [encaminhar, setEncaminhar] = useState<Mensagem | null>(null);
+  const [apagando, setApagando] = useState<string | null>(null);
   const [destacada, setDestacada] = useState<string | null>(null);
   const [salto, setSalto] = useState(0);
   const [localizando, setLocalizando] = useState(false);
@@ -77,6 +79,27 @@ export default function Conversa({ cliente, onVoltar, onDetalhes, onLida, onAssu
   const lidaAte = useRef('0');
   const marcando = useRef(false);
   const base = `/api/atendimento/${cliente.id}`;
+
+  async function apagarParaTodos(mensagem: Mensagem) {
+    if (apagando || !window.confirm('Apagar esta mensagem para todos no WhatsApp?')) return;
+    setApagando(mensagem.id);
+    setErro('');
+    try {
+      const resposta = await fetch(`${base}/mensagens/${mensagem.id}`, { method: 'DELETE' });
+      const dados = await resposta.json();
+      if (!resposta.ok) throw new Error(dados.erro || 'Não foi possível apagar a mensagem.');
+      setMensagens(atuais => atuais.map(m => m.id === mensagem.id
+        ? { ...m, status: 'APAGADA', texto: '', midia: null, citacao: null, erro: null }
+        : m.citacao && m.citacao.externaId === mensagem.externaId
+          ? { ...m, citacao: { ...m.citacao, texto: 'Mensagem apagada' } }
+          : m));
+      setResponder(atual => atual?.id === mensagem.id ? null : atual);
+    } catch (error) {
+      setErro(error instanceof Error ? error.message : 'Não foi possível apagar a mensagem.');
+    } finally {
+      setApagando(null);
+    }
+  }
 
   const ajustarAltura = useCallback(() => {
     const el = entradaTexto.current;
@@ -351,16 +374,19 @@ export default function Conversa({ cliente, onVoltar, onDetalhes, onLida, onAssu
       {carregando && <p className="p-8 text-center text-sm text-muted">Carregando conversa…</p>}
       {!carregando && !mensagens.length && <div className="mx-auto mt-10 max-w-md rounded-2xl border border-line bg-surface p-6 text-center"><h2 className="font-semibold">Comece a conversa</h2><p className="mt-2 text-sm text-muted">Envie uma mensagem abaixo ou use “Sincronizar histórico” para buscar mensagens recentes do WhatsApp.</p></div>}
       <div className="space-y-3">{mensagens.map(m => {
+        const podeApagar = podeEnviar && m.direcao === 'SAIDA' && !!m.externaId
+          && ['ENVIADA', 'ENTREGUE', 'LIDA'].includes(m.status)
+          && (usuario.role === 'ADMIN' || m.autorId === usuario.id);
         const renderMensagem = (baixar?: () => void, baixando = false, feedbackDownload?: ReactNode) => <article key={m.id} data-mensagem-id={m.id} data-destacada={destacada === m.id ? "true" : undefined} tabIndex={-1} className={`rounded-lg outline-none flex items-start gap-2 ${m.direcao === 'SAIDA' ? 'justify-end' : 'justify-start'}`}>
         <div className={`transition-[filter,box-shadow] duration-300 ${destacada === m.id ? "ring-2 ring-emerald-300 brightness-125" : ""} max-w-[90%] rounded-2xl px-4 py-3 shadow-sm sm:max-w-[75%] ${m.direcao === 'SAIDA' ? 'rounded-tr-sm bg-chat-outgoing' : 'rounded-tl-sm bg-surface'}`}>
-          {(baixar || (podeEnviar && (m.externaId || (!['PENDENTE', 'ENVIANDO'].includes(m.status) && (m.texto || m.midia))))) && <div className="mb-1 flex justify-end">
+          {m.status !== 'APAGADA' && (baixar || (podeEnviar && (m.externaId || (!['PENDENTE', 'ENVIANDO'].includes(m.status) && (m.texto || m.midia))))) && <div className="mb-1 flex justify-end">
             <button type="button" aria-label="Opções da mensagem" popoverTarget={`acoes-${m.id}`} disabled={enviando && !baixar}
               onClick={event => {
                 const botao = event.currentTarget.getBoundingClientRect();
                 const menu = document.getElementById(`acoes-${m.id}`);
                 if (!menu) return;
                 menu.style.left = `${Math.max(8, Math.min(botao.right - 200, window.innerWidth - 208))}px`;
-                menu.style.top = `${Math.max(8, Math.min(botao.bottom + 4, window.innerHeight - 144))}px`;
+                menu.style.top = `${Math.max(8, Math.min(botao.bottom + 4, window.innerHeight - 168))}px`;
               }} className="rounded p-1 text-secondary hover:bg-foreground/10 disabled:opacity-40">
               <ChevronDown size={16} aria-hidden="true" />
             </button>
@@ -377,6 +403,10 @@ export default function Conversa({ cliente, onVoltar, onDetalhes, onLida, onAssu
                 event.currentTarget.parentElement?.hidePopover();
                 baixar();
               }} className="flex w-full items-center gap-2 rounded px-2 py-2 text-left text-sm hover:bg-surface-muted disabled:opacity-50"><Download size={16} aria-hidden="true" />Baixar arquivo</button>}
+              {podeApagar && <button type="button" disabled={!!apagando} onClick={event => {
+                event.currentTarget.parentElement?.hidePopover();
+                void apagarParaTodos(m);
+              }} className="flex w-full items-center gap-2 rounded px-2 py-2 text-left text-sm text-danger-ink hover:bg-surface-muted disabled:opacity-50"><Trash2 size={16} aria-hidden="true" />Apagar para todos</button>}
             </div>
           </div>}
           {m.citacao && <button type="button" onClick={() => void irParaCitacao(m)} title="Ir para a mensagem original" className="mb-2 block w-full max-w-full cursor-pointer text-left hover:bg-black/30 focus-visible:outline-2 focus-visible:outline-emerald-300 rounded border-l-4 border-emerald-400 bg-black/20 px-3 py-2 text-xs" aria-label="Mensagem citada">
@@ -386,7 +416,8 @@ export default function Conversa({ cliente, onVoltar, onDetalhes, onLida, onAssu
           {m.midia && <AnexoMensagem id={m.id} midia={m.midia} />}
           {feedbackDownload}
           {m.texto && <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground [overflow-wrap:anywhere]">{m.direcao === 'SAIDA' ? <TextoMensagem texto={m.texto} /> : m.texto}</p>}
-          {!m.texto && !m.midia && <p className="text-sm italic text-muted">Mensagem do tipo {m.tipo}</p>}
+          {!m.texto && !m.midia && <p className="text-sm italic text-muted">{m.status === 'APAGADA' ? 'Mensagem apagada' : `Mensagem do tipo ${m.tipo}`}</p>}
+          {apagando === m.id && <p role="status" className="text-xs text-muted">Apagando no WhatsApp…</p>}
           {m.erro && <p className="mt-2 max-w-sm text-xs text-warning-ink">{m.erro}</p>}
           <div className="mt-2 flex flex-wrap justify-end gap-2 text-[11px] text-muted"><time>{new Date(m.enviadoEm).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</time>
             {m.direcao === 'SAIDA' && <span className={m.status === 'LIDA' ? 'text-info-ink' : m.status === 'FALHOU' || m.status === 'INCERTO' ? 'text-warning-ink' : ''}>{m.autor?.colaborador?.nome ? m.autor.colaborador.nome + ' · ' : ''}{status[m.status] || m.status}</span>}</div>

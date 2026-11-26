@@ -12,6 +12,7 @@ export function criarServicoMensagens({ prisma, client, conta, ativo, retryDelay
   const envios = [{ midia: false, job: null, avisado: false }, { midia: true, job: null, avisado: false }];
   const enviosEmTransmissao = new Set();
   const confirmacoes = new Map();
+  const revogacoes = new Map();
   let lastSync = 0;
   let lastClient = '';
   const synchronizing = new Map();
@@ -78,7 +79,8 @@ export function criarServicoMensagens({ prisma, client, conta, ativo, retryDelay
     const jid = message.fromMe ? message.to : message.from;
     if (!/^\d+@(c\.us|lid)$/.test(jid)) return;
     const external = { conta, externaId: message.id._serialized };
-    const exists = await prisma.mensagemWhatsApp.findUnique({ where: { conta_externaId: external }, select: { id: true, citacao: true, midia: { select: { mensagemId: true } } } });
+    const exists = await prisma.mensagemWhatsApp.findUnique({ where: { conta_externaId: external }, select: { id: true, status: true, citacao: true, midia: { select: { mensagemId: true } } } });
+    if (exists?.status === 'APAGADA' || message.type === 'revoked') return;
     if (exists) {
       const media = !exists.midia && metadadosMidia(message);
       if (media) {
@@ -117,8 +119,28 @@ export function criarServicoMensagens({ prisma, client, conta, ativo, retryDelay
       console.info('WhatsApp confirmação', { tipo: medicao.tipo, confirmacaoMs: Date.now() - medicao.retorno, ack });
     }
     if (ack < 0) {
-      await prisma.mensagemWhatsApp.updateMany({ where: { conta, externaId: message.id._serialized, direcao: 'SAIDA', ack: { lte: 0 } }, data: { status: 'FALHOU', erro: 'O WhatsApp não confirmou o envio.' } });
-    } else await prisma.mensagemWhatsApp.updateMany({ where: { conta, externaId: message.id._serialized, direcao: 'SAIDA', ack: { lt: ack } }, data: { ack, status: statusAck(ack), erro: null } });
+      await prisma.mensagemWhatsApp.updateMany({ where: { conta, externaId: message.id._serialized, direcao: 'SAIDA', status: { not: 'APAGADA' }, ack: { lte: 0 } }, data: { status: 'FALHOU', erro: 'O WhatsApp não confirmou o envio.' } });
+    } else await prisma.mensagemWhatsApp.updateMany({ where: { conta, externaId: message.id._serialized, direcao: 'SAIDA', status: { not: 'APAGADA' }, ack: { lt: ack } }, data: { ack, status: statusAck(ack), erro: null } });
+  }
+
+  function apagarParaTodos(id) {
+    const atual = revogacoes.get(id);
+    if (atual) return atual;
+    const tarefa = enqueue(async () => {
+      const mensagem = await prisma.mensagemWhatsApp.findFirst({ where: { id, conta, direcao: 'SAIDA', externaId: { not: null } } });
+      if (!mensagem || !mensagem.externaId) return false;
+      if (mensagem.status === 'APAGADA') return true;
+      if (!await client.revogarMensagem(mensagem.externaId)) return false;
+      await prisma.$transaction(async tx => {
+        await tx.$executeRaw`UPDATE "MensagemWhatsApp" SET status = 'APAGADA', texto = '', citacao = NULL, erro = NULL, "updatedAt" = NOW() WHERE id = ${id}`;
+        await tx.midiaWhatsApp.deleteMany({ where: { mensagemId: id } });
+        await tx.$executeRaw`UPDATE "MensagemWhatsApp" SET citacao = jsonb_set(citacao, '{texto}', '"Mensagem apagada"'::jsonb)
+          WHERE conta = ${conta} AND "clienteId" = ${mensagem.clienteId} AND citacao->>'externaId' = ${mensagem.externaId}`;
+      });
+      return true;
+    }, 0).finally(() => revogacoes.delete(id));
+    revogacoes.set(id, tarefa);
+    return tarefa;
   }
 
   async function destino(cliente) {
@@ -351,7 +373,7 @@ export function criarServicoMensagens({ prisma, client, conta, ativo, retryDelay
   }
 
   return {
-    receber, confirmar, identificar, acordarEnvios, enviarPendentes: async () => { await processarEnvios(); await drain(); },
+    receber, confirmar, identificar, acordarEnvios, apagarParaTodos, enviarPendentes: async () => { await processarEnvios(); await drain(); },
     drain,
     sincronizar,
     async start() {

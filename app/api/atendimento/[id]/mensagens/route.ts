@@ -10,7 +10,7 @@ import { tiposAvisoInternoWhatsApp } from '@/lib/whatsapp/conteudo.mjs';
 export const runtime = 'nodejs';
 type Contexto = { params: Promise<{ id: string }> };
 const json = (body: unknown, status = 200) => Response.json(body, { status, headers: privado });
-const selecao = { id: true, externaId: true, citacao: true, texto: true, tipo: true, direcao: true, status: true, erro: true, enviadoEm: true,
+const selecao = { id: true, autorId: true, externaId: true, citacao: true, texto: true, tipo: true, direcao: true, status: true, erro: true, enviadoEm: true,
   autor: { select: { colaborador: { select: { nome: true } } } },
   midia: { select: { nome: true, mimeType: true, preparadaEm: true } },
 } satisfies Prisma.MensagemWhatsAppSelect;
@@ -88,7 +88,7 @@ export async function POST(request: Request, { params }: Contexto) {
     }
     const estado = await chamarWhatsApp('status').catch(() => null);
     if (estado?.status !== 'conectado' || !estado.numero) return json({ erro: 'O WhatsApp está desconectado. Conecte o aparelho antes de enviar.' }, 409);
-    const original = responderId ? await prisma.mensagemWhatsApp.findFirst({ where: { id: responderId, clienteId: id, conta: estado.numero, externaId: { not: null } }, select: { externaId: true, texto: true, tipo: true, direcao: true } }) : null;
+    const original = responderId ? await prisma.mensagemWhatsApp.findFirst({ where: { id: responderId, clienteId: id, conta: estado.numero, externaId: { not: null }, status: { not: 'APAGADA' } }, select: { externaId: true, texto: true, tipo: true, direcao: true } }) : null;
     if (responderId && !original) return json({ erro: 'A mensagem citada não está disponível nesta conversa ou ainda não foi enviada.' }, 400);
     const mensagem = await prisma.$transaction(async tx => {
       const allowed = await tx.cliente.updateMany({

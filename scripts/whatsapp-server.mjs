@@ -234,6 +234,22 @@ const server = http.createServer((req, res) => {
   if (req.method === 'POST' && req.url === '/disconnect') {
     void disconnect(); res.writeHead(202); res.end(JSON.stringify(snapshot())); return;
   }
+  if (req.method === 'POST' && req.url === '/revogar') {
+    if (!mensagens || state.status !== 'conectado') { res.writeHead(503); res.end('{}'); return; }
+    const servico = mensagens;
+    let body = '';
+    req.on('data', chunk => { body += chunk; if (body.length > 2048) req.destroy(); });
+    req.on('end', () => {
+      let id;
+      try { ({ id } = JSON.parse(body)); } catch { /* Invalid payload. */ }
+      if (typeof id !== 'string' || !id || id.length > 100) { res.writeHead(400); res.end('{}'); return; }
+      void servico.apagarParaTodos(id).then(apagada => {
+        res.writeHead(apagada ? 200 : apagada === false ? 409 : 503);
+        res.end('{}');
+      }).catch(() => { res.writeHead(502); res.end('{}'); });
+    });
+    return;
+  }
   if (req.method === 'POST' && req.url === '/sync') {
     if (!mensagens || state.status !== 'conectado') { res.writeHead(409); res.end('{"erro":"WhatsApp desconectado"}'); return; }
     let body = '';
