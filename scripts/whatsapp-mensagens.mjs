@@ -10,7 +10,7 @@ export function criarServicoMensagens({ prisma, client, conta, ativo, retryDelay
   let timer;
   let stopped = false;
   const envios = [{ midia: false, job: null, avisado: false }, { midia: true, job: null, avisado: false }];
-  const enviosPorJid = new Map();
+  const enviosEmTransmissao = new Set();
   const confirmacoes = new Map();
   let lastSync = 0;
   let lastClient = '';
@@ -232,8 +232,10 @@ export function criarServicoMensagens({ prisma, client, conta, ativo, retryDelay
       }
       const inicioEnvio = Date.now();
       let liberarEco;
+      let concluido = false;
       const envio = new Promise(resolve => { liberarEco = resolve; });
-      enviosPorJid.set(jid, envio);
+      const transmissao = { envio, get concluido() { return concluido; } };
+      enviosEmTransmissao.add(transmissao);
       // Do not retry an ambiguous send automatically: WhatsApp may have accepted it.
       try {
         const sent = await client.sendMessage(jid, payload, { sendSeen: false,
@@ -260,7 +262,8 @@ export function criarServicoMensagens({ prisma, client, conta, ativo, retryDelay
           erro: quoteUnavailable ? 'A mensagem citada não está mais disponível no WhatsApp. Nenhuma resposta foi enviada. Selecione outra mensagem.' : 'Envio sem confirmação. Confira o histórico antes de enviar novamente para evitar duplicidade.',
         } });
       } finally {
-        if (enviosPorJid.get(jid) === envio) enviosPorJid.delete(jid);
+        concluido = true;
+        enviosEmTransmissao.delete(transmissao);
         liberarEco();
       }
     }
@@ -268,7 +271,18 @@ export function criarServicoMensagens({ prisma, client, conta, ativo, retryDelay
   }
 
   async function aguardarEnvio(message) {
-    if (message.fromMe) await enviosPorJid.get(message.to);
+    const externaId = message.id?._serialized;
+    if (!(message.fromMe || message.id?.fromMe) || !externaId || !enviosEmTransmissao.size) return;
+    // Outgoing echoes can identify the same contact by LID instead of the JID used to send.
+    const ativos = [...enviosEmTransmissao];
+    while (ativos.some(transmissao => !transmissao.concluido)) {
+      const restante = ativos.filter(transmissao => !transmissao.concluido);
+      const existente = await prisma.mensagemWhatsApp.findUnique({
+        where: { conta_externaId: { conta, externaId } }, select: { id: true },
+      });
+      if (existente) return;
+      await Promise.race(restante.map(transmissao => transmissao.envio));
+    }
   }
 
   function agendarRecebimento(message, priority = 1) {
@@ -286,8 +300,10 @@ export function criarServicoMensagens({ prisma, client, conta, ativo, retryDelay
   }
   // Retrying persistence is safe because the account/external ID is unique.
   // Backoff happens outside the serial queue so it never holds outgoing messages.
-  const onMessage = message => { void aguardarEnvio(message).then(() => agendarRecebimento(message, message.hasMedia ? 2 : 1)); };
-  const onAck = (message, ack) => { void aguardarEnvio(message).then(() => enqueue(() => confirmar(message, ack))).catch(() => {}); };
+  const onMessage = message => {
+    void aguardarEnvio(message).catch(log).then(() => agendarRecebimento(message, message.hasMedia ? 2 : 1));
+  };
+  const onAck = (message, ack) => { void aguardarEnvio(message).then(() => enqueue(() => confirmar(message, ack))).catch(log); };
   client.on('message_create', onMessage);
   client.on('message_ack', onAck);
 
