@@ -1,0 +1,1 @@
+ALTER TABLE "User" ADD COLUMN "clientesFixados" TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[];

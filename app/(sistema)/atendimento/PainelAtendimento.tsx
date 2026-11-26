@@ -3,7 +3,7 @@
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Search, Plus, UserRound, MessageCircle, Tags, Settings2, X, ChevronLeft, ChevronRight, SlidersHorizontal, MoreVertical } from 'lucide-react';
+import { Search, Plus, UserRound, MessageCircle, Tags, Settings2, X, ChevronLeft, ChevronRight, SlidersHorizontal, MoreVertical, GripVertical, Pin, PinOff, ArrowUp, ArrowDown } from 'lucide-react';
 import Formulario from './Formulario';
 import GerenciarEtiquetas from './GerenciarEtiquetas';
 import EtiquetasCliente from './EtiquetasCliente';
@@ -12,7 +12,7 @@ import AvatarContato from './AvatarContato';
 import { useFotosContatos } from './useFotosContatos';
 
 const Conversa = dynamic(() => import('./conversas/[id]/Conversa'), { loading: () => <div className="flex h-full items-center justify-center text-sm text-subtle">Abrindo conversa…</div> });
-type Cliente = { id: string; nome: string; telefone: string | null; responsavelId: string | null; naoLida: boolean; responsavelNome?: string | null };
+type Cliente = { id: string; nome: string; telefone: string | null; responsavelId: string | null; naoLida: boolean; responsavelNome?: string | null; fixado?: boolean };
 type Etiqueta = { id: string; nome: string };
 type Detalhes = { cliente: Omit<Cliente, 'naoLida'>; etiquetas: Etiqueta[]; selecionadas: string[]; operadores: { id: string; nome: string }[] };
 const campo = 'mt-1 block w-full rounded-lg border border-line-strong bg-surface p-2.5 text-sm text-foreground';
@@ -44,6 +44,10 @@ export default function PainelAtendimento({ usuario, etiquetas: etiquetasIniciai
   const [online, setOnline] = useState(false);
   const [modal, setModal] = useState<'cliente' | 'etiqueta' | 'detalhes' | 'apelido' | 'excluir' | null>(null);
   const [menuConversa, setMenuConversa] = useState<string | null>(null);
+  const [arrastado, setArrastado] = useState<string | null>(null);
+  const [destinoArrasto, setDestinoArrasto] = useState<{ id: string; lado: 'antes' | 'depois' } | null>(null);
+  const [salvandoFixacao, setSalvandoFixacao] = useState(false);
+  const fixacaoEmCurso = useRef(false);
   const [clienteParaExcluir, setClienteParaExcluir] = useState<Cliente | null>(null);
   const [detalhes, setDetalhes] = useState<Detalhes | null>(null);
   const [clienteDetalhesId, setClienteDetalhesId] = useState<string | null>(null);
@@ -152,6 +156,22 @@ export default function PainelAtendimento({ usuario, etiquetas: etiquetasIniciai
     finally { if (version === requestId.current) { busy.current = null; setCarregando(false); if (pending.current) { pending.current = false; void carregar(); } } }
   }, [fila, busca, etiqueta, pagina, escolher, selectedId, mudarEtiqueta]);
 
+  async function organizarFixados(id: string, acao: 'fixar' | 'desafixar' | 'antes' | 'depois', alvo?: string) {
+    if (fixacaoEmCurso.current) return;
+    fixacaoEmCurso.current = true;
+    setSalvandoFixacao(true);
+    setMenuConversa(null);
+    try {
+      const resposta = await fetch('/api/atendimento/clientes', {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id, acao, alvo }),
+      });
+      if (!resposta.ok) throw new Error((await resposta.json()).erro || 'Não foi possível salvar a posição.');
+      if (acao === 'fixar' && pagina > 1) setPagina(1);
+      else await carregar();
+    } catch (falha) { setErro(falha instanceof Error ? falha.message : 'Não foi possível salvar a posição.'); }
+    finally { fixacaoEmCurso.current = false; setSalvandoFixacao(false); }
+  }
+
   useEffect(() => {
     const requests = requestId;
     const timer = setTimeout(() => void carregar(), busca ? 250 : 0);
@@ -233,14 +253,39 @@ export default function PainelAtendimento({ usuario, etiquetas: etiquetasIniciai
         {erro && <p role="alert" className="px-5 py-3 text-xs text-warning-ink">{erro}</p>}
         {carregando && <p className="p-8 text-center text-sm text-muted">Carregando clientes…</p>}
         {!carregando && !clientes.length && <p className="p-8 text-center text-sm text-muted">Nenhum cliente nesta lista.</p>}
-        {clientes.map(c => <div key={c.id} className={selecionado?.id === c.id ? 'bg-surface-muted' : 'hover:bg-surface'}>
+        {clientes.map((c, indice) => <div key={c.id}
+          onDragOver={evento => {
+            if (fila !== 'meus' || !arrastado || arrastado === c.id || salvandoFixacao) return;
+            evento.preventDefault();
+            evento.dataTransfer.dropEffect = 'move';
+            const caixa = evento.currentTarget.getBoundingClientRect();
+            const lado = evento.clientY < caixa.top + caixa.height / 2 ? 'antes' : 'depois';
+            setDestinoArrasto(atual => atual?.id === c.id && atual.lado === lado ? atual : { id: c.id, lado });
+          }}
+          onDrop={evento => {
+            if (!arrastado || destinoArrasto?.id !== c.id || fila !== 'meus') return;
+            evento.preventDefault();
+            void organizarFixados(arrastado, destinoArrasto.lado, c.id);
+            setArrastado(null); setDestinoArrasto(null);
+          }}
+          className={`relative ${selecionado?.id === c.id ? 'bg-surface-muted' : 'hover:bg-surface'} ${arrastado === c.id ? 'opacity-60' : ''}`}>
+          {destinoArrasto?.id === c.id && <div className={`pointer-events-none absolute inset-x-2 z-10 h-0.5 bg-success-ink ${destinoArrasto.lado === 'antes' ? 'top-0' : 'bottom-0'}`} />}
           <div className="flex items-center">
+          {fila === 'meus' && <span draggable={!salvandoFixacao} title="Arraste para fixar ou reordenar"
+            onDragStart={evento => {
+              evento.dataTransfer.effectAllowed = 'move';
+              evento.dataTransfer.setData('text/plain', c.id);
+              setArrastado(c.id); setMenuConversa(null);
+            }}
+            onDragEnd={() => { setArrastado(null); setDestinoArrasto(null); }}
+            className="ml-1 cursor-grab select-none p-1 text-muted hover:text-success-ink active:cursor-grabbing"><GripVertical size={15} aria-hidden="true" /></span>}
           <button data-cliente-id={c.id} onClick={() => { setMenuConversa(null); escolher(c); }} aria-label={`Conversar com ${c.nome}${c.naoLida ? ', mensagens não lidas' : ''}`} aria-current={selecionado?.id === c.id ? 'true' : undefined}
           className="flex min-w-0 flex-1 items-center gap-3 px-4 py-4 text-left focus-visible:outline-2 focus-visible:outline-emerald-400">
           <AvatarContato nome={c.nome} url={fotos[c.id]} />
           <span className="min-w-0 flex-1"><span className={`block truncate text-[15px] text-foreground ${c.naoLida ? 'font-semibold' : ''}`}>{c.nome}</span><span className="mt-1 block truncate text-xs text-muted">{c.telefone || 'Contato do WhatsApp'}</span></span>
           {c.responsavelId && <span role="img" title={`Responsável: ${c.responsavelNome || 'Atribuído'}`} aria-label={`Responsável: ${c.responsavelNome || 'Atribuído'}`} className={`shrink-0 ${c.responsavelId === usuario.id ? 'text-success-ink' : 'text-danger-ink'}`}><UserRound size={17} /></span>}
           {c.naoLida && <span role="img" aria-label="Mensagens não lidas" className="size-2.5 shrink-0 rounded-full bg-success-ink" />}
+          {c.fixado && fila === 'meus' && <span role="img" title="Conversa fixada" aria-label="Conversa fixada" className="shrink-0 text-success-ink"><Pin size={15} /></span>}
           </button>
           <button type="button" aria-label={`Opções da conversa com ${c.nome}`}
             aria-expanded={menuConversa === c.id} onClick={() => setMenuConversa(atual => atual === c.id ? null : c.id)}
@@ -249,6 +294,17 @@ export default function PainelAtendimento({ usuario, etiquetas: etiquetasIniciai
           </button>
           </div>
           {menuConversa === c.id && <div className="flex flex-wrap justify-end gap-2 px-3 pb-2">
+            {fila === 'meus' && <button type="button" disabled={salvandoFixacao}
+              onClick={() => void organizarFixados(c.id, c.fixado ? 'desafixar' : 'fixar')}
+              className="flex items-center gap-2 rounded-md bg-surface px-3 py-2 text-sm text-success-ink hover:bg-foreground/10">
+              {c.fixado ? <PinOff size={16} /> : <Pin size={16} />}{c.fixado ? 'Desafixar conversa' : 'Fixar conversa'}
+            </button>}
+            {fila === 'meus' && c.fixado && clientes[indice - 1]?.fixado && <button type="button" disabled={salvandoFixacao}
+              onClick={() => void organizarFixados(c.id, 'antes', clientes[indice - 1].id)}
+              className="flex items-center gap-1 rounded-md bg-surface px-2 py-2 text-sm hover:bg-foreground/10"><ArrowUp size={15} />Subir</button>}
+            {fila === 'meus' && c.fixado && clientes[indice + 1]?.fixado && <button type="button" disabled={salvandoFixacao}
+              onClick={() => void organizarFixados(c.id, 'depois', clientes[indice + 1].id)}
+              className="flex items-center gap-1 rounded-md bg-surface px-2 py-2 text-sm hover:bg-foreground/10"><ArrowDown size={15} />Descer</button>}
             <button type="button" onClick={() => abrirDetalhes(c.id)}
               className="rounded-md bg-surface px-3 py-2 text-sm text-primary-ink hover:bg-foreground/10">
               Organizar cliente

@@ -67,6 +67,7 @@ model Ponto {
 }
 
 model User {
+  clientesFixados String[] @default([])
   id        String   @id @default(uuid())
   email     String   @unique
   apelido   String?  @db.VarChar(40)
