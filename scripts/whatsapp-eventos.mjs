@@ -20,27 +20,38 @@ export function criarEventosAtendimento({ onEnvio = () => {}, onFotos = () => {}
     if (stopped) return;
     const url = new URL(process.env.DATABASE_DIRECT_URL || process.env.DATABASE_URL);
     if (url.hostname.endsWith('.neon.tech')) url.hostname = url.hostname.replace('-pooler.', '.');
-    const connection = new pg.Client({ connectionString: url.toString(), connectionTimeoutMillis: 5000, keepAlive: true });
+    const connection = new pg.Client({
+      connectionString: url.toString(), connectionTimeoutMillis: 5000,
+      query_timeout: 5000, keepAlive: true, keepAliveInitialDelayMillis: 10000,
+    });
     database = connection;
+    function reconnect(error) {
+      if (stopped || database !== connection) return;
+      database = null;
+      if (error) console.error('Conexão de notificações do atendimento interrompida:', error.code || error.name);
+      for (const response of listeners) response.end();
+      listeners.clear();
+      void connection.end().catch(() => {});
+      retry = setTimeout(() => void connect(), 2000);
+    }
     connection.on('notification', event => {
       if (event.channel === 'whatsapp_envio') onEnvio(event.payload);
       else if (event.channel === 'whatsapp_fotos') onFotos();
       else publish();
     });
-    connection.on('error', () => { void connection.end().catch(() => {}); });
-    connection.once('end', () => {
-      if (!stopped) { for (const response of listeners) response.end(); listeners.clear(); retry = setTimeout(() => void connect(), 2000); }
-    });
+    connection.on('error', reconnect);
+    connection.once('end', reconnect);
     try {
       await connection.connect();
       await connection.query('LISTEN atendimento_alterado');
       await connection.query('LISTEN whatsapp_envio');
       await connection.query('LISTEN whatsapp_fotos');
+      if (stopped || database !== connection) return;
       onFotos();
       onEnvio(); // Catch up after reconnecting, without waiting for the fallback timer.
       publish();
     }
-    catch { await connection.end().catch(() => {}); }
+    catch (error) { reconnect(error); }
   }
   void connect();
   return {

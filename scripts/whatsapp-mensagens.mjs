@@ -270,9 +270,15 @@ export function criarServicoMensagens({ prisma, client, conta, ativo, retryDelay
     });
   }
 
+  let envioTimer;
+
+  function verificarFila() {
+    // Recover missed notifications without waiting for the history sync.
+    if (!waking) acordarEnvios();
+  }
+
   async function tick() {
     try {
-      acordarEnvios();
       if (!synchronizing.size && Date.now() - lastSync > 120000) {
         lastSync = Date.now();
         const next = await prisma.cliente.findFirst({ where: { id: { gt: lastClient } }, orderBy: { id: 'asc' } });
@@ -289,6 +295,9 @@ export function criarServicoMensagens({ prisma, client, conta, ativo, retryDelay
     sincronizar,
     async start() {
       await prisma.mensagemWhatsApp.updateMany({ where: { conta, status: 'ENVIANDO' }, data: { status: 'INCERTO', erro: 'A conexão reiniciou durante o envio. Confira o histórico antes de reenviar.' } });
+      if (stopped) return;
+      verificarFila();
+      envioTimer ??= setInterval(verificarFila, 2000);
       void tick();
       // Map registered numbers before importing history, preserving their owners.
       const customers = await prisma.cliente.findMany({ select: { id: true }, orderBy: { ultimaMensagemEm: { sort: 'desc', nulls: 'last' } }, take: 100 });
@@ -297,6 +306,6 @@ export function criarServicoMensagens({ prisma, client, conta, ativo, retryDelay
         await sincronizar(customer.id).catch(log);
       }
     },
-    async stop() { stopped = true; clearTimeout(timer); for (const entry of recebimentos.values()) clearTimeout(entry.timer); recebimentos.clear(); client.off('message_create', onMessage); client.off('message_ack', onAck); await Promise.allSettled([...synchronizing.values()]); await fila.drain(); },
+    async stop() { stopped = true; clearTimeout(timer); clearInterval(envioTimer); for (const entry of recebimentos.values()) clearTimeout(entry.timer); recebimentos.clear(); client.off('message_create', onMessage); client.off('message_ack', onAck); await Promise.allSettled([...synchronizing.values()]); await fila.drain(); },
   };
 }
