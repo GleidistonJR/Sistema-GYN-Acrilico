@@ -28,6 +28,7 @@ export default function AvisosAtendimento({ usuarioId, historicoRef, chatInterno
   const [janela, setJanela] = useState<{ colegaId: string | null; minimizada: boolean } | null>(null);
   const [novoInterno, setNovoInterno] = useState<AvisoInterno | null>(null);
   const janelaAberta = janela !== null;
+  const janelaExpandida = janelaAberta && !janela.minimizada;
 
   useEffect(() => {
     if (!chatInterno) return;
@@ -114,18 +115,22 @@ export default function AvisosAtendimento({ usuarioId, historicoRef, chatInterno
         const chegou = (item: { chave: string; id: string | null; recebidaEm: string | null }) =>
           !!item.id && !!item.recebidaEm && item.id !== anterior.mensagens.get(item.chave)
           && (anterior.mensagens.has(item.chave) || Date.parse(item.recebidaEm) >= anterior.consultadoEm);
+        let abriuPorMensagem = false;
         if (chatInterno && !paginaChat) {
           const nova = internas.filter(item => chegou({
             chave: 'interno:' + item.colegaId, id: String(item.mensagemId), recebidaEm: item.recebidaEm,
           })).sort((a, b) => b.mensagemId - a.mensagemId)[0];
           if (nova) {
             setNovoInterno(nova);
+            abriuPorMensagem = !janelaAberta;
             setJanela(atual => atual ?? { colegaId: nova.colegaId, minimizada: false });
           }
         }
         if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+        const chatVisivel = !document.hidden && document.hasFocus() && (janelaExpandida || abriuPorMensagem);
         for (const conversa of avisos) {
           if (!chegou(conversa)) continue;
+          if (chatVisivel && conversa.chave.startsWith('interno:')) continue;
           const notificacao = new Notification(conversa.titulo, {
             body: conversa.previa || 'Enviou uma mensagem.',
             icon: '/favicon.ico',
@@ -162,7 +167,7 @@ export default function AvisosAtendimento({ usuarioId, historicoRef, chatInterno
       window.removeEventListener('atendimento:atualizar', agendar);
       window.removeEventListener('chat-interno:atualizar-avisos', agendar);
     };
-  }, [ativos, chatInterno, historicoRef, janelaAberta, paginaChat, usuarioId]);
+  }, [ativos, chatInterno, historicoRef, janelaAberta, janelaExpandida, paginaChat, usuarioId]);
 
   const pendentes = ativos ? total : 0;
   const aviso = pendentes
@@ -174,7 +179,7 @@ export default function AvisosAtendimento({ usuarioId, historicoRef, chatInterno
 
   return (
     <div className="flex shrink-0 items-center gap-1">
-      {chatInterno && <button type="button" aria-label={avisoInterno} title={avisoInterno} aria-expanded={janelaAberta && !janela.minimizada}
+      {chatInterno && <button type="button" aria-label={avisoInterno} title={avisoInterno} aria-expanded={janelaExpandida}
         onClick={() => setJanela(atual => atual ? { ...atual, minimizada: !atual.minimizada } : { colegaId: null, minimizada: false })}
         className={`relative grid size-9 place-items-center rounded-md hover:bg-surface-muted ${pendentesInternas ? 'text-success-ink' : 'text-secondary'}`}>
         <MessageSquare size={19} aria-hidden="true" />
