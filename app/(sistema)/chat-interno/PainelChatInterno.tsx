@@ -44,9 +44,10 @@ function marcarApagadas(mensagens: Mensagem[], ids: number[]) {
   return alterou ? resultado : mensagens;
 }
 
-export default function PainelChatInterno({ eu, colegas, colega, pendentesIniciais, onSelecionar }: {
+export default function PainelChatInterno({ eu, colegas, colega, pendentesIniciais, onSelecionar, compacto = false, leituraAtiva = true, pausado = false }: {
   eu: string; colegas: Colega[]; colega?: Colega; pendentesIniciais: string[];
   onSelecionar?: (id: string | null) => void;
+  compacto?: boolean; leituraAtiva?: boolean; pausado?: boolean;
 }) {
   const [pendentes, setPendentes] = useState(pendentesIniciais);
 
@@ -61,17 +62,18 @@ export default function PainelChatInterno({ eu, colegas, colega, pendentesInicia
     window.dispatchEvent(new Event('chat-interno:atualizar-avisos'));
   }, []);
 
-  return <div className={`flex min-h-0 bg-chat-canvas text-foreground ${onSelecionar ? 'flex-1' : 'h-[calc(100dvh-4rem)]'}`}>
-    <aside className={`${colega ? 'hidden md:flex' : 'flex'} w-full shrink-0 flex-col border-r border-line bg-surface md:w-64 lg:w-72`} aria-label="Colegas">
+  return <div className={`flex min-h-0 min-w-0 bg-chat-canvas text-foreground ${onSelecionar ? 'flex-1' : 'h-[calc(100dvh-4rem)]'}`}>
+    <aside className={compacto ? `${colega ? 'hidden' : 'flex'} w-full flex-col bg-surface`
+      : `${colega ? 'hidden md:flex' : 'flex'} w-full shrink-0 flex-col border-r border-line bg-surface md:w-64 lg:w-72`} aria-label="Colegas">
       {!onSelecionar && <h1 className="border-b border-line px-5 py-5 text-xl font-semibold">Chat interno</h1>}
       <div className="min-h-0 overflow-y-auto p-2">
         {!colegas.length && <p className="px-3 py-4 text-sm text-muted">Nenhum colega disponível.</p>}
         {colegas.map(item => {
           const naoLida = pendentes.includes(item.id);
           const selecionado = item.id === colega?.id;
-          const classe = `flex min-h-14 w-full items-center gap-3 rounded-lg px-3 py-2 text-left ${selecionado ? 'bg-success-soft' : 'hover:bg-surface-muted'}`;
+          const classe = `flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left ${compacto ? 'min-h-11' : 'min-h-14'} ${selecionado ? 'bg-success-soft' : 'hover:bg-surface-muted'}`;
           const conteudo = <>
-            <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center rounded-full bg-chat-avatar text-sm font-semibold text-success-ink">
+            <span aria-hidden="true" className={`grid shrink-0 place-items-center rounded-full bg-chat-avatar text-sm font-semibold text-success-ink ${compacto ? 'size-7' : 'size-9'}`}>
               {item.nome.charAt(0).toUpperCase()}
             </span>
             <span className="min-w-0 flex-1">
@@ -87,9 +89,9 @@ export default function PainelChatInterno({ eu, colegas, colega, pendentesInicia
         })}
       </div>
     </aside>
-    {colega ? <ConversaInterna key={colega.id} eu={eu} colega={colega} colegas={colegas} onLida={removerPendente}
+    {colega ? <ConversaInterna key={colega.id} eu={eu} colega={colega} colegas={colegas} onLida={removerPendente} compacto={compacto} leituraAtiva={leituraAtiva} pausado={pausado}
       onVoltar={onSelecionar ? () => onSelecionar(null) : undefined} /> : (
-      <div className="hidden flex-1 flex-col items-center justify-center gap-3 text-muted md:flex">
+    <div className={compacto ? 'hidden' : 'hidden flex-1 flex-col items-center justify-center gap-3 text-muted md:flex'}>
         <MessageSquare size={32} aria-hidden="true" />
         <p className="text-sm">Selecione um colega para conversar.</p>
       </div>
@@ -97,8 +99,9 @@ export default function PainelChatInterno({ eu, colegas, colega, pendentesInicia
   </div>;
 }
 
-function ConversaInterna({ eu, colega, colegas, onLida, onVoltar }: {
+function ConversaInterna({ eu, colega, colegas, onLida, onVoltar, compacto, leituraAtiva, pausado }: {
   eu: string; colega: Colega; colegas: Colega[]; onLida: (id: string) => void; onVoltar?: () => void;
+  compacto: boolean; leituraAtiva: boolean; pausado: boolean;
 }) {
   const [mensagens, setMensagens] = useState<Mensagem[]>([]);
   const [anteriores, setAnteriores] = useState(false);
@@ -136,7 +139,7 @@ function ConversaInterna({ eu, colega, colegas, onLida, onVoltar }: {
   const ultimaRecebida = mensagens.findLast(mensagem => mensagem.remetenteId !== eu)?.id ?? 0;
 
   const marcarLida = useCallback(async () => {
-    if (contexto || !seguirFim.current || !document.hasFocus() || document.hidden || marcando.current || ultimaRecebida <= leuAte.current) return;
+    if (!leituraAtiva || contexto || !seguirFim.current || !document.hasFocus() || document.hidden || marcando.current || ultimaRecebida <= leuAte.current) return;
     marcando.current = true;
     try {
       const resposta = await fetch(base, { method: 'PATCH', headers: { 'Content-Type': 'application/json' },
@@ -147,9 +150,10 @@ function ConversaInterna({ eu, colega, colegas, onLida, onVoltar }: {
       }
     } catch { /* Tenta novamente na próxima atualização. */ }
     finally { marcando.current = false; }
-  }, [base, colega.id, contexto, onLida, ultimaRecebida]);
+  }, [base, colega.id, contexto, leituraAtiva, onLida, ultimaRecebida]);
 
   useEffect(() => {
+    if (pausado) return;
     const controller = new AbortController();
     let ocupado = false;
     async function atualizar() {
@@ -186,7 +190,7 @@ function ConversaInterna({ eu, colega, colegas, onLida, onVoltar }: {
       window.removeEventListener('focus', atualizar);
       document.removeEventListener('visibilitychange', atualizar);
     };
-  }, [base]);
+  }, [base, pausado]);
 
   useEffect(() => () => { uploadAtivo.current?.abort(); }, []);
 
@@ -380,12 +384,12 @@ function ConversaInterna({ eu, colega, colegas, onLida, onVoltar }: {
       if (arquivo || evento.dataTransfer.files.length > 1) { setErro('Envie um arquivo por vez.'); return; }
       if (novo && escolherArquivo(novo)) void enviar(novo);
     }}>
-    <header className="flex min-h-16 shrink-0 items-center gap-3 border-b border-line bg-surface px-4">
+    {!compacto && <header className="flex min-h-16 shrink-0 items-center gap-3 border-b border-line bg-surface px-4">
       {onVoltar ? <button type="button" onClick={onVoltar} aria-label="Voltar aos colegas" className="rounded-md p-2 text-secondary hover:bg-surface-muted md:hidden"><ArrowLeft size={20} /></button>
         : <Link href="/chat-interno" aria-label="Voltar aos colegas" className="rounded-md p-2 text-secondary hover:bg-surface-muted md:hidden"><ArrowLeft size={20} /></Link>}
       <h2 className="truncate text-lg font-semibold">{colega.nome}</h2>
-    </header>
-    <div ref={lista} className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-5 sm:px-8"
+    </header>}
+    <div ref={lista} className={`min-h-0 flex-1 overflow-y-auto ${compacto ? 'space-y-2 px-2.5 py-3' : 'space-y-3 px-4 py-5 sm:px-8'}`}
       onScroll={event => {
         const el = event.currentTarget;
         seguirFim.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
@@ -401,7 +405,7 @@ function ConversaInterna({ eu, colega, colegas, onLida, onVoltar }: {
         const url = `${base}?arquivo=${mensagem.id}`;
         const renderMensagem = (baixar?: () => void, baixando = false, feedback?: ReactNode) => <article key={mensagem.id} data-mensagem-id={mensagem.id} tabIndex={-1}
           className={`flex items-start gap-1 rounded-lg outline-none ${salto?.id === mensagem.id ? 'ring-2 ring-success-ink' : ''} ${mensagem.remetenteId === eu ? 'justify-end' : ''}`}>
-          <div className={`min-w-0 max-w-[85%] rounded-2xl px-4 py-2.5 shadow-sm sm:max-w-[75%] ${mensagem.remetenteId === eu ? 'rounded-tr-sm bg-chat-outgoing' : 'rounded-tl-sm bg-surface'}`}>
+          <div className={`min-w-0 rounded-2xl shadow-sm ${compacto ? 'max-w-[90%] px-2.5 py-1.5' : 'max-w-[85%] px-4 py-2.5 sm:max-w-[75%]'} ${mensagem.remetenteId === eu ? 'rounded-tr-sm bg-chat-outgoing' : 'rounded-tl-sm bg-surface'}`}>
             {!mensagem.apagadaEm && <div className="flex justify-end">
               <button type="button" aria-label="Opções da mensagem" popoverTarget={`chat-interno-acoes-${mensagem.id}`}
                 onClick={event => {
@@ -467,7 +471,7 @@ function ConversaInterna({ eu, colega, colegas, onLida, onVoltar }: {
         </div>
       </form>
     </dialog>
-    <footer className="shrink-0 border-t border-line bg-surface p-3 sm:px-5">
+    <footer className={`shrink-0 border-t border-line bg-surface ${compacto ? 'p-2' : 'p-3 sm:px-5'}`}>
       {contexto && <div className="mb-2 flex items-center justify-between gap-2 rounded bg-surface-muted px-2 py-1 text-xs text-muted">
         <span>Trecho da mensagem citada</span>
         <button type="button" onClick={voltarAoFim} className="p-2 font-semibold text-success-ink">Voltar às recentes</button>
@@ -494,10 +498,10 @@ function ConversaInterna({ eu, colega, colegas, onLida, onVoltar }: {
           <input type="file" hidden ref={campoArquivo} accept={[...FORMATOS_ANEXO_INTERNO, ...EXTENSOES_DOCUMENTO_INTERNO].join(',')}
             onChange={evento => escolherArquivo(evento.target.files?.[0] ?? null)} />
           <button type="button" disabled={enviando || gravando || !!arquivo} onClick={() => campoArquivo.current?.click()}
-            aria-label="Anexar arquivo" title="Anexar arquivo (até 4 MB)" className="rounded-full p-2.5 text-secondary hover:bg-foreground/5 disabled:opacity-40">
-            <Paperclip size={20} aria-hidden="true" />
+            aria-label="Anexar arquivo" title="Anexar arquivo (até 4 MB)" className={`rounded-full text-secondary hover:bg-foreground/5 disabled:opacity-40 ${compacto ? 'p-2' : 'p-2.5'}`}>
+            <Paperclip size={compacto ? 17 : 20} aria-hidden="true" />
           </button>
-          <textarea ref={campoTexto} hidden={gravando} rows={2} maxLength={limite} aria-label="Mensagem interna" placeholder="Digite sua mensagem…"
+          <textarea ref={campoTexto} hidden={gravando} rows={compacto ? 1 : 2} maxLength={limite} aria-label="Mensagem interna" placeholder="Digite sua mensagem…"
             value={texto} readOnly={enviando} onChange={evento => { setTexto(evento.target.value); pedidoRef.current = null; }}
             onPaste={colarImagem}
             onKeyDown={evento => {
@@ -506,10 +510,10 @@ function ConversaInterna({ eu, colega, colegas, onLida, onVoltar }: {
                 if (!evento.repeat) evento.currentTarget.form?.requestSubmit();
               }
             }}
-            className="min-w-0 flex-1 resize-none rounded-lg bg-surface-muted p-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-success-ink" />
-          <GravarAudio disabled={enviando || !!arquivo} onArquivo={escolherArquivo} onGravando={setGravando} onErro={setErro} />
+            className={`min-w-0 flex-1 resize-none rounded-lg bg-surface-muted text-sm outline-none focus-visible:ring-2 focus-visible:ring-success-ink ${compacto ? 'p-2' : 'p-3'}`} />
+          <GravarAudio compacto={compacto} disabled={enviando || !!arquivo} onArquivo={escolherArquivo} onGravando={setGravando} onErro={setErro} />
           <button type="submit" disabled={enviando || gravando || (!texto.trim() && !arquivo)} aria-label="Enviar mensagem"
-            className="grid size-11 shrink-0 place-items-center rounded-full bg-chat-action text-white disabled:opacity-50"><Send size={18} aria-hidden="true" /></button>
+            className={`grid shrink-0 place-items-center rounded-full bg-chat-action text-white disabled:opacity-50 ${compacto ? 'size-9' : 'size-11'}`}><Send size={compacto ? 16 : 18} aria-hidden="true" /></button>
           </div>
         </form>
       )}

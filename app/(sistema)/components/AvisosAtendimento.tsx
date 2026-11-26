@@ -8,30 +8,32 @@ import { useEffect, useState, type RefObject } from 'react';
 type ConversaPendente = {
   clienteId: string; nomeCliente: string; mensagemId: string | null; recebidaEm: string | null; previa: string;
 };
-type AvisoInterno = { colegaId: string; nome: string; mensagemId: number; recebidaEm: string; previa: string };
+export type AvisoInterno = { colegaId: string; nome: string; mensagemId: number; recebidaEm: string; previa: string };
 export type HistoricoAvisos = { usuarioId: string; consultadoEm: number; mensagens: Map<string, string | null> };
-const ModalChatInterno = dynamic(() => import('../chat-interno/ModalChatInterno'));
+const JanelaChatInterno = dynamic(() => import('../chat-interno/JanelaChatInterno'));
 const abrirChat = 'chat-interno:abrir';
 
-export default function AvisosAtendimento({ usuarioId, historicoRef, chatInterno, atendimento }: {
+export default function AvisosAtendimento({ usuarioId, historicoRef, chatInterno, atendimento, paginaChat }: {
   usuarioId: string;
   historicoRef: RefObject<HistoricoAvisos | null>;
   chatInterno: boolean;
   atendimento: boolean;
+  paginaChat: boolean;
 }) {
   const chave = 'gyn:avisos-atendimento:' + usuarioId;
   const [ativos, setAtivos] = useState<boolean | null>(null);
   const [total, setTotal] = useState(0);
   const [totalInternas, setTotalInternas] = useState(0);
   const [permissao, setPermissao] = useState<NotificationPermission | null>(null);
-  const [janela, setJanela] = useState<{ colegaId: string | null } | null>(null);
+  const [janela, setJanela] = useState<{ colegaId: string | null; minimizada: boolean } | null>(null);
+  const [novoInterno, setNovoInterno] = useState<AvisoInterno | null>(null);
   const janelaAberta = janela !== null;
 
   useEffect(() => {
     if (!chatInterno) return;
     function abrir(evento: Event) {
       const { destinatario, colegaId } = (evento as CustomEvent<{ destinatario: string; colegaId: string }>).detail;
-      if (destinatario === usuarioId) setJanela({ colegaId });
+      if (destinatario === usuarioId) setJanela({ colegaId, minimizada: false });
     }
     window.addEventListener(abrirChat, abrir);
     return () => window.removeEventListener(abrirChat, abrir);
@@ -70,7 +72,7 @@ export default function AvisosAtendimento({ usuarioId, historicoRef, chatInterno
   }
 
   useEffect(() => {
-    if (!ativos && !(ativos === false && chatInterno && (janelaAberta || window.location.pathname === '/chat-interno'))) return;
+    if (!ativos && !(ativos === false && chatInterno && (janelaAberta || paginaChat))) return;
     let requisicao: AbortController | undefined;
     let espera: ReturnType<typeof setTimeout>;
 
@@ -87,6 +89,7 @@ export default function AvisosAtendimento({ usuarioId, historicoRef, chatInterno
         setTotal(dados.total);
         const internas = dados.internas ?? [];
         setTotalInternas(internas.length);
+        setNovoInterno(atual => atual && internas.some(item => item.mensagemId === atual.mensagemId) ? atual : null);
         window.dispatchEvent(new CustomEvent('chat-interno:pendentes', { detail: internas.map(item => item.colegaId) }));
         if (!ativos) return;
         const avisos = [
@@ -107,10 +110,22 @@ export default function AvisosAtendimento({ usuarioId, historicoRef, chatInterno
         historicoRef.current = {
           usuarioId, consultadoEm, mensagens: new Map(avisos.map(item => [item.chave, item.id])),
         };
-        if (anterior?.usuarioId !== usuarioId || typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+        if (anterior?.usuarioId !== usuarioId) return;
+        const chegou = (item: { chave: string; id: string | null; recebidaEm: string | null }) =>
+          !!item.id && !!item.recebidaEm && item.id !== anterior.mensagens.get(item.chave)
+          && (anterior.mensagens.has(item.chave) || Date.parse(item.recebidaEm) >= anterior.consultadoEm);
+        if (chatInterno && !paginaChat) {
+          const nova = internas.filter(item => chegou({
+            chave: 'interno:' + item.colegaId, id: String(item.mensagemId), recebidaEm: item.recebidaEm,
+          })).sort((a, b) => b.mensagemId - a.mensagemId)[0];
+          if (nova) {
+            setNovoInterno(nova);
+            setJanela(atual => atual ?? { colegaId: nova.colegaId, minimizada: false });
+          }
+        }
+        if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
         for (const conversa of avisos) {
-          if (!conversa.id || !conversa.recebidaEm || conversa.id === anterior.mensagens.get(conversa.chave)) continue;
-          if (!anterior.mensagens.has(conversa.chave) && Date.parse(conversa.recebidaEm) < anterior.consultadoEm) continue;
+          if (!chegou(conversa)) continue;
           const notificacao = new Notification(conversa.titulo, {
             body: conversa.previa || 'Enviou uma mensagem.',
             icon: '/favicon.ico',
@@ -133,8 +148,9 @@ export default function AvisosAtendimento({ usuarioId, historicoRef, chatInterno
     }
 
     void atualizar();
-    const intervalo = setInterval(atualizar, 15000);
+    const intervalo = setInterval(atualizar, chatInterno ? 10000 : 15000);
     window.addEventListener('focus', agendar);
+    document.addEventListener('visibilitychange', agendar);
     window.addEventListener('atendimento:atualizar', agendar);
     window.addEventListener('chat-interno:atualizar-avisos', agendar);
     return () => {
@@ -142,10 +158,11 @@ export default function AvisosAtendimento({ usuarioId, historicoRef, chatInterno
       clearTimeout(espera);
       clearInterval(intervalo);
       window.removeEventListener('focus', agendar);
+      document.removeEventListener('visibilitychange', agendar);
       window.removeEventListener('atendimento:atualizar', agendar);
       window.removeEventListener('chat-interno:atualizar-avisos', agendar);
     };
-  }, [ativos, chatInterno, historicoRef, janelaAberta, usuarioId]);
+  }, [ativos, chatInterno, historicoRef, janelaAberta, paginaChat, usuarioId]);
 
   const pendentes = ativos ? total : 0;
   const aviso = pendentes
@@ -157,16 +174,18 @@ export default function AvisosAtendimento({ usuarioId, historicoRef, chatInterno
 
   return (
     <div className="flex shrink-0 items-center gap-1">
-      {chatInterno && <button type="button" aria-label={avisoInterno} title={avisoInterno} aria-haspopup="dialog"
-        onClick={() => setJanela({ colegaId: null })}
+      {chatInterno && <button type="button" aria-label={avisoInterno} title={avisoInterno} aria-expanded={janelaAberta && !janela.minimizada}
+        onClick={() => setJanela(atual => atual ? { ...atual, minimizada: !atual.minimizada } : { colegaId: null, minimizada: false })}
         className={`relative grid size-9 place-items-center rounded-md hover:bg-surface-muted ${pendentesInternas ? 'text-success-ink' : 'text-secondary'}`}>
         <MessageSquare size={19} aria-hidden="true" />
         {pendentesInternas > 0 && <span aria-hidden="true" className="absolute -right-0.5 -top-0.5 min-w-4 rounded-full bg-chat-action px-1 text-center text-[10px] leading-4 font-semibold text-white">
           {pendentesInternas > 99 ? '99+' : pendentesInternas}
         </span>}
       </button>}
-      {chatInterno && janela && <ModalChatInterno colegaId={janela.colegaId}
-        selecionar={colegaId => setJanela({ colegaId })} fechar={() => setJanela(null)} />}
+      {chatInterno && janela && <JanelaChatInterno colegaId={janela.colegaId} minimizada={janela.minimizada} aviso={novoInterno}
+        selecionar={colegaId => setJanela({ colegaId, minimizada: false })}
+        alternar={() => setJanela(atual => atual && { ...atual, minimizada: !atual.minimizada })}
+        fechar={() => { setJanela(null); setNovoInterno(null); }} />}
       {atendimento && <Link href="/atendimento?fila=meus" aria-label={aviso} title={aviso}
         className={`relative grid size-9 place-items-center rounded-md hover:bg-surface-muted ${pendentes ? 'text-success-ink' : 'text-secondary'}`}>
         <Icone size={19} aria-hidden="true" />
@@ -191,6 +210,7 @@ export default function AvisosAtendimento({ usuarioId, historicoRef, chatInterno
             setAtivos(habilitados);
             setTotal(0);
             setTotalInternas(0);
+            if (!habilitados) setNovoInterno(null);
             if (habilitados) void permitirAvisos();
           }} />
         <span aria-hidden="true" className="relative h-4 w-7 rounded-full bg-surface-muted ring-1 ring-line peer-checked:bg-chat-action peer-focus-visible:ring-2 peer-focus-visible:ring-warning-ink">

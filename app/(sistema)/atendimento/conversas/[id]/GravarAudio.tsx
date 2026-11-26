@@ -3,8 +3,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { Mic, Square, Trash2 } from 'lucide-react';
 
-export default function GravarAudio({ disabled, onArquivo, onGravando, onErro }: {
+export default function GravarAudio({ disabled, onArquivo, onGravando, onErro, compacto = false }: {
   disabled: boolean; onArquivo: (file: File) => void; onGravando: (value: boolean) => void; onErro: (message: string) => void;
+  compacto?: boolean;
 }) {
   const [estado, setEstado] = useState<'parado' | 'iniciando' | 'gravando'>('parado');
   const [segundos, setSegundos] = useState(0);
@@ -82,5 +83,5 @@ export default function GravarAudio({ disabled, onArquivo, onGravando, onErro }:
     <button type="button" onClick={() => parar(true)} aria-label="Descartar gravação" className="p-2 text-danger-ink"><Trash2 size={20} /></button>
     <button type="button" onClick={() => parar()} aria-label="Parar gravação" className="p-2 text-success-ink"><Square size={20} /></button>
   </div>;
-  return <button type="button" disabled={disabled || estado === 'iniciando'} onClick={iniciar} aria-label="Gravar áudio" title="Gravar áudio (até 2 minutos)" className="rounded-full p-3 text-secondary hover:bg-foreground/5 disabled:opacity-40"><Mic size={22} />{estado === 'iniciando' && <span className="sr-only">Aguardando microfone</span>}</button>;
+  return <button type="button" disabled={disabled || estado === 'iniciando'} onClick={iniciar} aria-label="Gravar áudio" title="Gravar áudio (até 2 minutos)" className={`rounded-full text-secondary hover:bg-foreground/5 disabled:opacity-40 ${compacto ? 'p-2' : 'p-3'}`}><Mic size={compacto ? 17 : 22} />{estado === 'iniciando' && <span className="sr-only">Aguardando microfone</span>}</button>;
 }

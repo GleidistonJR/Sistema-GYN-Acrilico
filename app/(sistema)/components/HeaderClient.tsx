@@ -16,7 +16,7 @@ type UsuarioMenu = {
 export default function HeaderClient({ usuario }: { usuario: UsuarioMenu }) {
   const pathname = usePathname();
   const historicoAvisos = useRef<HistoricoAvisos | null>(null);
-  return <MenuNavegacao key={pathname} usuario={usuario} pathname={pathname} historicoAvisos={historicoAvisos} />;
+  return <MenuNavegacao key={usuario?.id} usuario={usuario} pathname={pathname} historicoAvisos={historicoAvisos} />;
 }
 
 function MenuNavegacao({ usuario, pathname, historicoAvisos }: {
@@ -39,6 +39,14 @@ function MenuNavegacao({ usuario, pathname, historicoAvisos }: {
   const [menuAberto, setMenuAberto] = useState(false);
   const [dropdownAberto, setDropdownAberto] = useState(false);
   const [dropdownMobileAberto, setDropdownMobileAberto] = useState(false);
+  const [rotaMenus, setRotaMenus] = useState(pathname);
+
+  if (rotaMenus !== pathname) {
+    setRotaMenus(pathname);
+    setMenuAberto(false);
+    setDropdownAberto(false);
+    setDropdownMobileAberto(false);
+  }
 
   useEffect(() => {
     function cliqueFora(event: MouseEvent) {
@@ -199,7 +207,7 @@ function MenuNavegacao({ usuario, pathname, historicoAvisos }: {
             }
 
           </nav>
-          {(atendimento || chatInterno) && usuario && <AvisosAtendimento usuarioId={usuario.id} historicoRef={historicoAvisos} chatInterno={chatInterno} atendimento={atendimento} />}
+          {(atendimento || chatInterno) && usuario && <AvisosAtendimento usuarioId={usuario.id} historicoRef={historicoAvisos} chatInterno={chatInterno} atendimento={atendimento} paginaChat={pathname === '/chat-interno'} />}
           <BotaoTema />
           </div>
         </div>
