@@ -2,7 +2,6 @@
 
 import { useRef, useState } from 'react';
 import AnexoPdf from '../../../AnexoPdf';
-import BaixarAnexo from '../../../BaixarAnexo';
 
 type Midia = { nome: string; mimeType: string; preparadaEm: string | null };
 
@@ -33,7 +32,6 @@ export default function AnexoMensagem({ id, midia }: { id: string; midia: Midia 
 
   if (!imagem && !video && !audio) return <div className="mb-2 max-w-sm">
     <p className="break-all text-sm font-semibold">{midia.nome}</p>
-    <div className="mt-1"><BaixarAnexo url={base} nome={midia.nome} /></div>
   </div>;
 
   return <div className="mb-2 max-w-sm">
@@ -64,7 +62,6 @@ export default function AnexoMensagem({ id, midia }: { id: string; midia: Midia 
       void player?.play().catch(() => {});
     }} className="mt-1 block text-xs font-semibold underline">Tentar novamente</button>}
 
-    <div className="mt-1"><BaixarAnexo url={base} nome={midia.nome} /></div>
     {imagem && <dialog ref={modal} aria-label={`Imagem ampliada: ${midia.nome}`} onClose={() => setAberto(false)} onClick={event => {
       if (event.target === event.currentTarget) event.currentTarget.close();
     }} className="m-auto max-h-[94dvh] max-w-[94vw] rounded-xl bg-surface p-3 text-foreground backdrop:bg-black/80">

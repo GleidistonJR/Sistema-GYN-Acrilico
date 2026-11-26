@@ -96,7 +96,6 @@ export default function AnexoPdf({ url, nome, urlVisualizacao = url, sobDemanda 
       <span className="block break-words px-3 py-2 text-sm font-semibold">{nome}</span>
       <span className="block px-3 pb-2 text-xs underline">{falhou ? 'Abrir PDF · prévia indisponível' : 'Abrir PDF'}</span>
     </button>
-    {sobDemanda && <div className="mt-1"><BaixarAnexo url={url} nome={nome} rotulo="Baixar PDF" /></div>}
 
     <dialog ref={modal} aria-label={nome} onClose={event => {
       event.stopPropagation();

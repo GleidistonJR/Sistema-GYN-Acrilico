@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Download } from 'lucide-react';
 import { acompanharTransferencia } from './progressoTransferencia';
 
-export default function BaixarAnexo({ url, nome, rotulo = 'Baixar arquivo' }: {
+export default function BaixarAnexo({ url, nome, rotulo = 'Baixar arquivo', children }: {
   url: string; nome: string; rotulo?: string;
+  children?: (baixar: () => void, baixando: boolean, feedback: ReactNode) => ReactNode;
 }) {
   const requisicao = useRef<AbortController | null>(null);
   const [progresso, setProgresso] = useState('');
@@ -61,12 +62,17 @@ export default function BaixarAnexo({ url, nome, rotulo = 'Baixar arquivo' }: {
     }
   }
 
+  const feedback = <>
+    {progresso && <span>{progresso} <button type="button" className="underline" onClick={() => requisicao.current?.abort()}>Cancelar</button></span>}
+    {erro && <p role="alert" className="text-warning-ink">{erro}</p>}
+  </>;
+  if (children) return children(baixar, !!progresso, progresso || erro ? <div className="mt-1 text-xs">{feedback}</div> : null);
+
   return <div className="max-w-full text-xs">
     <button type="button" onClick={baixar} disabled={!!progresso}
       className="inline-flex items-center gap-1.5 font-semibold underline disabled:opacity-60">
       <Download size={16} aria-hidden="true" />{rotulo}
     </button>
-    {progresso && <span className="ml-2">{progresso} <button type="button" className="underline" onClick={() => requisicao.current?.abort()}>Cancelar</button></span>}
-    {erro && <p role="alert" className="text-warning-ink">{erro}</p>}
+    {feedback}
   </div>;
 }

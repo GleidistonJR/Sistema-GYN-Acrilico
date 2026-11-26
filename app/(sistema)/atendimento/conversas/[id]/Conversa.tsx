@@ -1,7 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { ArrowLeft, ChevronDown, Forward, UserPlus, UserMinus, Paperclip, Send, RefreshCw, MoreVertical, Reply, X } from 'lucide-react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { ArrowLeft, ChevronDown, Download, Forward, UserPlus, UserMinus, Paperclip, Send, RefreshCw, MoreVertical, Reply, X } from 'lucide-react';
+import BaixarAnexo from '../../../BaixarAnexo';
 import GravarAudio from './GravarAudio';
 import AnexoMensagem from './AnexoMensagem';
 import MenuTextosRapidos from './MenuTextosRapidos';
@@ -349,10 +350,11 @@ export default function Conversa({ cliente, onVoltar, onDetalhes, onLida, onAssu
       {!contexto && anteriores && <button onClick={async () => { seguirFim.current = false; try { await atualizar(mensagens[0]?.id); } catch { setErro('Não foi possível carregar mensagens anteriores.'); } }} className="mx-auto mb-5 block rounded-full bg-surface px-4 py-2 text-xs text-secondary shadow-sm">Carregar anteriores</button>}
       {carregando && <p className="p-8 text-center text-sm text-muted">Carregando conversa…</p>}
       {!carregando && !mensagens.length && <div className="mx-auto mt-10 max-w-md rounded-2xl border border-line bg-surface p-6 text-center"><h2 className="font-semibold">Comece a conversa</h2><p className="mt-2 text-sm text-muted">Envie uma mensagem abaixo ou use “Sincronizar histórico” para buscar mensagens recentes do WhatsApp.</p></div>}
-      <div className="space-y-3">{mensagens.map(m => <article key={m.id} data-mensagem-id={m.id} data-destacada={destacada === m.id ? "true" : undefined} tabIndex={-1} className={`rounded-lg outline-none flex items-start gap-2 ${m.direcao === 'SAIDA' ? 'justify-end' : 'justify-start'}`}>
+      <div className="space-y-3">{mensagens.map(m => {
+        const renderMensagem = (baixar?: () => void, baixando = false, feedbackDownload?: ReactNode) => <article key={m.id} data-mensagem-id={m.id} data-destacada={destacada === m.id ? "true" : undefined} tabIndex={-1} className={`rounded-lg outline-none flex items-start gap-2 ${m.direcao === 'SAIDA' ? 'justify-end' : 'justify-start'}`}>
         <div className={`transition-[filter,box-shadow] duration-300 ${destacada === m.id ? "ring-2 ring-emerald-300 brightness-125" : ""} max-w-[90%] rounded-2xl px-4 py-3 shadow-sm sm:max-w-[75%] ${m.direcao === 'SAIDA' ? 'rounded-tr-sm bg-chat-outgoing' : 'rounded-tl-sm bg-surface'}`}>
-          {podeEnviar && (m.externaId || (!['PENDENTE', 'ENVIANDO'].includes(m.status) && (m.texto || m.midia))) && <div className="mb-1 flex justify-end">
-            <button type="button" aria-label="Opções da mensagem" popoverTarget={`acoes-${m.id}`} disabled={enviando}
+          {(baixar || (podeEnviar && (m.externaId || (!['PENDENTE', 'ENVIANDO'].includes(m.status) && (m.texto || m.midia))))) && <div className="mb-1 flex justify-end">
+            <button type="button" aria-label="Opções da mensagem" popoverTarget={`acoes-${m.id}`} disabled={enviando && !baixar}
               onClick={event => {
                 const botao = event.currentTarget.getBoundingClientRect();
                 const menu = document.getElementById(`acoes-${m.id}`);
@@ -363,14 +365,18 @@ export default function Conversa({ cliente, onVoltar, onDetalhes, onLida, onAssu
               <ChevronDown size={16} aria-hidden="true" />
             </button>
             <div id={`acoes-${m.id}`} popover="auto" className="fixed inset-auto m-0 w-[200px] rounded-lg border border-line bg-surface p-1 text-foreground shadow-lg">
-              {m.externaId && <button type="button" onClick={event => {
+              {podeEnviar && m.externaId && <button type="button" disabled={enviando} onClick={event => {
                 event.currentTarget.parentElement?.hidePopover();
                 setResponder(m); pedido.current = null; entradaTexto.current?.focus();
               }} className="flex w-full items-center gap-2 rounded px-2 py-2 text-left text-sm hover:bg-surface-muted"><Reply size={16} />Responder</button>}
-              {(m.texto || m.midia) && !['PENDENTE', 'ENVIANDO'].includes(m.status) && <button type="button" onClick={event => {
+              {podeEnviar && (m.texto || m.midia) && !['PENDENTE', 'ENVIANDO'].includes(m.status) && <button type="button" disabled={enviando} onClick={event => {
                 event.currentTarget.parentElement?.hidePopover();
                 setEncaminhar(m);
               }} className="flex w-full items-center gap-2 rounded px-2 py-2 text-left text-sm hover:bg-surface-muted"><Forward size={16} />Encaminhar</button>}
+              {baixar && <button type="button" disabled={baixando} onClick={event => {
+                event.currentTarget.parentElement?.hidePopover();
+                baixar();
+              }} className="flex w-full items-center gap-2 rounded px-2 py-2 text-left text-sm hover:bg-surface-muted disabled:opacity-50"><Download size={16} aria-hidden="true" />Baixar arquivo</button>}
             </div>
           </div>}
           {m.citacao && <button type="button" onClick={() => void irParaCitacao(m)} title="Ir para a mensagem original" className="mb-2 block w-full max-w-full cursor-pointer text-left hover:bg-black/30 focus-visible:outline-2 focus-visible:outline-emerald-300 rounded border-l-4 border-emerald-400 bg-black/20 px-3 py-2 text-xs" aria-label="Mensagem citada">
@@ -378,13 +384,16 @@ export default function Conversa({ cliente, onVoltar, onDetalhes, onLida, onAssu
             <p className="line-clamp-3 whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{resumo(m.citacao)}</p>
           </button>}
           {m.midia && <AnexoMensagem id={m.id} midia={m.midia} />}
+          {feedbackDownload}
           {m.texto && <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground [overflow-wrap:anywhere]">{m.direcao === 'SAIDA' ? <TextoMensagem texto={m.texto} /> : m.texto}</p>}
           {!m.texto && !m.midia && <p className="text-sm italic text-muted">Mensagem do tipo {m.tipo}</p>}
           {m.erro && <p className="mt-2 max-w-sm text-xs text-warning-ink">{m.erro}</p>}
           <div className="mt-2 flex flex-wrap justify-end gap-2 text-[11px] text-muted"><time>{new Date(m.enviadoEm).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</time>
             {m.direcao === 'SAIDA' && <span className={m.status === 'LIDA' ? 'text-info-ink' : m.status === 'FALHOU' || m.status === 'INCERTO' ? 'text-warning-ink' : ''}>{m.autor?.colaborador?.nome ? m.autor.colaborador.nome + ' · ' : ''}{status[m.status] || m.status}</span>}</div>
         </div>
-      </article>)}</div>
+      </article>;
+        return m.midia ? <BaixarAnexo key={m.id} url={`/api/atendimento/midia/${m.id}`} nome={m.midia.nome}>{renderMensagem}</BaixarAnexo> : renderMensagem();
+      })}</div>
     </div>
     {encaminhar && <EncaminharMensagem original={encaminhar} origem={cliente.id} onFechar={() => setEncaminhar(null)}
       onEnfileirar={destino => { setErro(''); setAviso(`Mensagem colocada na fila para ${destino}.`); }} />}
