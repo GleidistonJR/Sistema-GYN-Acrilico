@@ -7,7 +7,8 @@ import { createHash } from 'node:crypto';
 import { lerTransferencia, hashToken } from '../lib/whatsapp/transferencia.mjs';
 import { validarMidia, LIMITE_MIDIA, nomeArquivo } from '../lib/whatsapp/conteudo.mjs';
 import { caminhoArquivo, salvarArquivo, limparArquivos, espacoDisponivel, caminhoOriginalRecente,
-  guardarOriginalRecente, limparOriginaisRecentes, JANELA_PREPARACAO_MIDIA, RETENCAO_ORIGINAIS } from './whatsapp-arquivos.mjs';
+  guardarOriginalRecente, limparOriginaisRecentes, JANELA_PREPARACAO_MIDIA, RETENCAO_ORIGINAIS,
+  lerArquivo, LIMITE_ORIGINAL_RETIDO } from './whatsapp-arquivos.mjs';
 import { obterMidiaWhatsApp, prepararMidiaRecente } from './whatsapp-previas.mjs';
 
 export function criarServidorMidia({ prisma, getClient, port = 3002 }) {
@@ -30,10 +31,26 @@ export function criarServidorMidia({ prisma, getClient, port = 3002 }) {
           enviadoEm: { gt: new Date(Date.now() - JANELA_PREPARACAO_MIDIA) }, midia: { preparadaEm: null },
         },
         orderBy: { enviadoEm: 'desc' },
-        select: { id: true, enviadoEm: true, externaId: true, midia: { select: { nome: true, mimeType: true } } },
+        select: { id: true, enviadoEm: true, externaId: true, direcao: true,
+          arquivo: { select: { chave: true, tamanho: true } }, midia: { select: { nome: true, mimeType: true } } },
       });
       if (!mensagem || downloading) return;
       try {
+        const { arquivo, midia: metadados } = mensagem;
+        if (mensagem.direcao === 'SAIDA' && arquivo) {
+          if (arquivo.tamanho > LIMITE_ORIGINAL_RETIDO) {
+            await prisma.midiaWhatsApp.update({ where: { mensagemId: mensagem.id }, data: { preparadaEm: new Date() } });
+            return;
+          }
+          const dados = await lerArquivo(arquivo.chave).catch(error => {
+            if (error.code !== 'ENOENT') throw error;
+            return null;
+          });
+          if (dados) {
+            await prepararMidiaRecente(prisma, mensagem, dados, metadados.mimeType, metadados.nome);
+            return;
+          }
+        }
         downloading = true;
         let midia;
         try {

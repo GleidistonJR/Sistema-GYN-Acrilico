@@ -2,7 +2,6 @@ import whatsapp from 'whatsapp-web.js';
 import { lerArquivo, salvarArquivo, removerAposEnvio } from './whatsapp-arquivos.mjs';
 import { criarFilaPrioritaria } from './whatsapp-fila.mjs';
 import { converterVoz } from './whatsapp-audio.mjs';
-import { prepararMidiaRecente } from './whatsapp-previas.mjs';
 import { obterCitacao } from '../lib/whatsapp/citacao.mjs';
 import { telefoneDoJid, variantesTelefone, nomeArquivo, statusAck, tiposAvisoInternoWhatsApp } from '../lib/whatsapp/conteudo.mjs';
 
@@ -10,8 +9,9 @@ export function criarServicoMensagens({ prisma, client, conta, ativo, retryDelay
   const fila = criarFilaPrioritaria();
   let timer;
   let stopped = false;
-  let waking = false;
-  let wakePending = false;
+  const envios = [{ midia: false, job: null, avisado: false }, { midia: true, job: null, avisado: false }];
+  const enviosPorJid = new Map();
+  const confirmacoes = new Map();
   let lastSync = 0;
   let lastClient = '';
   const synchronizing = new Map();
@@ -110,6 +110,12 @@ export function criarServicoMensagens({ prisma, client, conta, ativo, retryDelay
 
   async function confirmar(message, ack) {
     if (!Number.isInteger(ack) || !message.id?._serialized) return;
+    const externo = message.id._serialized;
+    const medicao = confirmacoes.get(externo);
+    if (ack >= 1 && medicao) {
+      confirmacoes.delete(externo);
+      console.info('WhatsApp confirmação', { tipo: medicao.tipo, confirmacaoMs: Date.now() - medicao.retorno, ack });
+    }
     if (ack < 0) {
       await prisma.mensagemWhatsApp.updateMany({ where: { conta, externaId: message.id._serialized, direcao: 'SAIDA', ack: { lte: 0 } }, data: { status: 'FALHOU', erro: 'O WhatsApp não confirmou o envio.' } });
     } else await prisma.mensagemWhatsApp.updateMany({ where: { conta, externaId: message.id._serialized, direcao: 'SAIDA', ack: { lt: ack } }, data: { ack, status: statusAck(ack), erro: null } });
@@ -155,7 +161,7 @@ export function criarServicoMensagens({ prisma, client, conta, ativo, retryDelay
       const previous = known.get(message.id._serialized);
       if (previous && !(metadadosMidia(message) && !previous.midia) && !(message.hasQuotedMsg && !previous.citacao) && (!message.fromMe || (message.ack >= 0 && message.ack <= previous.ack))) continue;
       // Yield between history items so newly arriving messages are never stuck behind the whole import.
-      try { await enqueue(() => receber(message), 2); }
+      try { await aguardarEnvio(message); await enqueue(() => receber(message), 2); }
       catch { agendarRecebimento(message, 2); }
     }
   }
@@ -167,8 +173,7 @@ export function criarServicoMensagens({ prisma, client, conta, ativo, retryDelay
     return job;
   }
 
-  async function enviarPendentes() {
-    // Fetch the small queue batch and attachments together instead of three remote queries.
+  async function enviarPendentes(midia) {
     const pending = await prisma.$queryRaw`
       SELECT m.*, a.dados AS "dadosMidia", f.chave AS "chaveArquivo", json_build_object('id', c.id, 'telefone', c.telefone, 'responsavelId', c."responsavelId") AS cliente,
         CASE WHEN a."mensagemId" IS NULL THEN NULL ELSE json_build_object(
@@ -178,9 +183,17 @@ export function criarServicoMensagens({ prisma, client, conta, ativo, retryDelay
       LEFT JOIN "MidiaWhatsApp" a ON a."mensagemId" = m.id
       LEFT JOIN "ArquivoWhatsApp" f ON f."mensagemId" = m.id
       WHERE m.conta = ${conta} AND m.status = 'PENDENTE' AND m.direcao = 'SAIDA'
-      ORDER BY m."createdAt" ASC LIMIT 5`;
+        AND (a."mensagemId" IS NOT NULL) = ${midia}
+        AND NOT EXISTS (
+          SELECT 1 FROM "MensagemWhatsApp" anterior
+          WHERE anterior.conta = m.conta AND anterior."clienteId" = m."clienteId" AND anterior.direcao = 'SAIDA'
+            AND (anterior.status = 'ENVIANDO' OR (anterior.status = 'PENDENTE'
+              AND (anterior."createdAt", anterior.id) < (m."createdAt", m.id)))
+        )
+      ORDER BY m."createdAt", m.id LIMIT 1`;
     for (const message of pending) {
       if (!ativo() || stopped) return;
+      const selecionadoEm = Date.now();
       if (message.midia) message.midia.dados = message.dadosMidia;
       let jid;
       try { jid = await destino(message.cliente); }
@@ -217,27 +230,45 @@ export function criarServicoMensagens({ prisma, client, conta, ativo, retryDelay
         await prisma.mensagemWhatsApp.update({ where: { id: message.id }, data: { status: 'FALHOU', erro: 'O anexo temporário não pôde ser preparado ou expirou. Nenhuma mensagem foi enviada. Anexe novamente.' } });
         continue;
       }
+      const inicioEnvio = Date.now();
+      let liberarEco;
+      const envio = new Promise(resolve => { liberarEco = resolve; });
+      enviosPorJid.set(jid, envio);
       // Do not retry an ambiguous send automatically: WhatsApp may have accepted it.
       try {
         const sent = await client.sendMessage(jid, payload, { sendSeen: false,
           ...(message.citacao?.externaId ? { quotedMessageId: message.citacao.externaId, ignoreQuoteErrors: false } : {}),
           ...(message.midia ? { caption: message.texto, sendMediaAsDocument: message.midia.mimeType === 'application/pdf' || (message.midia.mimeType.startsWith('video/') && message.midia.dados.length > 60 * 1024 * 1024), sendAudioAsVoice: false } : {}) });
         if (!sent?.id?._serialized) throw new Error('Confirmação ausente');
-        if (message.midia) {
-          const { dados, mimeType, nome } = message.midia;
-          await prepararMidiaRecente(prisma, message, dados, mimeType, nome).catch(log);
+        const retorno = Date.now();
+        console.info('WhatsApp envio', { tipo: message.tipo, bytes: message.midia?.dados.length ?? 0,
+          filaMs: Math.max(0, selecionadoEm - +message.createdAt),
+          preparacaoMs: inicioEnvio - selecionadoEm, envioMs: retorno - inicioEnvio });
+        if (sent.ack >= 1) {
+          console.info('WhatsApp confirmação', { tipo: message.tipo, confirmacaoMs: 0, ack: sent.ack });
+        } else {
+          if (confirmacoes.size >= 500) confirmacoes.delete(confirmacoes.keys().next().value);
+          confirmacoes.set(sent.id._serialized, { tipo: message.tipo, retorno });
         }
         await prisma.mensagemWhatsApp.update({ where: { id: message.id }, data: { externaId: sent.id._serialized, ...(message.tipo === 'ptt' ? { tipo: 'audio' } : {}), status: statusAck(sent.ack), ack: Math.max(0, sent.ack || 0), erro: null } });
         if (message.chaveArquivo) removerAposEnvio(message.chaveArquivo);
       } catch (error) {
+        console.warn('WhatsApp envio sem confirmação', { tipo: message.tipo, envioMs: Date.now() - inicioEnvio });
         const quoteUnavailable = error?.code === 'QUOTE_UNAVAILABLE' || String(error?.message).includes('Could not get the quoted message.');
         await prisma.mensagemWhatsApp.update({ where: { id: message.id }, data: {
           status: quoteUnavailable ? 'FALHOU' : 'INCERTO',
           erro: quoteUnavailable ? 'A mensagem citada não está mais disponível no WhatsApp. Nenhuma resposta foi enviada. Selecione outra mensagem.' : 'Envio sem confirmação. Confira o histórico antes de enviar novamente para evitar duplicidade.',
         } });
+      } finally {
+        if (enviosPorJid.get(jid) === envio) enviosPorJid.delete(jid);
+        liberarEco();
       }
     }
-    return pending.length === 5;
+    return pending.length > 0;
+  }
+
+  async function aguardarEnvio(message) {
+    if (message.fromMe) await enviosPorJid.get(message.to);
   }
 
   function agendarRecebimento(message, priority = 1) {
@@ -255,26 +286,40 @@ export function criarServicoMensagens({ prisma, client, conta, ativo, retryDelay
   }
   // Retrying persistence is safe because the account/external ID is unique.
   // Backoff happens outside the serial queue so it never holds outgoing messages.
-  const onMessage = message => agendarRecebimento(message, message.hasMedia ? 2 : 1);
-  const onAck = (message, ack) => { void enqueue(() => confirmar(message, ack)).catch(() => {}); };
+  const onMessage = message => { void aguardarEnvio(message).then(() => agendarRecebimento(message, message.hasMedia ? 2 : 1)); };
+  const onAck = (message, ack) => { void aguardarEnvio(message).then(() => enqueue(() => confirmar(message, ack))).catch(() => {}); };
   client.on('message_create', onMessage);
   client.on('message_ack', onAck);
 
   function acordarEnvios(account) {
     if (stopped || (account && account !== conta)) return;
-    if (waking) { wakePending = true; return; }
-    waking = true;
-    void enqueue(enviarPendentes, 0).then(more => { if (more) wakePending = true; }).catch(log).finally(() => {
-      waking = false;
-      if (wakePending) { wakePending = false; acordarEnvios(); }
-    });
+    for (const faixa of envios) if (faixa.job) faixa.avisado = true;
+    void processarEnvios();
+  }
+
+  function processarEnvios() {
+    return Promise.all(envios.map(faixa => {
+      if (faixa.job) return faixa.job;
+      if (stopped || !ativo()) return;
+      faixa.avisado = false;
+      faixa.job = enviarPendentes(faixa.midia).then(avancar => {
+        faixa.job = null;
+        if (avancar || faixa.avisado) void processarEnvios();
+      }, error => { faixa.job = null; log(error); });
+      return faixa.job;
+    }));
+  }
+
+  async function drain() {
+    while (envios.some(faixa => faixa.job)) await Promise.all(envios.map(faixa => faixa.job));
+    await fila.drain();
   }
 
   let envioTimer;
 
   function verificarFila() {
     // Recover missed notifications without waiting for the history sync.
-    if (!waking) acordarEnvios();
+    void processarEnvios();
   }
 
   async function tick() {
@@ -290,8 +335,8 @@ export function criarServicoMensagens({ prisma, client, conta, ativo, retryDelay
   }
 
   return {
-    receber, confirmar, identificar, acordarEnvios, enviarPendentes: () => enqueue(enviarPendentes, 0),
-    drain: () => fila.drain(),
+    receber, confirmar, identificar, acordarEnvios, enviarPendentes: async () => { await processarEnvios(); await drain(); },
+    drain,
     sincronizar,
     async start() {
       await prisma.mensagemWhatsApp.updateMany({ where: { conta, status: 'ENVIANDO' }, data: { status: 'INCERTO', erro: 'A conexão reiniciou durante o envio. Confira o histórico antes de reenviar.' } });
@@ -306,6 +351,6 @@ export function criarServicoMensagens({ prisma, client, conta, ativo, retryDelay
         await sincronizar(customer.id).catch(log);
       }
     },
-    async stop() { stopped = true; clearTimeout(timer); clearInterval(envioTimer); for (const entry of recebimentos.values()) clearTimeout(entry.timer); recebimentos.clear(); client.off('message_create', onMessage); client.off('message_ack', onAck); await Promise.allSettled([...synchronizing.values()]); await fila.drain(); },
+    async stop() { stopped = true; clearTimeout(timer); clearInterval(envioTimer); for (const entry of recebimentos.values()) clearTimeout(entry.timer); recebimentos.clear(); client.off('message_create', onMessage); client.off('message_ack', onAck); await Promise.allSettled([...synchronizing.values()]); await drain(); },
   };
 }
