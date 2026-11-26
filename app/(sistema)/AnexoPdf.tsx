@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Download, FileText } from 'lucide-react';
+import { Download } from 'lucide-react';
+import CartaoArquivo from './CartaoArquivo';
 import BaixarAnexo from './BaixarAnexo';
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from 'pdfjs-dist';
 
@@ -85,29 +86,20 @@ export default function AnexoPdf({ url, nome, urlVisualizacao = url, sobDemanda 
     setTentativa(valor => valor + 1);
   }
 
-  const peso = typeof tamanho === 'number' && tamanho > 0
-    ? tamanho < 1024 ? `${tamanho} B` : `${(tamanho / (tamanho >= 1024 ** 2 ? 1024 ** 2 : 1024)).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} ${tamanho >= 1024 ** 2 ? 'MB' : 'KB'}`
-    : '';
+  function abrir() {
+    setVisivel(true);
+    setPagina(1);
+    setAberto(true);
+    modal.current?.showModal();
+  }
 
   return <div ref={cartao} className="mb-2 max-w-sm">
-    <button type="button" onClick={() => {
-      setVisivel(true);
-      setPagina(1);
-      setAberto(true);
-      modal.current?.showModal();
-    }} className={sobDemanda ? 'flex w-64 max-w-full items-center gap-3 rounded-lg bg-foreground/5 p-3 text-left hover:bg-foreground/10' : 'block w-52 max-w-full overflow-hidden rounded-lg border border-foreground/15 bg-surface text-left'}>
-      {sobDemanda ? <>
-        <FileText size={30} aria-hidden="true" className="shrink-0 text-muted" />
-        <span className="min-w-0">
-          <span className="block break-words text-sm font-semibold">{nome}</span>
-          <span className="block text-xs text-muted">{peso ? `${peso} · PDF` : 'PDF'}</span>
-        </span>
-      </> : <>
+    {sobDemanda ? <CartaoArquivo nome={nome} formato="PDF" tamanho={tamanho} acao="Abrir" onClick={abrir} />
+      : <button type="button" onClick={abrir} className="block w-52 max-w-full overflow-hidden rounded-lg border border-foreground/15 bg-surface text-left">
         {documento && <PaginaPdf documento={documento} numero={1} tamanho={300} />}
         <span className="block break-words px-3 py-2 text-sm font-semibold">{nome}</span>
         <span className="block px-3 pb-2 text-xs underline">{falhou ? 'Abrir PDF · prévia indisponível' : 'Abrir PDF'}</span>
-      </>}
-    </button>
+      </button>}
 
     <dialog ref={modal} aria-label={nome} onClose={event => {
       event.stopPropagation();

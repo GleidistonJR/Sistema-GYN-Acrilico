@@ -12,10 +12,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   if (!mensagem || !acesso) return new Response(null, { status: 404, headers: privado });
   const consulta = new URL(request.url);
   if (consulta.searchParams.has('previa')) {
-    const media = await prisma.midiaWhatsApp.findUnique({ where: { mensagemId: id }, select: { previa: true } });
-    return media?.previa
-      ? new Response(new Uint8Array(media.previa), { headers: { ...privado, 'Content-Type': 'image/webp', 'X-Content-Type-Options': 'nosniff' } })
-      : new Response(null, { status: 404, headers: privado });
+    return new Response(null, { status: 404, headers: privado });
   }
   const midia = await prisma.midiaWhatsApp.findUnique({ where: { mensagemId: id }, select: { mimeType: true } });
   if (!midia) return new Response(null, { status: 404, headers: privado });

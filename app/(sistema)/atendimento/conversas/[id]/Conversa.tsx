@@ -13,7 +13,7 @@ const LIMITE_TEXTO = 6000;
 
 type Mensagem = { id: string; texto: string; tipo: string; direcao: string; status: string; erro: string | null; enviadoEm: string;
   externaId: string | null; autorId: string | null; citacao: { externaId: string | null; texto: string; tipo: string; direcao: string | null } | null;
-  autor: { colaborador: { nome: string } | null } | null; midia: { nome: string; mimeType: string; preparadaEm: string | null; tamanho?: number | null } | null;
+  autor: { colaborador: { nome: string } | null } | null; midia: { nome: string; mimeType: string; tamanho?: number | null } | null;
 };
 const status: Record<string, string> = { PENDENTE: 'Na fila', ENVIANDO: 'Enviando…', ENVIADA: 'Enviada', ENTREGUE: 'Entregue ✓✓', LIDA: 'Lida ✓✓', FALHOU: 'Falha', INCERTO: 'Sem confirmação', RECEBIDA: 'Recebida' };
 const tipos: Record<string, string> = { image: 'Imagem', audio: 'Áudio', ptt: 'Áudio', document: 'Documento', video: 'Vídeo', sticker: 'Figurinha', chat: 'Mensagem', indisponivel: 'Mensagem original indisponível' };
@@ -374,6 +374,7 @@ export default function Conversa({ cliente, usuario, onVoltar, onDetalhes, onLid
       {carregando && <p className="p-8 text-center text-sm text-muted">Carregando conversa…</p>}
       {!carregando && !mensagens.length && <div className="mx-auto mt-10 max-w-md rounded-2xl border border-line bg-surface p-6 text-center"><h2 className="font-semibold">Comece a conversa</h2><p className="mt-2 text-sm text-muted">Envie uma mensagem abaixo ou use “Sincronizar histórico” para buscar mensagens recentes do WhatsApp.</p></div>}
       <div className="space-y-3">{mensagens.map(m => {
+        const legendaRepetida = m.midia && m.texto.replace(/^\*[^*\r\n]{1,40}:\*\s*/, '').trim() === m.midia.nome.trim();
         const podeApagar = podeEnviar && m.direcao === 'SAIDA' && !!m.externaId
           && ['ENVIADA', 'ENTREGUE', 'LIDA'].includes(m.status)
           && (usuario.role === 'ADMIN' || m.autorId === usuario.id);
@@ -413,9 +414,9 @@ export default function Conversa({ cliente, usuario, onVoltar, onDetalhes, onLid
             <p className="mb-1 font-semibold text-success-ink">{m.citacao.direcao === 'SAIDA' ? 'Empresa' : m.citacao.direcao === 'ENTRADA' ? cliente.nome : 'Mensagem original'}</p>
             <p className="line-clamp-3 whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{resumo(m.citacao)}</p>
           </button>}
-          {m.midia && <AnexoMensagem id={m.id} midia={m.midia} />}
+          {m.midia && baixar && <AnexoMensagem id={m.id} midia={m.midia} baixar={baixar} baixando={baixando} />}
           {feedbackDownload}
-          {m.texto && <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground [overflow-wrap:anywhere]">{m.direcao === 'SAIDA' ? <TextoMensagem texto={m.texto} /> : m.texto}</p>}
+          {m.texto && !legendaRepetida && <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground [overflow-wrap:anywhere]">{m.direcao === 'SAIDA' ? <TextoMensagem texto={m.texto} /> : m.texto}</p>}
           {!m.texto && !m.midia && <p className="text-sm italic text-muted">{m.status === 'APAGADA' ? 'Mensagem apagada' : `Mensagem do tipo ${m.tipo}`}</p>}
           {apagando === m.id && <p role="status" className="text-xs text-muted">Apagando no WhatsApp…</p>}
           {m.erro && <p className="mt-2 max-w-sm text-xs text-warning-ink">{m.erro}</p>}
