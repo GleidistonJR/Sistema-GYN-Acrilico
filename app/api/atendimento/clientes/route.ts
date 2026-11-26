@@ -17,7 +17,8 @@ export async function GET(request: Request) {
   const scope = fila === 'fila' ? Prisma.sql`c."responsavelId" IS NULL`
     : fila === 'todos' ? Prisma.sql`TRUE` : Prisma.sql`c."responsavelId" = ${usuario.id}`;
   const pattern = '%' + busca.replace(/[\\%_]/g, '\\$&') + '%';
-  const search = busca ? Prisma.sql`AND (c.nome ILIKE ${pattern} OR c.telefone LIKE ${pattern})` : Prisma.empty;
+  const telefoneBusca = /^[\d\s+().-]+$/.test(busca) ? busca.replace(/\D/g, '') : '';
+  const search = busca ? Prisma.sql`AND (c.nome ILIKE ${pattern} OR c.telefone LIKE ${telefoneBusca ? '%' + telefoneBusca + '%' : pattern})` : Prisma.empty;
   const tag = etiqueta ? Prisma.sql`AND EXISTS (SELECT 1 FROM "ClienteEtiqueta" e WHERE e."clienteId" = c.id AND e."etiquetaId" = ${etiqueta})` : Prisma.empty;
   const [clientes, etiquetas] = await Promise.all([
     prisma.$queryRaw<Array<{ id: string; nome: string; telefone: string | null; responsavelId: string | null; naoLida: boolean; responsavelNome: string | null; fixado: boolean }>>(Prisma.sql`

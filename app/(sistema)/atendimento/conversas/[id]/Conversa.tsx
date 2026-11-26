@@ -4,6 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNo
 import { ArrowLeft, ChevronDown, Download, Forward, UserPlus, UserMinus, Paperclip, Send, RefreshCw, MoreVertical, Reply, Trash2, X } from 'lucide-react';
 import BaixarAnexo from '../../../BaixarAnexo';
 import AvatarContato from '../../AvatarContato';
+import { exibirTelefone } from '@/lib/atendimento/regras';
 import GravarAudio from './GravarAudio';
 import AnexoMensagem from './AnexoMensagem';
 import MenuTextosRapidos from './MenuTextosRapidos';
@@ -369,7 +370,7 @@ export default function Conversa({ cliente, fotoUrl, usuario, onVoltar, onDetalh
         }} className="shrink-0 cursor-zoom-in rounded-full focus-visible:outline-2 focus-visible:outline-emerald-400">
           <AvatarContato nome={cliente.nome} url={fotoUrl} compacto />
         </button> : <AvatarContato nome={cliente.nome} compacto />}
-        <div className="min-w-0"><h2 className="truncate font-semibold">{cliente.nome}</h2><p className="mt-0.5 truncate text-xs text-muted">{cliente.telefone || 'Contato do WhatsApp'}</p></div></div>
+        <div className="min-w-0"><h2 className="truncate font-semibold">{cliente.nome}</h2><p className="mt-0.5 truncate text-xs text-muted">{cliente.telefone ? exibirTelefone(cliente.telefone) : 'Contato do WhatsApp'}</p></div></div>
       <div className="flex shrink-0 items-center gap-1">{(onAssumir || onDesatribuir) && <button type="button" disabled={assumindo} aria-label={onDesatribuir ? "Desatribuir cliente" : "Assumir cliente"} title={onDesatribuir ? "Remover minha responsabilidade por este cliente" : "Atribuir este cliente a mim"} onClick={async () => {
         if (assumindoRef.current) return;
         assumindoRef.current = true; setAssumindo(true); setErro('');

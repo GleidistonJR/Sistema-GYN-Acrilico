@@ -10,6 +10,7 @@ import EtiquetasCliente from './EtiquetasCliente';
 import { alterarAtendimento } from './actions';
 import AvatarContato from './AvatarContato';
 import { useFotosContatos } from './useFotosContatos';
+import { exibirTelefone, mascararTelefone } from '@/lib/atendimento/regras';
 
 const Conversa = dynamic(() => import('./conversas/[id]/Conversa'), { loading: () => <div className="flex h-full items-center justify-center text-sm text-subtle">Abrindo conversa…</div> });
 type Cliente = { id: string; nome: string; telefone: string | null; responsavelId: string | null; naoLida: boolean; responsavelNome?: string | null; fixado?: boolean };
@@ -282,7 +283,7 @@ export default function PainelAtendimento({ usuario, etiquetas: etiquetasIniciai
           <button data-cliente-id={c.id} onClick={() => { setMenuConversa(null); escolher(c); }} aria-label={`Conversar com ${c.nome}${c.naoLida ? ', mensagens não lidas' : ''}`} aria-current={selecionado?.id === c.id ? 'true' : undefined}
           className="flex min-w-0 flex-1 items-center gap-3 px-4 py-4 text-left focus-visible:outline-2 focus-visible:outline-emerald-400">
           <AvatarContato nome={c.nome} url={fotos[c.id]} />
-          <span className="min-w-0 flex-1"><span className={`block truncate text-[15px] text-foreground ${c.naoLida ? 'font-semibold' : ''}`}>{c.nome}</span><span className="mt-1 block truncate text-xs text-muted">{c.telefone || 'Contato do WhatsApp'}</span></span>
+          <span className="min-w-0 flex-1"><span className={`block truncate text-[15px] text-foreground ${c.naoLida ? 'font-semibold' : ''}`}>{c.nome}</span><span className="mt-1 block truncate text-xs text-muted">{c.telefone ? exibirTelefone(c.telefone) : 'Contato do WhatsApp'}</span></span>
           {c.responsavelId && <span role="img" title={`Responsável: ${c.responsavelNome || 'Atribuído'}`} aria-label={`Responsável: ${c.responsavelNome || 'Atribuído'}`} className={`shrink-0 ${c.responsavelId === usuario.id ? 'text-success-ink' : 'text-danger-ink'}`}><UserRound size={17} /></span>}
           {c.naoLida && <span role="img" aria-label="Mensagens não lidas" className="size-2.5 shrink-0 rounded-full bg-success-ink" />}
           {c.fixado && fila === 'meus' && <span role="img" title="Conversa fixada" aria-label="Conversa fixada" className="shrink-0 text-success-ink"><Pin size={15} /></span>}
@@ -333,10 +334,12 @@ export default function PainelAtendimento({ usuario, etiquetas: etiquetasIniciai
         <div className="rounded-lg bg-success-soft p-3 text-sm"><strong>{usuario.apelido || 'Atendimento'}:</strong><br />Mensagem normal</div>
         <p className="text-xs text-muted">Esta configuração pertence ao seu login e funciona em todos os computadores.</p>
       </Formulario>}
-      {modal === 'cliente' && <Formulario acao="criarCliente" botao="Adicionar cliente" aoSalvar={abrirClienteCriado}><label className="block text-sm">Nome<input name="nome" required maxLength={120} className={campo} autoFocus /></label><label className="block text-sm">WhatsApp com DDD<input name="telefone" required type="tel" className={campo} placeholder="(62) 99999-9999" /></label></Formulario>}
+      {modal === 'cliente' && <Formulario acao="criarCliente" botao="Adicionar cliente" aoSalvar={abrirClienteCriado}><label className="block text-sm">Nome<input name="nome" required maxLength={120} className={campo} autoFocus /></label><label className="block text-sm">WhatsApp com DDD<input name="telefone" required type="tel" inputMode="tel" autoComplete="tel-national" className={campo} placeholder="(00) 00000-0000" onChange={evento => {
+        evento.currentTarget.value = mascararTelefone(evento.currentTarget.value);
+      }} /></label></Formulario>}
       {modal === 'etiqueta' && <GerenciarEtiquetas etiquetas={etiquetas} />}
       {modal === 'detalhes' && <div className="space-y-6">{erroDetalhes ? <p role="alert" className="text-sm text-danger-ink">{erroDetalhes}</p> : !detalhes ? <p className="text-sm text-muted">Carregando…</p> : <>
-        <div><h3 className="font-semibold">{detalhes.cliente.nome}</h3><p className="text-sm text-muted">{detalhes.cliente.telefone}</p></div>
+        <div><h3 className="font-semibold">{detalhes.cliente.nome}</h3><p className="text-sm text-muted">{detalhes.cliente.telefone && exibirTelefone(detalhes.cliente.telefone)}</p></div>
         <Formulario acao="renomear" clienteId={detalhes.cliente.id} botao="Salvar nome">
           <label className="block text-sm">Nome do contato<input name="nome" required maxLength={120} defaultValue={detalhes.cliente.nome} className={campo} autoComplete="off" /></label>
           <p className="text-xs text-muted">Este nome será exibido para todos os usuários com acesso ao contato.</p>

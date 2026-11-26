@@ -1,5 +1,25 @@
 export type Operador = { id: string; role: string };
 
+function formatarDigitosNacionais(digitos: string) {
+  if (!digitos) return '';
+  if (digitos.length <= 2) return '(' + digitos;
+  const numero = digitos.slice(2);
+  const corte = numero.length > 8 ? 5 : 4;
+  return `(${digitos.slice(0, 2)}) ${numero.slice(0, corte)}${numero.length > corte ? '-' + numero.slice(corte) : ''}`;
+}
+
+export function mascararTelefone(valor: string) {
+  const digitos = valor.replace(/\D/g, '');
+  return formatarDigitosNacionais(digitos.replace(/^55(?=\d{10,11}$)/, '').slice(0, 11));
+}
+
+export function exibirTelefone(valor: string) {
+  const digitos = valor.replace(/\D/g, '');
+  const nacional = digitos.replace(/^55(?=\d{10,11}$)/, '');
+  if (valor.trim().startsWith('+') && nacional === digitos) return valor;
+  return /^\d{10,11}$/.test(nacional) ? formatarDigitosNacionais(nacional) : valor;
+}
+
 export function normalizarTelefone(valor: unknown) {
   const mensagem = 'Informe o DDD e o número do WhatsApp (10 ou 11 dígitos).';
   const telefone = typeof valor === 'string' ? valor.trim() : '';

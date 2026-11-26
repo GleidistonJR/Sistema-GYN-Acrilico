@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { exibirTelefone } from '@/lib/atendimento/regras';
 
 type Contato = { id: string; nome: string; telefone: string | null };
 type Original = { id: string; texto: string; tipo: string; direcao: string; midia: { nome: string; mimeType: string } | null };
@@ -105,7 +106,7 @@ export default function EncaminharMensagem({ original, origem, onFechar, onEnfil
           : contatos.filter(c => c.id !== origem).map(contato => <label key={contato.id} className="flex cursor-pointer items-center gap-3 p-2.5 hover:bg-surface-muted">
             <input type="radio" name="destino" checked={destino?.id === contato.id} disabled={!!progresso} onChange={() => { setDestino(contato); setErro(''); }} />
             <span className="min-w-0"><span className="block truncate text-sm font-semibold">{contato.nome}</span>
-              {contato.telefone && <span className="block text-xs text-muted">{contato.telefone}</span>}</span>
+              {contato.telefone && <span className="block text-xs text-muted">{exibirTelefone(contato.telefone)}</span>}</span>
           </label>)}
         {!carregando && !erroBusca && !contatos.some(c => c.id !== origem) && <p className="p-3 text-sm">Nenhum outro contato encontrado.</p>}
       </div>
