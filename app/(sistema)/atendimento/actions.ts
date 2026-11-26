@@ -6,6 +6,7 @@ import { exigirUsuario } from '@/lib/autorizacao';
 import { prisma } from '@/lib/prisma';
 import { PERFIS_ATENDIMENTO } from '@/lib/permissoes';
 import { validarApelido } from '@/lib/whatsapp/assinatura.mjs';
+import { variantesTelefone } from '@/lib/whatsapp/conteudo.mjs';
 import { normalizarTelefone, validarTexto } from '@/lib/atendimento/regras';
 
 type Resultado = { sucesso: boolean; mensagem: string; clienteCriadoId?: string };
@@ -20,16 +21,56 @@ export async function alterarAtendimento(_anterior: Resultado, form: FormData): 
       // Only the authenticated account can change its signature, never a posted user ID.
       await prisma.$executeRaw`UPDATE "User" SET apelido = ${apelido} WHERE id = ${usuario.id}`;
     } else if (acao === 'criarCliente') {
-      const clienteCriado = await prisma.cliente.create({
-        data: {
-          nome: validarTexto(form.get('nome'), 120),
-          telefone: normalizarTelefone(form.get('telefone')),
-          responsavelId: usuario.id,
-          atribuicoes: { create: { atorId: usuario.id, novoId: usuario.id } },
-        },
-        select: { id: true },
-      });
-      return { sucesso: true, mensagem: 'Cliente adicionado.', clienteCriadoId: clienteCriado.id };
+      const nome = validarTexto(form.get('nome'), 120);
+      const telefone = normalizarTelefone(form.get('telefone'));
+      const variantes = variantesTelefone(telefone);
+      const telefones = variantes.flatMap(valor => [valor, valor.slice(1), valor.slice(3), '+' + valor.slice(3)]);
+      const jids = variantes.map(valor => valor.slice(1) + '@c.us');
+      const chave = variantes.reduce((menor, valor) => valor.length < menor.length ? valor : menor, telefone);
+
+      async function obterOuCriar() {
+        return prisma.$transaction(async tx => {
+          // Serializa cadastros simultâneos, inclusive para variantes com ou sem o nono dígito.
+          await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${chave}, 217))`;
+          const [existente] = await tx.$queryRaw<Array<{ id: string; conversaExcluidaEm: Date | null; ultimaMensagemEm: Date | null }>>`
+            WITH candidatos AS (
+              SELECT id, 2 AS prioridade FROM "Cliente" WHERE telefone IN (${Prisma.join(telefones)})
+              UNION ALL
+              SELECT "clienteId", CASE WHEN jid = ${jids[0]} THEN 0 ELSE 1 END
+              FROM "IdentidadeWhatsApp" WHERE jid IN (${Prisma.join(jids)})
+            ), correspondencias AS (
+              SELECT id, MIN(prioridade) AS prioridade FROM candidatos GROUP BY id
+            )
+            SELECT c.id, c."conversaExcluidaEm", c."ultimaMensagemEm"
+            FROM correspondencias JOIN "Cliente" c USING (id)
+            ORDER BY correspondencias.prioridade, c."ultimaMensagemEm" DESC NULLS LAST,
+              (c.telefone = ${telefone}) DESC NULLS LAST, c."createdAt", c.id
+            LIMIT 1`;
+          if (existente) {
+            if (existente.conversaExcluidaEm && !existente.ultimaMensagemEm) {
+              await tx.cliente.updateMany({
+                where: { id: existente.id, ultimaMensagemEm: null, conversaExcluidaEm: existente.conversaExcluidaEm },
+                data: { ultimaMensagemEm: new Date() },
+              });
+            }
+            return { id: existente.id, criado: false };
+          }
+          const cliente = await tx.cliente.create({
+            data: { nome, telefone, responsavelId: usuario.id, atribuicoes: { create: { atorId: usuario.id, novoId: usuario.id } } },
+            select: { id: true },
+          });
+          return { id: cliente.id, criado: true };
+        });
+      }
+
+      let cliente;
+      try { cliente = await obterOuCriar(); }
+      catch (erro) {
+        // O worker do WhatsApp também pode cadastrar o número enquanto o formulário está aberto.
+        if (!(erro instanceof Prisma.PrismaClientKnownRequestError) || erro.code !== 'P2002') throw erro;
+        cliente = await obterOuCriar();
+      }
+      return { sucesso: true, mensagem: cliente.criado ? 'Cliente adicionado.' : 'Abrindo a conversa existente.', clienteCriadoId: cliente.id };
     } else if (acao === 'excluirConversa') {
       if (usuario.role !== 'ADMIN') throw new Error('Somente administradores podem excluir conversas.');
       const id = validarTexto(form.get('clienteId'), 100);
