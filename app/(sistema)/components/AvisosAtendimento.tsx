@@ -182,7 +182,7 @@ export default function AvisosAtendimento({ usuarioId, historicoRef, chatInterno
           {pendentesInternas > 99 ? '99+' : pendentesInternas}
         </span>}
       </button>}
-      {chatInterno && janela && <JanelaChatInterno colegaId={janela.colegaId} minimizada={janela.minimizada} aviso={novoInterno}
+      {chatInterno && janela && <JanelaChatInterno usuarioId={usuarioId} colegaId={janela.colegaId} minimizada={janela.minimizada} aviso={novoInterno}
         selecionar={colegaId => setJanela({ colegaId, minimizada: false })}
         alternar={() => setJanela(atual => atual && { ...atual, minimizada: !atual.minimizada })}
         fechar={() => { setJanela(null); setNovoInterno(null); }} />}
