@@ -131,9 +131,11 @@ export async function enviarVenda(venda: DadosVenda, usuarioId: string) {
       etapa = 'BLING_INCERTO';
       let pedido: Pedido;
       try {
+        const hoje = new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Sao_Paulo' }).format(new Date());
         pedido = await bling<Pedido>(token, '/pedidos/vendas', {
           numeroLoja: referencia,
-          data: new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Sao_Paulo' }).format(new Date()),
+          data: hoje,
+          dataPrevista: hoje,
           contato: { id: contatoId },
           itens: venda.itens.map(item => {
             const produto = catalogo.get(item.sku)!;
