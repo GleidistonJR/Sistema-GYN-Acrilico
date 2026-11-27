@@ -53,11 +53,8 @@ export async function enviarVenda(venda: DadosVenda, usuarioId: string, nomeVend
   let numero = envio.blingNumero;
   let blingId = envio.blingId;
   const telefone = venda.telefone ? `(${venda.telefone.slice(0, 2)}) ${venda.telefone.slice(2, -4)}-${venda.telefone.slice(-4)}` : '';
-  const descricaoCartao = (nomeMaterial: (sku: string) => string) =>
-    [`Cliente: ${venda.nome}`, ...(telefone ? [`Contato: ${telefone}`] : []), '', 'Materiais e especificações:',
-      ...(venda.descricao === undefined
-        ? venda.itens.map(item => `${nomeMaterial(item.sku)}\n${item.descricao}\n`)
-        : [...venda.itens.map(item => nomeMaterial(item.sku)), '', venda.descricao, '']), marcador].join('\n');
+  const observacoes = venda.descricao ?? venda.itens.map(item => item.descricao).join('\n\n');
+  const descricao = [observacoes, '', `Nome: ${venda.nome}`, ...(telefone ? [`Numero: ${telefone}`] : []), '', marcador].join('\n');
   try {
     if (etapa === 'TRELLO_INCERTO' && numero) {
       const cartao = await procurarCartao(trello, marcador);
@@ -67,28 +64,18 @@ export async function enviarVenda(venda: DadosVenda, usuarioId: string, nomeVend
       return { status: 200, numero: numero.toString(), trelloUrl };
     }
     const token = await tokenBling();
-    const skus = [...new Set(venda.itens.map(item => item.sku))];
-    let catalogoCarregado: Map<string, ProdutoBling> | undefined;
-    const produtos = async () => {
-      if (catalogoCarregado) return catalogoCarregado;
+    if (etapa === 'PENDENTE' || etapa === 'CONTATO_INCERTO') {
+      if (descricao.length > 15_000) throw new Error('Reduza a descrição para que caiba no cartão do Trello.');
+      const skus = [...new Set(venda.itens.map(item => item.sku))];
       const query = new URLSearchParams({ criterio: '2', limite: '100' });
       for (const sku of skus) query.append('codigos[]', sku);
       const cadastro = await bling<ProdutoBling[]>(token, '/produtos?' + query);
-      const encontrados = new Map(skus.map(sku => {
+      const catalogo = new Map(skus.map(sku => {
         const matches = cadastro.filter(produto => produto.codigo === sku && idValido(produto.id));
         if (matches.length !== 1) throw new Error('Confira o SKU ativo no Bling: ' + sku + '.');
         return [sku, matches[0]];
       }));
-      catalogoCarregado = encontrados;
-      return catalogoCarregado;
-    };
-
-    if (etapa === 'PENDENTE' || etapa === 'CONTATO_INCERTO') {
-      const catalogo = await produtos();
       const vendedorId = nomeVendedor ? await identificarVendedorBling(token, nomeVendedor) : undefined;
-      if (descricaoCartao(sku => catalogo.get(sku)!.nome).length > 15_000) {
-        throw new Error('Reduza as descrições dos itens para que caibam no cartão do Trello.');
-      }
       const formas = await formasPagamento(token);
       if (venda.parcelas.some(parcela => !formas.some(forma => forma.id === parcela.forma))) {
         throw new Error('Escolha apenas formas de recebimento ativas no Bling.');
@@ -147,7 +134,7 @@ export async function enviarVenda(venda: DadosVenda, usuarioId: string, nomeVend
           dataPrevista: hoje,
           contato: { id: contatoId },
           ...(vendedorId ? { vendedor: { id: vendedorId } } : {}),
-          observacoes: venda.descricao ?? venda.itens.map(item => item.descricao).join('\n\n'),
+          observacoes,
           itens: venda.itens.map(item => {
             const produto = catalogo.get(item.sku)!;
             return {
@@ -202,12 +189,8 @@ export async function enviarVenda(venda: DadosVenda, usuarioId: string, nomeVend
     }
 
     if (!numero) throw new Error('A confirmação do número do Bling está pendente.');
-    const catalogoTrello = await produtos().catch(() => undefined);
-    const nomeMaterial = (sku: string) => catalogoTrello?.get(sku)?.nome || sku;
-    const materiais = [...new Set(venda.itens.map(item => nomeMaterial(item.sku)))];
-    const titulo = `Pedido ${numero} - ${venda.nome} - ${materiais.join(', ')}`.slice(0, 250);
-    const descricao = descricaoCartao(nomeMaterial);
-    if (descricao.length > 15_000) throw new Error('A descrição dos itens ficou grande demais para o Trello.');
+    const titulo = `${numero} - ${venda.nome}`;
+    if (descricao.length > 15_000) throw new Error('A descrição ficou grande demais para o Trello.');
     await alterar({ etapa: 'TRELLO_INCERTO' });
     etapa = 'TRELLO_INCERTO';
     try {
