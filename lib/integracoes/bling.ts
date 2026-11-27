@@ -101,7 +101,8 @@ export async function bling<T>(token: string, caminho: string, corpo?: object): 
     resposta = await consultar();
   }
   if (!resposta.ok) {
-    const operacao = caminho === '/contatos' ? 'o cadastro do cliente' : caminho === '/pedidos/vendas' ? 'a criação do pedido' : 'a consulta';
+    const operacao = caminho === '/contatos' ? 'o cadastro do cliente' : caminho === '/pedidos/vendas' ? 'a criação do pedido'
+      : caminho.startsWith('/vendedores?') ? 'a consulta de vendedores' : 'a consulta';
     let detalhe = '';
     if (corpo && [400, 422].includes(resposta.status)) {
       const dados = await resposta.json().catch(() => null);
@@ -124,4 +125,29 @@ export async function formasPagamento(token: string) {
     if (lote.length < 100) return formas;
   }
   throw new Error('O Bling retornou mais formas de pagamento do que o painel consegue listar.');
+}
+
+type Vendedor = { id: number; contato?: { nome?: string; situacao?: string } };
+
+export async function identificarVendedorBling(token: string, nome: string) {
+  const palavras = (valor: string) => valor.normalize('NFD').replace(/\p{M}/gu, '').toLocaleLowerCase('pt-BR')
+    .match(/[\p{L}\p{N}]+/gu)?.filter(p => !['de', 'da', 'do', 'das', 'dos', 'e'].includes(p)) ?? [];
+  const partes = palavras(nome);
+  const vendedores: { id: number; partes: string[] }[] = [];
+  for (let pagina = 1; pagina <= 10; pagina++) {
+    const lote = await bling<Vendedor[]>(token, `/vendedores?limite=100&pagina=${pagina}`);
+    vendedores.push(...lote.flatMap(v => Number.isSafeInteger(v.id) && v.id > 0 && v.contato?.situacao === 'A' && v.contato.nome
+      ? [{ id: v.id, partes: palavras(v.contato.nome) }] : []));
+    if (lote.length < 100) break;
+    if (pagina === 10) throw new Error('A lista de vendedores do Bling excedeu o limite da consulta.');
+  }
+  const correspondencias = partes.length ? [
+    vendedores.filter(v => v.partes.join(' ') === partes.join(' ')),
+    vendedores.filter(v => v.partes.length && (partes.every(p => v.partes.includes(p)) || v.partes.every(p => partes.includes(p)))),
+    vendedores.filter(v => v.partes[0] === partes[0]),
+  ].find(matches => matches.length > 0) : undefined;
+  if (correspondencias?.length === 1) return correspondencias[0].id;
+  throw new Error(correspondencias?.length
+    ? 'Há mais de um vendedor correspondente no Bling. Peça à Administração para conferir os cadastros.'
+    : 'O colaborador da sessão ainda não tem um vendedor ativo correspondente no Bling. Confira o cadastro com a Administração.');
 }

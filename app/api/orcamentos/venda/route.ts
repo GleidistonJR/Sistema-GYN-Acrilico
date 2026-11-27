@@ -80,7 +80,7 @@ export async function POST(request: Request) {
     if (dados && typeof dados.retomar === 'string') {
       if (!/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(dados.retomar)) return json({ erro: 'Referência de venda inválida.' }, 400);
       try {
-        const { status, ...resultado } = await retomarVenda(dados.retomar, usuario.id);
+        const { status, ...resultado } = await retomarVenda(dados.retomar, usuario.id, usuario.colaborador?.nome);
         return json(resultado, status);
       } catch {
         return json({ erro: 'O envio ainda não pôde ser confirmado. Tente novamente.' }, 503);
@@ -91,7 +91,7 @@ export async function POST(request: Request) {
     return json({ erro: erro instanceof Error && !(erro instanceof SyntaxError) ? erro.message : 'Dados da venda inválidos.' }, 400);
   }
   try {
-    const { status, ...dados } = await enviarVenda(venda, usuario.id);
+    const { status, ...dados } = await enviarVenda(venda, usuario.id, usuario.colaborador?.nome);
     return json(dados, status);
   } catch {
     return json({ erro: 'O envio ainda não pôde ser confirmado. Consulte a mesma tentativa novamente.' }, 503);

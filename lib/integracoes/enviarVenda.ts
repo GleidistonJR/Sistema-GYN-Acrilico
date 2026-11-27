@@ -1,7 +1,7 @@
 import 'server-only';
 import { createHmac } from 'node:crypto';
 import { prisma } from '@/lib/prisma';
-import { bling, configuracaoBling, criptografar, descriptografar, ErroPlataforma, formasPagamento, tokenBling } from './bling';
+import { bling, configuracaoBling, criptografar, descriptografar, ErroPlataforma, formasPagamento, identificarVendedorBling, tokenBling } from './bling';
 import { configuracaoTrello, criarCartao, procurarCartao, urlCartao } from './trello';
 import type { DadosVenda } from './dadosVenda';
 
@@ -13,15 +13,15 @@ const recusado = (erro: unknown) => erro instanceof ErroPlataforma &&
   [400, 401, 403, 404, 422, 429].includes(erro.status);
 const idValido = (valor: number) => Number.isSafeInteger(valor) && valor > 0;
 
-export async function retomarVenda(id: string, usuarioId: string) {
+export async function retomarVenda(id: string, usuarioId: string, nomeVendedor?: string) {
   const envio = await prisma.envioVenda.findFirst({ where: { id, usuarioId } });
   if (!envio) return { status: 404, erro: 'Envio não encontrado.' };
   if (envio.etapa === 'CONCLUIDO') return { status: 200, numero: envio.blingNumero?.toString(), trelloUrl: envio.trelloUrl };
   if (!envio.carga) return { status: 409, erro: 'A tentativa foi recusada. Revise os dados e prepare outra venda.' };
-  return enviarVenda(descriptografar<DadosVenda>(envio.carga), usuarioId);
+  return enviarVenda(descriptografar<DadosVenda>(envio.carga), usuarioId, nomeVendedor);
 }
 
-export async function enviarVenda(venda: DadosVenda, usuarioId: string) {
+export async function enviarVenda(venda: DadosVenda, usuarioId: string, nomeVendedor?: string) {
   const config = configuracaoBling();
   const trello = configuracaoTrello();
   if (!config || !trello) return { status: 503, erro: 'Peça a um administrador para configurar Bling e Trello.' };
@@ -83,6 +83,7 @@ export async function enviarVenda(venda: DadosVenda, usuarioId: string) {
 
     if (etapa === 'PENDENTE' || etapa === 'CONTATO_INCERTO') {
       const catalogo = await produtos();
+      const vendedorId = nomeVendedor ? await identificarVendedorBling(token, nomeVendedor) : undefined;
       if (descricaoCartao(sku => catalogo.get(sku)!.nome).length > 15_000) {
         throw new Error('Reduza as descrições dos itens para que caibam no cartão do Trello.');
       }
@@ -137,11 +138,13 @@ export async function enviarVenda(venda: DadosVenda, usuarioId: string) {
           data: hoje,
           dataPrevista: hoje,
           contato: { id: contatoId },
+          ...(vendedorId ? { vendedor: { id: vendedorId } } : {}),
+          observacoes: venda.itens.map(item => `${item.quantidade} × ${item.descricao}`).join('\n\n'),
           itens: venda.itens.map(item => {
             const produto = catalogo.get(item.sku)!;
             return {
               produto: { id: produto.id }, codigo: produto.codigo, unidade: produto.unidade || 'UN',
-              descricao: produto.nome, descricaoDetalhada: item.descricao,
+              descricao: produto.nome,
               quantidade: item.quantidade, valor: item.centavos / 100,
             };
           }),
