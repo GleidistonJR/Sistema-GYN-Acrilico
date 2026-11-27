@@ -18,10 +18,15 @@ export function validarVenda(input: unknown) {
   const id = texto(dados.id, 36, 'a referência da venda');
   if (!/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(id)) throw new Error('Referência de venda inválida.');
   const nome = texto(dados.nome, 120, 'o nome do cliente');
-  const documento = texto(dados.documento, 24, 'o CPF/CNPJ').replace(/[./\s-]/g, '').toUpperCase();
-  if (!/^(?:\d{11}|[A-Z0-9]{12}\d{2})$/.test(documento)) throw new Error('Informe um CPF ou CNPJ válido.');
-  const telefone = texto(dados.telefone, 25, 'o telefone').replace(/\D/g, '').replace(/^55(?=\d{10,11}$)/, '');
-  if (!/^[1-9]\d{9,10}$/.test(telefone)) throw new Error('Informe um telefone com DDD.');
+  const contatoId = dados.contatoId;
+  if (contatoId !== undefined && (typeof contatoId !== 'number' || !Number.isSafeInteger(contatoId) || contatoId < 1)) {
+    throw new Error('Selecione um cliente válido do Bling.');
+  }
+  const documento = typeof dados.documento === 'string' ? dados.documento.replace(/[./\s-]/g, '').toUpperCase() : '';
+  if ((!contatoId || documento) && !/^(?:\d{11}|[A-Z0-9]{12}\d{2})$/.test(documento)) throw new Error('Informe um CPF ou CNPJ válido.');
+  const telefone = typeof dados.telefone === 'string' && /^[+\d\s().-]*$/.test(dados.telefone)
+    ? dados.telefone.replace(/\D/g, '').replace(/^55(?=\d{10,11}$)/, '') : '';
+  if ((!contatoId || telefone || dados.telefone) && !/^[1-9]\d{9,10}$/.test(telefone)) throw new Error('Informe um telefone com DDD.');
   if (!Array.isArray(dados.itens) || !dados.itens.length || dados.itens.length > 50) throw new Error('Inclua de 1 a 50 itens.');
   const itens = dados.itens.map(valor => {
     const item = objeto(valor);
@@ -51,7 +56,7 @@ export function validarVenda(input: unknown) {
   if (parcelas.reduce((soma, parcela) => soma + parcela.centavos, 0) !== total) {
     throw new Error('A soma dos pagamentos deve ser igual ao total da venda.');
   }
-  return { id, nome, documento, telefone, itens, parcelas };
+  return { id, nome, documento, telefone, itens, parcelas, ...(contatoId ? { contatoId } : {}) };
 }
 
 export type DadosVenda = ReturnType<typeof validarVenda>;

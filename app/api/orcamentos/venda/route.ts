@@ -14,13 +14,40 @@ export async function GET(request: Request) {
   const usuario = await obterUsuarioSessao();
   if (!usuario || !permite(PERFIS_COMERCIAIS, usuario.role)) return json({ erro: 'Acesso não autorizado.' }, 403);
   if (!configuracaoBling() || !configuracaoTrello()) return json({ erro: 'Peça a um administrador para configurar Bling e Trello.' }, 503);
-  const material = new URL(request.url).searchParams.get('material')?.trim();
+  const parametros = new URL(request.url).searchParams;
+  const cliente = parametros.get('cliente')?.trim();
+  if (cliente !== undefined) {
+    if (cliente.length < 3 || cliente.length > 100) return json({ erro: 'Digite de 3 a 100 caracteres para buscar clientes.' }, 400);
+    try {
+      const documento = cliente.replace(/[./\s-]/g, '').toUpperCase();
+      const porDocumento = /^(?:\d{11}|[A-Z0-9]{12}\d{2})$/.test(documento) && /\d/.test(cliente);
+      const consulta = new URLSearchParams({ criterio: '1', limite: '20',
+        [porDocumento ? 'numeroDocumento' : 'pesquisa']: porDocumento ? documento : cliente });
+      const contatos = await bling<{ id: number; nome: string; numeroDocumento?: string; celular?: string; telefone?: string; situacao?: string }[]>(
+        await tokenBling(), '/contatos?' + consulta);
+      return json({ clientes: contatos.filter(c => c.situacao === 'A' || c.situacao === 'S').map(c => ({
+        id: c.id, nome: c.nome, documento: c.numeroDocumento ?? '', telefone: c.celular || c.telefone || '',
+      })) });
+    } catch {
+      return json({ erro: 'Não foi possível buscar os clientes do Bling.' }, 502);
+    }
+  }
+  const material = parametros.get('material')?.trim();
   if (material !== undefined) {
     if (material.length < 3 || material.length > 100) return json({ erro: 'Informe de 3 a 100 caracteres para consultar o catálogo.' }, 400);
     try {
-      const query = new URLSearchParams({ criterio: '2', limite: '25', nome: material });
-      const produtos = await bling<{ codigo: string; nome: string }[]>(await tokenBling(), '/produtos?' + query);
-      return json({ produtos: produtos.filter(p => p.codigo).map(({ codigo, nome }) => ({ codigo, nome })) });
+      const token = await tokenBling();
+      const normalizar = (valor: string) => valor.normalize('NFD').replace(/\p{M}/gu, '').toLocaleLowerCase('pt-BR');
+      const termos = normalizar(material).replace(/[%_]/g, ' ').split(/\s+/).filter(Boolean);
+      if (!termos.length) return json({ produtos: [] });
+      const pesquisar = (nome: string, limite: string) => bling<{ codigo: string; nome: string }[]>(token,
+        '/produtos?' + new URLSearchParams({ criterio: '2', limite, nome }));
+      let produtos = await pesquisar('%' + termos.join('%') + '%', '25');
+      if (!produtos.length && termos.length > 1) {
+        const maior = termos.reduce((a, b) => a.length >= b.length ? a : b);
+        produtos = (await pesquisar('%' + maior + '%', '100')).filter(p => termos.every(termo => normalizar(p.nome).includes(termo)));
+      }
+      return json({ produtos: produtos.filter(p => p.codigo).slice(0, 25).map(({ codigo, nome }) => ({ codigo, nome })) });
     } catch {
       return json({ erro: 'Não foi possível consultar o catálogo do Bling.' }, 502);
     }

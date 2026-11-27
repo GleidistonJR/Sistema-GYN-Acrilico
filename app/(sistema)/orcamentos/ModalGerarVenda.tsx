@@ -19,43 +19,47 @@ const centavos = (valor: number) => Math.round(valor * 100);
 const hoje = () => new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Sao_Paulo' }).format(new Date());
 const dataHora = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'America/Sao_Paulo' });
 
-function SelecionarMaterial({ sku, alterar }: { sku: string; alterar: (sku: string) => void }) {
+type ClienteBling = { id: number; nome: string; documento: string; telefone: string };
+
+function BuscaBling<T>({ tipo, rotulo, ativo, escolher, rotuloOpcao, chave }: {
+  tipo: 'cliente' | 'material';
+  rotulo: string;
+  ativo: boolean;
+  escolher: (item: T) => void;
+  rotuloOpcao: (item: T) => string;
+  chave: (item: T) => string | number;
+}) {
   const [termo, setTermo] = useState('');
-  const [produtos, setProdutos] = useState<Produto[]>([]);
-  const [mensagem, setMensagem] = useState('');
-  const [buscando, setBuscando] = useState(false);
-
-  async function buscar() {
-    setBuscando(true);
-    setMensagem('');
-    setProdutos([]);
-    try {
-      const resposta = await fetch('/api/orcamentos/venda?' + new URLSearchParams({ material: termo.trim() }));
-      const dados = await resposta.json();
-      if (!resposta.ok) throw new Error(dados.erro);
-      setProdutos(dados.produtos);
-      if (!dados.produtos.length) setMensagem('Nenhum produto ativo encontrado.');
-    } catch {
-      setMensagem('Não foi possível buscar os materiais do Bling.');
-    } finally {
-      setBuscando(false);
-    }
-  }
-
-  return <div className="col-span-full space-y-2">
-    <label className="grid gap-1 text-sm">SKU do material no Bling<input className={campo} value={sku} onChange={e => alterar(e.target.value)} maxLength={60} required /></label>
-    <div className="flex flex-wrap items-end gap-2">
-      <label className="grid min-w-36 flex-1 gap-1 text-sm">Buscar material pelo nome<input className={campo} value={termo} onChange={e => setTermo(e.target.value)} maxLength={100}
-        onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); if (!buscando && termo.trim().length >= 3) void buscar(); } }} /></label>
-      <button type="button" onClick={buscar} disabled={buscando || termo.trim().length < 3} className="min-h-10 rounded-lg border border-line px-3 text-sm font-semibold disabled:opacity-50">{buscando ? 'Buscando…' : 'Buscar'}</button>
-    </div>
-    {mensagem && <p role="status" className="text-xs text-muted">{mensagem}</p>}
-    {produtos.length > 0 && <label className="grid gap-1 text-sm">Resultados do Bling
-      <select className={campo} value={produtos.some(p => p.codigo === sku) ? sku : ''} onChange={e => alterar(e.target.value)}>
-        <option value="">Selecione o material</option>
-        {produtos.map((produto, i) => <option key={produto.codigo + ':' + i} value={produto.codigo}>{produto.nome} · {produto.codigo}</option>)}
-      </select>
-    </label>}
+  const [resposta, setResposta] = useState<{ termo: string; itens: T[]; erro?: string }>();
+  const consulta = termo.trim();
+  useEffect(() => {
+    if (!ativo || consulta.length < 3) return;
+    const controle = new AbortController();
+    const timer = window.setTimeout(async () => {
+      try {
+        const r = await fetch('/api/orcamentos/venda?' + new URLSearchParams({ [tipo]: consulta }), { signal: controle.signal });
+        const dados = await r.json();
+        if (!r.ok) throw new Error(dados.erro);
+        if (!controle.signal.aborted) setResposta({ termo: consulta, itens: dados[tipo === 'cliente' ? 'clientes' : 'produtos'] ?? [] });
+      } catch {
+        if (!controle.signal.aborted) setResposta({ termo: consulta, itens: [], erro: 'Não foi possível consultar o Bling.' });
+      }
+    }, 350);
+    return () => { window.clearTimeout(timer); controle.abort(); };
+  }, [ativo, consulta, tipo]);
+  const atual = ativo && consulta.length >= 3 && resposta?.termo === consulta ? resposta : undefined;
+  return <div className="col-span-full space-y-1">
+    <label className="grid gap-1 text-sm">{rotulo}
+      <input className={campo} value={termo} onChange={e => setTermo(e.target.value)} maxLength={100}
+        autoComplete="off" onKeyDown={e => { if (e.key === 'Enter') e.preventDefault(); }} />
+    </label>
+    {ativo && consulta.length >= 3 && !atual && <p role="status" className="text-xs text-muted">Buscando no Bling…</p>}
+    {atual && (atual.itens.length ? <ul className="max-h-44 divide-y divide-line overflow-auto rounded-lg border border-line">
+      {atual.itens.map((item, i) => <li key={chave(item) + ':' + i}>
+        <button type="button" onClick={() => { escolher(item); setTermo(''); }}
+          className="w-full px-3 py-2 text-left text-sm hover:bg-surface-hover">{rotuloOpcao(item)}</button>
+      </li>)}
+    </ul> : <p role="status" className="text-xs text-muted">{atual.erro || 'Nenhum resultado no Bling.'}</p>)}
   </div>;
 }
 
@@ -72,10 +76,12 @@ export default function ModalGerarVenda({ itens, aberto, fechar, novaVenda, clie
   const [formas, setFormas] = useState<Forma[]>([]);
   const [erroConexao, setErroConexao] = useState('');
   const [nome, setNome] = useState(cliente.clienteNome);
+  const [contatoId, setContatoId] = useState<number>();
   const [documento, setDocumento] = useState(cliente.clienteDocumento);
   const [telefone, setTelefone] = useState(() => /^[+\d\s().-]+$/.test(cliente.clienteContato) ? mascararTelefone(cliente.clienteContato) : '');
   const [linhas, setLinhas] = useState<ItemVenda[]>(() => itensParaPdf(itens).map((item, index) => ({
-    ...item, sku: '', descricao: [item.descricao, ...itens[index].descricaoTexto.split('\n').slice(1)].join('\n'),
+    ...item, sku: '', descricao: [item.descricao, ...itens[index].descricaoTexto.split('\n').slice(1)
+      .filter(linha => !/^\s*\(?Valor\s*:/i.test(linha))].join('\n'),
     valorUnitario: centavos(item.valorUnitario) / 100,
   })));
   const total = linhas.reduce((soma, linha) => soma + centavos(linha.valorUnitario) * linha.quantidade, 0);
@@ -149,7 +155,7 @@ export default function ModalGerarVenda({ itens, aberto, fechar, novaVenda, clie
     evento.preventDefault();
     if (tentativa && retomada) return oferecerEnvio({ retomar: tentativa }, tentativa);
     const id = tentativa ?? crypto.randomUUID();
-    const dados = { id, nome, documento, telefone, itens: linhas, parcelas };
+    const dados = { id, nome, documento, telefone, contatoId, itens: linhas, parcelas };
     try {
       validarVenda(dados);
     } catch (erro) {
@@ -186,16 +192,29 @@ export default function ModalGerarVenda({ itens, aberto, fechar, novaVenda, clie
           {linhas.length > 0 && !retomada && <>
           <fieldset disabled={bloqueado} className="grid gap-3 sm:grid-cols-2">
             <legend className="mb-2 font-semibold">Cliente</legend>
-            <label className="grid gap-1 text-sm sm:col-span-2">Nome ou razão social<input className={campo} value={nome} onChange={e => setNome(e.target.value)} maxLength={120} autoComplete="off" required /></label>
-            <label className="grid gap-1 text-sm">CPF ou CNPJ<input className={campo} value={documento} onChange={e => setDocumento(e.target.value)} maxLength={24} autoComplete="off" required /></label>
-            <label className="grid gap-1 text-sm">Telefone com DDD<input className={campo} value={telefone} onChange={e => setTelefone(mascararTelefone(e.target.value))} type="tel" autoComplete="off" required /></label>
+            <BuscaBling<ClienteBling> tipo="cliente" rotulo="Buscar cliente por nome ou CPF/CNPJ" ativo={aberto && !bloqueado}
+              chave={c => c.id} rotuloOpcao={c => [c.nome, c.documento, c.telefone].filter(Boolean).join(' · ')}
+              escolher={c => {
+                setContatoId(c.id);
+                setNome(c.nome);
+                setDocumento(c.documento);
+                setTelefone(mascararTelefone(c.telefone));
+              }} />
+            {contatoId && <button type="button" onClick={() => { setContatoId(undefined); setNome(''); setDocumento(''); setTelefone(''); }}
+              className="col-span-full justify-self-start text-sm font-semibold text-primary-ink underline">Limpar cliente selecionado</button>}
+            <label className="grid gap-1 text-sm sm:col-span-2">Nome ou razão social<input className={campo} value={nome} onChange={e => setNome(e.target.value)} readOnly={!!contatoId} maxLength={120} autoComplete="off" required /></label>
+            <label className="grid gap-1 text-sm">CPF ou CNPJ<input className={campo} value={documento} onChange={e => setDocumento(e.target.value)} readOnly={!!contatoId} maxLength={24} autoComplete="off" required={!contatoId} /></label>
+            <label className="grid gap-1 text-sm">Telefone com DDD<input className={campo} value={telefone} onChange={e => setTelefone(mascararTelefone(e.target.value))} type="tel" autoComplete="off" required={!contatoId} /></label>
           </fieldset>
 
           <fieldset disabled={bloqueado} className="space-y-3">
             <legend className="mb-2 font-semibold">Materiais e detalhes</legend>
             {linhas.map((item, indice) => (
               <div key={itens[indice].id} className="grid grid-cols-2 gap-3 rounded-xl border border-line p-3 sm:grid-cols-[2fr_1fr_1fr]">
-                <SelecionarMaterial sku={item.sku} alterar={sku => atualizarLinha(indice, { sku })} />
+                <BuscaBling<Produto> tipo="material" rotulo="Buscar material pelo nome" ativo={aberto && !bloqueado}
+                  chave={produto => produto.codigo} rotuloOpcao={produto => `${produto.nome} · ${produto.codigo}`}
+                  escolher={produto => atualizarLinha(indice, { sku: produto.codigo })} />
+                <label className="col-span-2 grid gap-1 text-sm sm:col-span-1">SKU do material no Bling<input className={campo} value={item.sku} onChange={e => atualizarLinha(indice, { sku: e.target.value })} maxLength={60} required /></label>
                 <label className="grid gap-1 text-sm">Quantidade<input className={campo} type="number" min="1" max="100000" step="1" value={item.quantidade} onChange={e => atualizarLinha(indice, { quantidade: Number(e.target.value) })} required /></label>
                 <label className="grid gap-1 text-sm">Valor unitário (R$)<input className={campo} type="number" min="0" step="0.01" value={item.valorUnitario} onChange={e => atualizarLinha(indice, { valorUnitario: Number(e.target.value) })} required /></label>
                 <label className="col-span-full grid gap-1 text-sm">Descrição para produção<textarea className={campo} rows={3} maxLength={2000} value={item.descricao} onChange={e => atualizarLinha(indice, { descricao: e.target.value })} required /></label>

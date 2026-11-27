@@ -52,9 +52,9 @@ export async function enviarVenda(venda: DadosVenda, usuarioId: string) {
   let etapa = envio.etapa;
   let numero = envio.blingNumero;
   let blingId = envio.blingId;
-  const telefone = `(${venda.telefone.slice(0, 2)}) ${venda.telefone.slice(2, -4)}-${venda.telefone.slice(-4)}`;
+  const telefone = venda.telefone ? `(${venda.telefone.slice(0, 2)}) ${venda.telefone.slice(2, -4)}-${venda.telefone.slice(-4)}` : '';
   const descricaoCartao = (nomeMaterial: (sku: string) => string) =>
-    [`Cliente: ${venda.nome}`, `Contato: ${telefone}`, '', 'Materiais e especificações:',
+    [`Cliente: ${venda.nome}`, ...(telefone ? [`Contato: ${telefone}`] : []), '', 'Materiais e especificações:',
       ...venda.itens.map(item => `- ${item.quantidade} × ${nomeMaterial(item.sku)} — ${item.descricao}`), '', marcador].join('\n');
   try {
     if (etapa === 'TRELLO_INCERTO' && numero) {
@@ -90,14 +90,21 @@ export async function enviarVenda(venda: DadosVenda, usuarioId: string) {
       if (venda.parcelas.some(parcela => !formas.some(forma => forma.id === parcela.forma))) {
         throw new Error('Escolha apenas formas de recebimento ativas no Bling.');
       }
-      const contatoId = await prisma.$transaction(async tx => {
+      const contatoId = venda.contatoId ? await (async () => {
+        const contato = await bling<Contato>(token, '/contatos/' + venda.contatoId);
+        if (contato.id !== venda.contatoId || !['A', 'S'].includes(contato.situacao) ||
+            (contato.numeroDocumento ?? '').replace(/[./\s-]/g, '').toUpperCase() !== venda.documento) {
+          throw new Error('Selecione o cliente novamente. O cadastro do Bling foi alterado.');
+        }
+        return contato.id;
+      })() : await prisma.$transaction(async tx => {
         await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${venda.documento}, 70518))`;
         const contatos = await bling<Contato[]>(token, '/contatos?criterio=1&numeroDocumento=' + encodeURIComponent(venda.documento));
         const encontrados = contatos.filter(contato =>
           contato.numeroDocumento?.replace(/[./\s-]/g, '').toUpperCase() === venda.documento);
         if (encontrados.length > 1) throw new Error('Há mais de um contato com este CPF/CNPJ no Bling. Revise o cadastro antes de continuar.');
         if (encontrados.length === 1) {
-          if (encontrados[0].situacao !== 'A' || !idValido(encontrados[0].id)) throw new Error('Reative o cadastro do cliente no Bling antes de continuar.');
+          if (!['A', 'S'].includes(encontrados[0].situacao) || !idValido(encontrados[0].id)) throw new Error('Reative o cadastro do cliente no Bling antes de continuar.');
           return encontrados[0].id;
         }
         if (etapa === 'CONTATO_INCERTO') throw new Error('Confira no Bling se o contato foi criado. A tentativa anterior não teve confirmação.');

@@ -31,8 +31,8 @@ export function descriptografar<T>(valor: string): T {
 }
 
 export class ErroPlataforma extends Error {
-  constructor(public status: number, plataforma: string, operacao: string) {
-    super(`${plataforma} não confirmou ${operacao} (HTTP ${status}).`);
+  constructor(public status: number, plataforma: string, operacao: string, detalhe = '') {
+    super(`${plataforma} não confirmou ${operacao} (HTTP ${status}).${detalhe ? ' ' + detalhe : ''}`);
   }
 }
 
@@ -100,7 +100,19 @@ export async function bling<T>(token: string, caminho: string, corpo?: object): 
     await new Promise(resolve => setTimeout(resolve, 1100));
     resposta = await consultar();
   }
-  if (!resposta.ok) throw new ErroPlataforma(resposta.status, 'Bling', corpo ? 'a gravação' : 'a consulta');
+  if (!resposta.ok) {
+    const operacao = caminho === '/contatos' ? 'o cadastro do cliente' : caminho === '/pedidos/vendas' ? 'a criação do pedido' : 'a consulta';
+    let detalhe = '';
+    if (corpo && [400, 422].includes(resposta.status)) {
+      const dados = await resposta.json().catch(() => null);
+      const campos = Array.isArray(dados?.error?.fields) ? dados.error.fields : [];
+      const mensagens = campos.map((campo: { msg?: unknown; message?: unknown } | null) => campo?.msg ?? campo?.message)
+        .filter((msg: unknown): msg is string => typeof msg === 'string' && msg.trim().length > 0);
+      detalhe = (mensagens.length ? mensagens.slice(0, 3).join(' ') : String(dados?.error?.description ?? dados?.error?.message ?? ''))
+        .replace(/[\x00-\x1f\x7f]/g, ' ').slice(0, 450);
+    }
+    throw new ErroPlataforma(resposta.status, 'Bling', operacao, detalhe);
+  }
   return (await resposta.json()).data as T;
 }
 
