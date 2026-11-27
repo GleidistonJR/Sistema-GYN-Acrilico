@@ -19,23 +19,26 @@ export function validarVenda(input: unknown) {
   if (!/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/.test(id)) throw new Error('Referência de venda inválida.');
   const nome = texto(dados.nome, 120, 'o nome do cliente');
   const contatoId = dados.contatoId;
+  const usarLojaOficial = dados.usarLojaOficial === true;
   if (contatoId !== undefined && (typeof contatoId !== 'number' || !Number.isSafeInteger(contatoId) || contatoId < 1)) {
     throw new Error('Selecione um cliente válido do Bling.');
   }
   const documento = typeof dados.documento === 'string' ? dados.documento.replace(/[./\s-]/g, '').toUpperCase() : '';
-  if ((!contatoId || documento) && !/^(?:\d{11}|[A-Z0-9]{12}\d{2})$/.test(documento)) throw new Error('Informe um CPF ou CNPJ válido.');
+  if (usarLojaOficial && contatoId) throw new Error('Selecione apenas um cadastro para o pedido.');
+  if (!usarLojaOficial && (!contatoId || documento) && !/^(?:\d{11}|[A-Z0-9]{12}\d{2})$/.test(documento)) throw new Error('Informe um CPF ou CNPJ válido.');
   const telefone = typeof dados.telefone === 'string' && /^[+\d\s().-]*$/.test(dados.telefone)
     ? dados.telefone.replace(/\D/g, '').replace(/^55(?=\d{10,11}$)/, '') : '';
-  if ((!contatoId || telefone || dados.telefone) && !/^[1-9]\d{9,10}$/.test(telefone)) throw new Error('Informe um telefone com DDD.');
+  if (!/^[1-9]\d{9,10}$/.test(telefone)) throw new Error('Informe um telefone com DDD.');
   if (!Array.isArray(dados.itens) || !dados.itens.length || dados.itens.length > 50) throw new Error('Inclua de 1 a 50 itens.');
   const itens = dados.itens.map(valor => {
     const item = objeto(valor);
     if (typeof item.quantidade !== 'number' || !Number.isSafeInteger(item.quantidade) || item.quantidade < 1 || item.quantidade > 100_000) {
       throw new Error('Confira as quantidades dos itens.');
     }
+    if (typeof item.descricao !== 'string' || !item.descricao.trim() || item.descricao.length > 2000) throw new Error('Confira a descrição do item.');
     return {
       sku: texto(item.sku, 60, 'o código do material no Bling'),
-      descricao: texto(item.descricao, 2000, 'a descrição do item'),
+      descricao: item.descricao,
       quantidade: item.quantidade,
       centavos: moeda(item.valorUnitario, true),
     };
@@ -56,7 +59,8 @@ export function validarVenda(input: unknown) {
   if (parcelas.reduce((soma, parcela) => soma + parcela.centavos, 0) !== total) {
     throw new Error('A soma dos pagamentos deve ser igual ao total da venda.');
   }
-  return { id, nome, documento, telefone, itens, parcelas, ...(contatoId ? { contatoId } : {}) };
+  return { id, nome, documento: usarLojaOficial ? '' : documento, telefone, itens, parcelas,
+    ...(contatoId ? { contatoId } : {}), ...(usarLojaOficial ? { usarLojaOficial } : {}) };
 }
 
 export type DadosVenda = ReturnType<typeof validarVenda>;

@@ -7,7 +7,7 @@ import type { DadosVenda } from './dadosVenda';
 
 type ProdutoBling = { id: number; nome: string; codigo: string; unidade?: string };
 type Pedido = { id: number; numero: number; numeroLoja?: string; itens?: { codigo: string; descricao: string }[] };
-type Contato = { id: number; numeroDocumento: string; situacao: string };
+type Contato = { id: number; nome: string; numeroDocumento: string; situacao: string };
 
 const recusado = (erro: unknown) => erro instanceof ErroPlataforma &&
   [400, 401, 403, 404, 422, 429].includes(erro.status);
@@ -55,7 +55,7 @@ export async function enviarVenda(venda: DadosVenda, usuarioId: string, nomeVend
   const telefone = venda.telefone ? `(${venda.telefone.slice(0, 2)}) ${venda.telefone.slice(2, -4)}-${venda.telefone.slice(-4)}` : '';
   const descricaoCartao = (nomeMaterial: (sku: string) => string) =>
     [`Cliente: ${venda.nome}`, ...(telefone ? [`Contato: ${telefone}`] : []), '', 'Materiais e especificações:',
-      ...venda.itens.map(item => `- ${item.quantidade} × ${nomeMaterial(item.sku)} — ${item.descricao}`), '', marcador].join('\n');
+      ...venda.itens.map(item => `${nomeMaterial(item.sku)}\n${item.descricao}\n`), marcador].join('\n');
   try {
     if (etapa === 'TRELLO_INCERTO' && numero) {
       const cartao = await procurarCartao(trello, marcador);
@@ -91,7 +91,13 @@ export async function enviarVenda(venda: DadosVenda, usuarioId: string, nomeVend
       if (venda.parcelas.some(parcela => !formas.some(forma => forma.id === parcela.forma))) {
         throw new Error('Escolha apenas formas de recebimento ativas no Bling.');
       }
-      const contatoId = venda.contatoId ? await (async () => {
+      const contatoId = venda.usarLojaOficial ? await (async () => {
+        const query = new URLSearchParams({ criterio: '1', pesquisa: 'LOJA OFICIAL', limite: '100' });
+        const cadastro = await bling<Contato[]>(token, '/contatos?' + query);
+        const oficiais = cadastro.filter(c => c.nome?.trim().toUpperCase() === 'LOJA OFICIAL' && ['A', 'S'].includes(c.situacao) && idValido(c.id));
+        if (oficiais.length !== 1) throw new Error('Confira se há um único cadastro ativo chamado LOJA OFICIAL no Bling ou selecione outro cliente.');
+        return oficiais[0].id;
+      })() : venda.contatoId ? await (async () => {
         const contato = await bling<Contato>(token, '/contatos/' + venda.contatoId);
         if (contato.id !== venda.contatoId || !['A', 'S'].includes(contato.situacao) ||
             (contato.numeroDocumento ?? '').replace(/[./\s-]/g, '').toUpperCase() !== venda.documento) {
@@ -139,12 +145,12 @@ export async function enviarVenda(venda: DadosVenda, usuarioId: string, nomeVend
           dataPrevista: hoje,
           contato: { id: contatoId },
           ...(vendedorId ? { vendedor: { id: vendedorId } } : {}),
-          observacoes: venda.itens.map(item => `${item.quantidade} × ${item.descricao}`).join('\n\n'),
+          observacoes: venda.itens.map(item => item.descricao).join('\n\n'),
           itens: venda.itens.map(item => {
             const produto = catalogo.get(item.sku)!;
             return {
               produto: { id: produto.id }, codigo: produto.codigo, unidade: produto.unidade || 'UN',
-              descricao: produto.nome,
+              descricao: item.descricao,
               quantidade: item.quantidade, valor: item.centavos / 100,
             };
           }),
@@ -183,7 +189,7 @@ export async function enviarVenda(venda: DadosVenda, usuarioId: string, nomeVend
     }
 
     let detalhes: Pedido | undefined;
-    if (blingId && (!numero || !catalogoCarregado)) {
+    if (blingId && !numero) {
       detalhes = await bling<Pedido>(token, '/pedidos/vendas/' + blingId);
     }
     if (!numero && detalhes) {
@@ -194,8 +200,8 @@ export async function enviarVenda(venda: DadosVenda, usuarioId: string, nomeVend
     }
 
     if (!numero) throw new Error('A confirmação do número do Bling está pendente.');
-    const nomesPedido = new Map(detalhes?.itens?.map(item => [item.codigo, item.descricao]));
-    const nomeMaterial = (sku: string) => catalogoCarregado?.get(sku)?.nome || nomesPedido.get(sku) || sku;
+    const catalogoTrello = await produtos().catch(() => undefined);
+    const nomeMaterial = (sku: string) => catalogoTrello?.get(sku)?.nome || sku;
     const materiais = [...new Set(venda.itens.map(item => nomeMaterial(item.sku)))];
     const titulo = `Pedido ${numero} - ${venda.nome} - ${materiais.join(', ')}`.slice(0, 250);
     const descricao = descricaoCartao(nomeMaterial);

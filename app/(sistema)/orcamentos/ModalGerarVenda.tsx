@@ -8,7 +8,7 @@ import { mascararTelefone } from '@/lib/atendimento/regras';
 import type { ItemOrcamento } from './utils/constants';
 
 type Forma = { id: number; descricao: string };
-type ItemVenda = { sku: string; descricao: string; quantidade: number; valorUnitario: number };
+type ItemVenda = { chave: string; sku: string; material: string; descricao: string; quantidade: number; valorUnitario: number };
 type Parcela = { chave: number; forma: number; vencimento: string; valor: number };
 type Resultado = { erro?: string; numero?: string; referencia?: string; trelloUrl?: string; podeEditar?: boolean };
 type Pendente = { id: string; blingNumero?: string; criadoEm: string };
@@ -76,11 +76,12 @@ export default function ModalGerarVenda({ itens, aberto, fechar, novaVenda, clie
   const [formas, setFormas] = useState<Forma[]>([]);
   const [erroConexao, setErroConexao] = useState('');
   const [nome, setNome] = useState(cliente.clienteNome);
-  const [contatoId, setContatoId] = useState<number>();
+  const [contato, setContato] = useState<ClienteBling>();
+  const [novoCadastro, setNovoCadastro] = useState(false);
   const [documento, setDocumento] = useState(cliente.clienteDocumento);
   const [telefone, setTelefone] = useState(() => /^[+\d\s().-]+$/.test(cliente.clienteContato) ? mascararTelefone(cliente.clienteContato) : '');
   const [linhas, setLinhas] = useState<ItemVenda[]>(() => itensParaPdf(itens).map((item, index) => ({
-    ...item, sku: '', descricao: [item.descricao, ...itens[index].descricaoTexto.split('\n').slice(1)
+    ...item, chave: String(itens[index].id), sku: '', material: '', descricao: [item.descricao, ...itens[index].descricaoTexto.split('\n').slice(1)
       .filter(linha => !/^\s*\(?Valor\s*:/i.test(linha))].join('\n'),
     valorUnitario: centavos(item.valorUnitario) / 100,
   })));
@@ -113,13 +114,16 @@ export default function ModalGerarVenda({ itens, aberto, fechar, novaVenda, clie
     return () => controller.abort();
   }, [aberto]);
 
-  function atualizarLinha(indice: number, mudanca: Partial<ItemVenda>) {
-    const atualizadas = linhas.map((linha, i) => i === indice ? { ...linha, ...mudanca } : linha);
+  function atualizarLinhas(atualizadas: ItemVenda[]) {
     setLinhas(atualizadas);
     if (parcelas.length === 1) {
       const novoTotal = atualizadas.reduce((soma, linha) => soma + centavos(linha.valorUnitario) * linha.quantidade, 0);
       setParcelas(atuais => atuais.map(parcela => ({ ...parcela, valor: novoTotal / 100 })));
     }
+  }
+
+  function atualizarLinha(chave: string, mudanca: Partial<ItemVenda>) {
+    atualizarLinhas(linhas.map(linha => linha.chave === chave ? { ...linha, ...mudanca } : linha));
   }
 
   function atualizarParcela(chave: number, mudanca: Partial<Parcela>) {
@@ -155,7 +159,9 @@ export default function ModalGerarVenda({ itens, aberto, fechar, novaVenda, clie
     evento.preventDefault();
     if (tentativa && retomada) return oferecerEnvio({ retomar: tentativa }, tentativa);
     const id = tentativa ?? crypto.randomUUID();
-    const dados = { id, nome, documento, telefone, contatoId, itens: linhas, parcelas };
+    const dados = { id, nome, documento: contato?.documento ?? documento, telefone, contatoId: contato?.id,
+      usarLojaOficial: !contato && !novoCadastro,
+      itens: linhas.map(({ sku, descricao, quantidade, valorUnitario }) => ({ sku, descricao, quantidade, valorUnitario })), parcelas };
     try {
       validarVenda(dados);
     } catch (erro) {
@@ -191,35 +197,50 @@ export default function ModalGerarVenda({ itens, aberto, fechar, novaVenda, clie
           {linhas.length === 0 && !pendentes.length && !tentativa && !erroConexao && <p className="text-sm text-muted">Adicione itens ao orçamento para gerar uma venda.</p>}
           {linhas.length > 0 && !retomada && <>
           <fieldset disabled={bloqueado} className="grid gap-3 sm:grid-cols-2">
-            <legend className="mb-2 font-semibold">Cliente</legend>
+            <legend className="mb-2 font-semibold">Comprador e cadastro no Bling</legend>
             <BuscaBling<ClienteBling> tipo="cliente" rotulo="Buscar cliente por nome ou CPF/CNPJ" ativo={aberto && !bloqueado}
               chave={c => c.id} rotuloOpcao={c => [c.nome, c.documento, c.telefone].filter(Boolean).join(' · ')}
               escolher={c => {
-                setContatoId(c.id);
-                setNome(c.nome);
-                setDocumento(c.documento);
-                setTelefone(mascararTelefone(c.telefone));
+                setContato(c);
+                setNovoCadastro(false);
+                setNome(atual => atual.trim() || c.nome);
+                setTelefone(atual => atual || mascararTelefone(c.telefone));
               }} />
-            {contatoId && <button type="button" onClick={() => { setContatoId(undefined); setNome(''); setDocumento(''); setTelefone(''); }}
-              className="col-span-full justify-self-start text-sm font-semibold text-primary-ink underline">Limpar cliente selecionado</button>}
-            <label className="grid gap-1 text-sm sm:col-span-2">Nome ou razão social<input className={campo} value={nome} onChange={e => setNome(e.target.value)} readOnly={!!contatoId} maxLength={120} autoComplete="off" required /></label>
-            <label className="grid gap-1 text-sm">CPF ou CNPJ<input className={campo} value={documento} onChange={e => setDocumento(e.target.value)} readOnly={!!contatoId} maxLength={24} autoComplete="off" required={!contatoId} /></label>
-            <label className="grid gap-1 text-sm">Telefone com DDD<input className={campo} value={telefone} onChange={e => setTelefone(mascararTelefone(e.target.value))} type="tel" autoComplete="off" required={!contatoId} /></label>
+            <div className="col-span-full flex flex-wrap items-center gap-3 text-sm">
+              <span>Cadastro do pedido: <strong>{contato?.nome ?? (novoCadastro ? 'Novo cadastro' : 'LOJA OFICIAL')}</strong></span>
+              {contato ? <button type="button" onClick={() => setContato(undefined)}
+                className="font-semibold text-primary-ink underline">Usar LOJA OFICIAL</button>
+                : <label className="flex items-center gap-2">
+                  <input type="checkbox" checked={novoCadastro} onChange={e => setNovoCadastro(e.target.checked)} />
+                  Criar cadastro no Bling
+                </label>}
+            </div>
+            <label className="grid gap-1 text-sm">Nome do comprador<input className={campo} value={nome} onChange={e => setNome(e.target.value)} maxLength={120} autoComplete="off" required /></label>
+            <label className="grid gap-1 text-sm">Telefone do comprador com DDD<input className={campo} value={telefone} onChange={e => setTelefone(mascararTelefone(e.target.value))} type="tel" autoComplete="off" required /></label>
+            {novoCadastro && <label className="grid gap-1 text-sm">CPF ou CNPJ<input className={campo} value={documento} onChange={e => setDocumento(e.target.value)} maxLength={24} autoComplete="off" required /></label>}
           </fieldset>
 
           <fieldset disabled={bloqueado} className="space-y-3">
             <legend className="mb-2 font-semibold">Materiais e detalhes</legend>
-            {linhas.map((item, indice) => (
-              <div key={itens[indice].id} className="grid grid-cols-2 gap-3 rounded-xl border border-line p-3 sm:grid-cols-[2fr_1fr_1fr]">
+            {linhas.map(item => (
+              <div key={item.chave} className="grid grid-cols-2 gap-3 rounded-xl border border-line p-3 sm:grid-cols-[2fr_1fr_1fr]">
                 <BuscaBling<Produto> tipo="material" rotulo="Buscar material pelo nome" ativo={aberto && !bloqueado}
                   chave={produto => produto.codigo} rotuloOpcao={produto => `${produto.nome} · ${produto.codigo}`}
-                  escolher={produto => atualizarLinha(indice, { sku: produto.codigo })} />
-                <label className="col-span-2 grid gap-1 text-sm sm:col-span-1">SKU do material no Bling<input className={campo} value={item.sku} onChange={e => atualizarLinha(indice, { sku: e.target.value })} maxLength={60} required /></label>
-                <label className="grid gap-1 text-sm">Quantidade<input className={campo} type="number" min="1" max="100000" step="1" value={item.quantidade} onChange={e => atualizarLinha(indice, { quantidade: Number(e.target.value) })} required /></label>
-                <label className="grid gap-1 text-sm">Valor unitário (R$)<input className={campo} type="number" min="0" step="0.01" value={item.valorUnitario} onChange={e => atualizarLinha(indice, { valorUnitario: Number(e.target.value) })} required /></label>
-                <label className="col-span-full grid gap-1 text-sm">Descrição para produção<textarea className={campo} rows={3} maxLength={2000} value={item.descricao} onChange={e => atualizarLinha(indice, { descricao: e.target.value })} required /></label>
+                  escolher={produto => atualizarLinha(item.chave, { sku: produto.codigo, material: produto.nome })} />
+                {item.material && <p className="col-span-full break-words text-sm font-semibold">{item.material}</p>}
+                <label className="col-span-2 grid gap-1 text-sm sm:col-span-1">SKU do material no Bling<input className={campo} value={item.sku} onChange={e => atualizarLinha(item.chave, { sku: e.target.value, material: '' })} maxLength={60} required /></label>
+                <label className="grid gap-1 text-sm">Quantidade<input className={campo} type="number" min="1" max="100000" step="1" value={item.quantidade} onChange={e => atualizarLinha(item.chave, { quantidade: Number(e.target.value) })} required /></label>
+                <label className="grid gap-1 text-sm">Valor unitário (R$)<input className={campo} type="number" min="0" step="0.01" value={item.valorUnitario} onChange={e => atualizarLinha(item.chave, { valorUnitario: Number(e.target.value) })} required /></label>
+                <label className="col-span-full grid gap-1 text-sm">Descrição para produção<textarea className={campo} rows={3} maxLength={2000} value={item.descricao} onChange={e => atualizarLinha(item.chave, { descricao: e.target.value })} required /></label>
+                {linhas.length > 1 && <button type="button" onClick={() => atualizarLinhas(linhas.filter(linha => linha.chave !== item.chave))}
+                  className="col-span-full inline-flex w-fit items-center gap-2 text-sm text-danger-ink"><Trash2 size={16} />Remover material</button>}
               </div>
             ))}
+            <button type="button" disabled={linhas.length >= 50} onClick={() => atualizarLinhas([...linhas, {
+              chave: crypto.randomUUID(), sku: '', material: '', descricao: '', quantidade: 1, valorUnitario: 0,
+            }])} className="inline-flex items-center gap-2 rounded-lg px-2 py-1 text-sm font-semibold text-primary-ink disabled:opacity-50">
+              <Plus size={16} />Adicionar material
+            </button>
           </fieldset>
 
           <fieldset disabled={bloqueado} className="space-y-3">
