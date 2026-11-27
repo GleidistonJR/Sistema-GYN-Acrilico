@@ -1,5 +1,11 @@
 export type Operador = { id: string; role: string };
 
+function completarCelular(nacional: string) {
+  return /^[1-9]\d[6-9]\d{7}$/.test(nacional)
+    ? nacional.slice(0, 2) + '9' + nacional.slice(2)
+    : nacional;
+}
+
 function formatarDigitosNacionais(digitos: string) {
   if (!digitos) return '';
   if (digitos.length <= 2) return '(' + digitos;
@@ -17,7 +23,7 @@ export function exibirTelefone(valor: string) {
   const digitos = valor.replace(/\D/g, '');
   const nacional = digitos.replace(/^55(?=\d{10,11}$)/, '');
   if (valor.trim().startsWith('+') && nacional === digitos) return valor;
-  return /^\d{10,11}$/.test(nacional) ? formatarDigitosNacionais(nacional) : valor;
+  return /^\d{10,11}$/.test(nacional) ? formatarDigitosNacionais(completarCelular(nacional)) : valor;
 }
 
 export function normalizarTelefone(valor: unknown) {
@@ -33,7 +39,7 @@ export function normalizarTelefone(valor: unknown) {
   if (!/^[1-9]\d\d{8,9}$/.test(nacional) || (telefone.startsWith('+') && nacional === numeros)) {
     throw new Error(mensagem);
   }
-  return '+55' + nacional;
+  return '+55' + completarCelular(nacional);
 }
 
 export function validarTexto(valor: unknown, limite: number) {
