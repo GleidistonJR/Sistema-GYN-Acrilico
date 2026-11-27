@@ -1,6 +1,7 @@
 import http from 'node:http';
 import { timingSafeEqual } from 'node:crypto';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import whatsapp from 'whatsapp-web.js';
 import QRCode from 'qrcode';
@@ -51,6 +52,31 @@ function reconnectLater() {
 }
 let state = { status: 'desconectado', qr: null, numero: null, mensagem: null, atualizadoEm: new Date().toISOString() };
 let heartbeatChain = Promise.resolve();
+let recuperando = false;
+function recuperarPonte(motivo) {
+  if (stopping || recuperando) return;
+  recuperando = true;
+  console.error('Reinício automático da ponte:', motivo);
+  update({ status: 'erro', qr: null, numero: null, mensagem: 'Recuperando a conexão do WhatsApp.' });
+  // Terminate even if Chromium or the serial queue cannot finish a graceful shutdown.
+  void heartbeatChain.finally(() => process.exit(1)).catch(() => {});
+  setTimeout(() => process.exit(1), 2000).unref();
+}
+const eventosMemoria = '/sys/fs/cgroup/memory.events';
+function contarMortesPorMemoria(eventos) {
+  return Number(eventos.match(/^oom_kill (\d+)$/m)?.[1] ?? 0);
+}
+let mortesPorMemoria = existsSync(eventosMemoria) ? contarMortesPorMemoria(readFileSync(eventosMemoria, 'utf8')) : 0;
+const memoriaTimer = process.env.WHATSAPP_CHROMIUM_CONTAINER === '1' && existsSync(eventosMemoria)
+  ? setInterval(async () => {
+    const eventos = await readFile(eventosMemoria, 'utf8').catch(() => null);
+    if (eventos === null) return;
+    const mortes = contarMortesPorMemoria(eventos);
+    if (mortes > mortesPorMemoria) recuperarPonte('limite de memória atingido');
+    mortesPorMemoria = mortes;
+  }, 3000)
+  : null;
+memoriaTimer?.unref();
 function heartbeat() {
   void fotos?.acordar();
   if (state.status === 'conectado') void client?.assegurarEventosMensagens().catch(() => console.error('Não foi possível conferir eventos de recebimento.'));
@@ -168,7 +194,8 @@ async function connect() {
       if (!mensagens && state.numero) {
         fotos = criarFotosContatos({ prisma, client: instance, ativo: () => active() && state.status === 'conectado' });
         void fotos.acordar();
-        mensagens = criarServicoMensagens({ prisma, client: instance, conta: state.numero, ativo: () => active() && state.status === 'conectado' });
+        mensagens = criarServicoMensagens({ prisma, client: instance, conta: state.numero,
+          ativo: () => active() && state.status === 'conectado', recuperar: recuperarPonte });
         const service = mensagens;
         void instance.assegurarEventosMensagens().then(() => service.start()).catch(error => {
           console.error('Falha ao iniciar recebimento WhatsApp:', error?.code || error?.name);
@@ -286,6 +313,7 @@ async function stop() {
   clearTimeout(reconnectTimer);
   clearInterval(heartbeatTimer);
   clearInterval(comandoTimer);
+  if (memoriaTimer) clearInterval(memoriaTimer);
   update({ status: 'desconectado', numero: null, qr: null });
   await heartbeatChain.catch(() => {});
   ++generation;

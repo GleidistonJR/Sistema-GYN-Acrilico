@@ -1,11 +1,12 @@
 import whatsapp from 'whatsapp-web.js';
+import { setTimeout as esperar } from 'node:timers/promises';
 import { lerArquivo, salvarArquivo, removerAposEnvio } from './whatsapp-arquivos.mjs';
 import { criarFilaPrioritaria } from './whatsapp-fila.mjs';
 import { converterVoz } from './whatsapp-audio.mjs';
 import { obterCitacao } from '../lib/whatsapp/citacao.mjs';
 import { telefoneDoJid, variantesTelefone, nomeArquivo, statusAck, tiposAvisoInternoWhatsApp } from '../lib/whatsapp/conteudo.mjs';
 
-export function criarServicoMensagens({ prisma, client, conta, ativo, retryDelayMs = 5000 }) {
+export function criarServicoMensagens({ prisma, client, conta, ativo, retryDelayMs = 5000, prazoEnvioMs = 120000, recuperar = () => {} }) {
   const fila = criarFilaPrioritaria();
   let timer;
   let stopped = false;
@@ -255,7 +256,10 @@ export function criarServicoMensagens({ prisma, client, conta, ativo, retryDelay
           if (message.chaveArquivo) await salvarArquivo(message.chaveArquivo, dados);
           await prisma.midiaWhatsApp.update({ where: { mensagemId: message.id }, data: { dados: message.chaveArquivo ? Buffer.alloc(0) : dados, mimeType: 'audio/mpeg', nome: 'gravacao.mp3' } });
           payload = new whatsapp.MessageMedia('audio/mpeg', dados.toString('base64'), 'gravacao.mp3');
-        } else payload = message.midia ? new whatsapp.MessageMedia(message.midia.mimeType, Buffer.from(message.midia.dados).toString('base64'), message.midia.nome) : message.texto;
+        } else if (message.midia) {
+          const { dados, mimeType, nome } = message.midia;
+          payload = new whatsapp.MessageMedia(mimeType, Buffer.from(dados.buffer, dados.byteOffset, dados.byteLength).toString('base64'), nome);
+        } else payload = message.texto;
       } catch {
         await prisma.mensagemWhatsApp.update({ where: { id: message.id }, data: { status: 'FALHOU', erro: 'O anexo temporário não pôde ser preparado ou expirou. Nenhuma mensagem foi enviada. Anexe novamente.' } });
         continue;
@@ -266,11 +270,19 @@ export function criarServicoMensagens({ prisma, client, conta, ativo, retryDelay
       const envio = new Promise(resolve => { liberarEco = resolve; });
       const transmissao = { envio, get concluido() { return concluido; } };
       enviosEmTransmissao.add(transmissao);
+      const prazo = new AbortController();
+      let expirou = false;
       // Do not retry an ambiguous send automatically: WhatsApp may have accepted it.
       try {
-        const sent = await client.sendMessage(jid, payload, { sendSeen: false,
+        const sent = await Promise.race([client.sendMessage(jid, payload, { sendSeen: false,
           ...(message.citacao?.externaId ? { quotedMessageId: message.citacao.externaId, ignoreQuoteErrors: false } : {}),
-          ...(message.midia ? { caption: message.texto, sendMediaAsDocument: message.midia.mimeType === 'application/pdf' || (message.midia.mimeType.startsWith('video/') && message.midia.dados.length > 60 * 1024 * 1024), sendAudioAsVoice: false } : {}) });
+          ...(message.midia ? { caption: message.texto, sendMediaAsDocument: message.midia.mimeType === 'application/pdf' || (message.midia.mimeType.startsWith('video/') && message.midia.dados.length > 60 * 1024 * 1024), sendAudioAsVoice: false } : {}) }),
+          esperar(prazoEnvioMs, undefined, { signal: prazo.signal, ref: false }).then(() => {
+            expirou = true;
+            throw new Error('Prazo de envio excedido.');
+          }),
+        ]);
+        prazo.abort();
         if (!sent?.id?._serialized) throw new Error('Confirmação ausente');
         const retorno = Date.now();
         console.info('WhatsApp envio', { tipo: message.tipo, bytes: message.midia?.dados.length ?? 0,
@@ -292,10 +304,13 @@ export function criarServicoMensagens({ prisma, client, conta, ativo, retryDelay
           erro: quoteUnavailable ? 'A mensagem citada não está mais disponível no WhatsApp. Nenhuma resposta foi enviada. Selecione outra mensagem.' : 'Envio sem confirmação. Confira o histórico antes de enviar novamente para evitar duplicidade.',
         } });
       } finally {
+        prazo.abort();
         concluido = true;
         enviosEmTransmissao.delete(transmissao);
         liberarEco();
+        if (expirou) recuperar('prazo de envio excedido');
       }
+      if (expirou) return false;
     }
     return pending.length > 0;
   }
