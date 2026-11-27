@@ -8,6 +8,26 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model IntegracaoBling {
+  id          Int    @id
+  credenciais String
+}
+
+model EnvioVenda {
+  id           String    @id @db.Uuid
+  usuarioId    String
+  verificacao  String
+  etapa        String    @default("PENDENTE")
+  blingId      BigInt?
+  blingNumero  BigInt?
+  trelloUrl    String?
+  carga        String?
+  criadoEm     DateTime  @default(now())
+  bloqueadoAte DateTime?
+
+  @@index([usuarioId, criadoEm])
+}
+
 model Colaborador {
   id      Int    @id @default(autoincrement())
   nome    String

@@ -10,6 +10,7 @@ import { calcularOrcamentoItem, ResultadoCalculo } from './utils/calculos';
 import ModalItemPersonalizado from './ModalItemPersonalizado';
 import { criarItemPersonalizado } from './utils/itemPersonalizado';
 import ModalOrcamentoPdf from './ModalOrcamentoPdf';
+import ModalGerarVenda from './ModalGerarVenda';
 import { renomearItem } from './utils/nomeItem';
 
 export default function CalculadorChapa() {
@@ -45,6 +46,16 @@ export default function CalculadorChapa() {
   const [personalizadoAberto, setPersonalizadoAberto] = useState(false);
   const [personalizadoEditando, setPersonalizadoEditando] = useState<ItemOrcamento | null>(null);
   const [pdfAberto, setPdfAberto] = useState(false);
+  const [vendaAberta, setVendaAberta] = useState(false);
+  const [itensVenda, setItensVenda] = useState<ItemOrcamento[] | null>(null);
+  const [versaoVenda, setVersaoVenda] = useState(0);
+  const [clienteOrcamento, setClienteOrcamento] = useState({ clienteNome: '', clienteDocumento: '', clienteContato: '' });
+
+  function prepararVenda() {
+    setItensVenda(itens);
+    setVersaoVenda(atual => atual + 1);
+    setVendaAberta(true);
+  }
 
   function salvarPersonalizado(titulo: string, valor: number, quantidade: number) {
     const id = personalizadoEditando?.id ?? globalThis.crypto?.randomUUID?.()
@@ -230,6 +241,7 @@ export default function CalculadorChapa() {
             copiado={copiado} abrirModal={(id) => CarregarEdicao(id)}
             abrirPersonalizado={() => { setPersonalizadoEditando(null); setPersonalizadoAberto(true); }}
             abrirPdf={() => setPdfAberto(true)}
+            abrirVenda={() => itensVenda ? setVendaAberta(true) : prepararVenda()}
             renomear={(id, nome) => {
               setItens(atuais => atuais.map(item => item.id === id ? renomearItem(item, nome) : item));
               setCopiado(false);
@@ -242,7 +254,14 @@ export default function CalculadorChapa() {
         onClose={() => { setPersonalizadoAberto(false); setPersonalizadoEditando(null); }}
         onSalvar={salvarPersonalizado}
       />}
-      <ModalOrcamentoPdf isOpen={pdfAberto} itens={itens} onClose={() => setPdfAberto(false)} />
+      <ModalOrcamentoPdf isOpen={pdfAberto} itens={itens} onClose={() => setPdfAberto(false)}
+        aoEditarCliente={(campo, valor) => setClienteOrcamento(atual => ({ ...atual, [campo]: valor }))} />
+      {itensVenda && <ModalGerarVenda key={versaoVenda} itens={itensVenda} aberto={vendaAberta} cliente={clienteOrcamento}
+        fechar={preservar => {
+          setVendaAberta(false);
+          if (!preservar) setItensVenda(null);
+        }}
+        novaVenda={itens.length ? prepararVenda : undefined} />}
     </>
   );
 }

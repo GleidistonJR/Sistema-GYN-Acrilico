@@ -1,6 +1,6 @@
 "use client";
 
-import { Pencil, Trash2, Plus, Copy, Check, Trash, FileDown } from 'lucide-react';
+import { Pencil, Trash2, Plus, Copy, Check, Trash, FileDown, ShoppingCart } from 'lucide-react';
 import { ItemOrcamento } from './utils/constants';
 import { formatarMoeda } from './utils/formatarMoeda';
 import { useState } from 'react';
@@ -29,6 +29,7 @@ interface ResumoOrcamentoProps {
   cancelarEdicao: () => void;
   abrirPersonalizado: () => void;
   abrirPdf: () => void;
+  abrirVenda: () => void;
   renomear: (id: string, nome: string) => void;
 }
 
@@ -36,7 +37,7 @@ export default function ResumoOrcamento({
   itens, quantidade, setQuantidade, calculoAtual,
   handleAdicionarItem, handleRemoverItem, calculoPendente, erroCalculo,
   valorTotalOrcamento, handleCopiarOrcamento, copiado, abrirModal,
-  itemEditandoId, cancelarEdicao, abrirPersonalizado, abrirPdf, renomear
+  itemEditandoId, cancelarEdicao, abrirPersonalizado, abrirPdf, abrirVenda, renomear
 }: ResumoOrcamentoProps) {
   const [renomeando, setRenomeando] = useState<string | null>(null);
   const [nome, setNome] = useState('');
@@ -186,6 +187,9 @@ export default function ResumoOrcamento({
           </button>
           <button type="button" onClick={abrirPdf} disabled={itens.length === 0} className="flex w-full min-h-12 items-center justify-center gap-2 rounded-xl border border-primary-ink px-4 py-3 font-bold text-primary-ink hover:bg-surface-soft disabled:cursor-not-allowed disabled:border-line disabled:text-subtle">
             <FileDown size={18} />Salvar orçamento em PDF
+          </button>
+          <button type="button" onClick={abrirVenda} className="flex w-full min-h-12 items-center justify-center gap-2 rounded-xl bg-success-soft px-4 py-3 font-bold text-success-ink hover:bg-surface-hover">
+            <ShoppingCart size={18} />{itens.length ? 'Gerar venda' : 'Consultar envios de venda'}
           </button>
         </div>
       </section>

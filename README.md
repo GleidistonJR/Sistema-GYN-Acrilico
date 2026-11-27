@@ -96,3 +96,13 @@ O GitHub Actions compila e testa a imagem do site a cada push na `main`. O Dokpl
 ```
 
 O comando baixa a imagem do commit atual, confere sua integridade, transfere para a VPS e atualiza o serviço existente. O build fica disponível no GitHub Actions por sete dias. Para publicar outro commit aprovado, passe o SHA completo em `-Revisao`. Mudanças de banco continuam exigindo que as migrações sejam aplicadas antes de ativar uma imagem dependente delas.
+
+## Integração de vendas com Bling e Trello
+
+1. No Bling, cadastre um aplicativo privado da API v3 com acesso de consulta a Produtos e Formas de Pagamentos e acesso de consulta e criação para Contatos e Pedidos de Venda. Use a URL pública do GYN seguida de `/api/integracoes/bling` como redirecionamento.
+2. No serviço web, configure `BLING_CLIENT_ID`, `BLING_CLIENT_SECRET`, `BLING_REDIRECT_URI` e `BLING_CHAVE_LOCAL`. Gere uma chave aleatória exclusiva com pelo menos 32 caracteres e mantenha-a entre publicações. Ela protege os tokens e os dados temporários de envios pendentes.
+3. Configure `TRELLO_API_KEY` e `TRELLO_TOKEN`. Use `TRELLO_LISTA_PEDIDOS=612e6815ae08ab5b28c51be2` para a lista **ATENDIMENTO** do quadro **Goiânia Acrílico**. O token precisa de acesso de leitura ao quadro e de escrita à lista. Use um quadro privado, pois o cartão contém nome e telefone do cliente.
+4. Aplique as migrações com `npx prisma migrate deploy` no ambiente de destino. Na Administração, clique em **Conectar Bling** e autorize o aplicativo na conta da empresa.
+5. Valide o fluxo com uma venda de teste e uma lista de teste. Confira se o SKU e a descrição detalhada do material aparecem no Bling, se as parcelas conferem e se o cartão é criado com o número do Bling.
+
+Em **Orçamentos**, use **Consultar envios de venda** para retomar uma tentativa pendente. Quando uma plataforma não confirma uma criação, a integração consulta a referência antes de qualquer novo envio. O Bling guarda o pedido oficial. O GYN apaga os dados temporários do formulário após concluir o envio e conserva os identificadores da operação.

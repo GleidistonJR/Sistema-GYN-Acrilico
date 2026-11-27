@@ -6,6 +6,8 @@ import {
 import { exigirUsuario } from '@/lib/autorizacao';
 import { prisma } from '@/lib/prisma';
 import { calcularReposicao } from '@/lib/reposicaoMateriais';
+import { configuracaoBling } from '@/lib/integracoes/bling';
+import { configuracaoTrello } from '@/lib/integracoes/trello';
 
 const numero = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2 });
 const painel = 'rounded-2xl border border-line bg-surface';
@@ -25,10 +27,13 @@ const filtros = [
 ] as const;
 
 export default async function Administracao({ searchParams }: {
-  searchParams: Promise<{ estoque?: string }>;
+  searchParams: Promise<{ estoque?: string; bling?: string }>;
 }) {
   await exigirUsuario(['ADMIN']);
-  const filtro = (await searchParams).estoque === 'produtos' ? 'produtos' : 'materiais';
+  const params = await searchParams;
+  const filtro = params.estoque === 'produtos' ? 'produtos' : 'materiais';
+  const blingConfigurado = !!configuracaoBling();
+  const blingConectado = blingConfigurado && !!await prisma.integracaoBling.findUnique({ where: { id: 1 }, select: { id: true } });
   const estoque = { id: true, nome: true, estoque: true, estoquePadrao: true } as const;
   const [materiais, produtos] = await Promise.all([
     prisma.material.findMany({ select: { ...estoque, cor: true, espessura: true, categoria: { select: { nome: true } } } }),
@@ -180,6 +185,20 @@ export default async function Administracao({ searchParams }: {
           ))}
         </ul>
       </nav>
+      <section aria-labelledby="integracoes-admin" className={`${painel} flex flex-wrap items-center justify-between gap-4 p-5`}>
+        <div>
+          <h2 id="integracoes-admin" className="text-lg font-semibold">Integração de vendas</h2>
+          <p className="mt-1 text-sm text-muted">
+            Bling {blingConectado ? 'autorizado' : blingConfigurado ? 'aguardando autorização' : 'sem configuração'}
+            {' · '}Trello {configuracaoTrello() ? 'configurado' : 'sem configuração'}
+          </p>
+          {params.bling === 'erro' && <p role="alert" className="mt-1 text-sm text-danger-ink">A autorização do Bling falhou. Confira o aplicativo e tente novamente.</p>}
+          {params.bling === 'conectado' && blingConectado && <p role="status" className="mt-1 text-sm text-success-ink">Autorização do Bling concluída.</p>}
+        </div>
+        {blingConfigurado && <a href="/api/integracoes/bling" className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-hover">
+          {blingConectado ? 'Reconectar Bling' : 'Conectar Bling'}
+        </a>}
+      </section>
     </div>
   );
 }

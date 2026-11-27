@@ -12,12 +12,13 @@ interface Props {
   isOpen: boolean;
   itens: ItemOrcamento[];
   onClose: () => void;
+  aoEditarCliente: (campo: 'clienteNome' | 'clienteDocumento' | 'clienteContato', valor: string) => void;
 }
 
 const moeda = (valor: number) => valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const classeInput = 'mt-1 w-full min-w-0 rounded-lg border border-line-strong bg-surface-soft p-2.5 outline-none focus:border-amber-400';
 
-export default function ModalOrcamentoPdf({ isOpen, itens, onClose }: Props) {
+export default function ModalOrcamentoPdf({ isOpen, itens, onClose, aoEditarCliente }: Props) {
   const [formulario, setFormulario] = useState<FormularioOrcamento>(formularioInicial);
   const [gerando, setGerando] = useState(false);
   const [erro, setErro] = useState('');
@@ -46,6 +47,9 @@ export default function ModalOrcamentoPdf({ isOpen, itens, onClose }: Props) {
 
   function alterar<K extends keyof FormularioOrcamento>(campo: K, valor: FormularioOrcamento[K]) {
     setFormulario(atual => ({ ...atual, [campo]: valor }));
+    if (typeof valor === 'string' && (campo === 'clienteNome' || campo === 'clienteDocumento' || campo === 'clienteContato')) {
+      aoEditarCliente(campo, valor);
+    }
     setMensagem('');
     setImagemPronta(null);
   }
