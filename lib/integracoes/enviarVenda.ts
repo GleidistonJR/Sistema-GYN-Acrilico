@@ -55,7 +55,9 @@ export async function enviarVenda(venda: DadosVenda, usuarioId: string, nomeVend
   const telefone = venda.telefone ? `(${venda.telefone.slice(0, 2)}) ${venda.telefone.slice(2, -4)}-${venda.telefone.slice(-4)}` : '';
   const descricaoCartao = (nomeMaterial: (sku: string) => string) =>
     [`Cliente: ${venda.nome}`, ...(telefone ? [`Contato: ${telefone}`] : []), '', 'Materiais e especificações:',
-      ...venda.itens.map(item => `${nomeMaterial(item.sku)}\n${item.descricao}\n`), marcador].join('\n');
+      ...(venda.descricao === undefined
+        ? venda.itens.map(item => `${nomeMaterial(item.sku)}\n${item.descricao}\n`)
+        : [...venda.itens.map(item => nomeMaterial(item.sku)), '', venda.descricao, '']), marcador].join('\n');
   try {
     if (etapa === 'TRELLO_INCERTO' && numero) {
       const cartao = await procurarCartao(trello, marcador);
@@ -145,12 +147,12 @@ export async function enviarVenda(venda: DadosVenda, usuarioId: string, nomeVend
           dataPrevista: hoje,
           contato: { id: contatoId },
           ...(vendedorId ? { vendedor: { id: vendedorId } } : {}),
-          observacoes: venda.itens.map(item => item.descricao).join('\n\n'),
+          observacoes: venda.descricao ?? venda.itens.map(item => item.descricao).join('\n\n'),
           itens: venda.itens.map(item => {
             const produto = catalogo.get(item.sku)!;
             return {
               produto: { id: produto.id }, codigo: produto.codigo, unidade: produto.unidade || 'UN',
-              descricao: item.descricao,
+              descricao: item.descricao ?? produto.nome,
               quantidade: item.quantidade, valor: item.centavos / 100,
             };
           }),

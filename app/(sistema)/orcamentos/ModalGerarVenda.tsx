@@ -1,14 +1,14 @@
 'use client';
 
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { Plus, Trash2, X } from 'lucide-react';
+import { Pencil, Plus, Trash2, X } from 'lucide-react';
 import { itensParaPdf } from '@/lib/orcamentoFormal';
 import { validarVenda } from '@/lib/integracoes/dadosVenda';
 import { mascararTelefone } from '@/lib/atendimento/regras';
 import type { ItemOrcamento } from './utils/constants';
 
 type Forma = { id: number; descricao: string };
-type ItemVenda = { chave: string; sku: string; material: string; descricao: string; quantidade: number; valorUnitario: number };
+type ItemVenda = { chave: string; sku: string; material: string; editando: boolean; quantidade: number; valorUnitario: number };
 type Parcela = { chave: number; forma: number; vencimento: string; valor: number };
 type Resultado = { erro?: string; numero?: string; referencia?: string; trelloUrl?: string; podeEditar?: boolean };
 type Pendente = { id: string; blingNumero?: string; criadoEm: string };
@@ -68,7 +68,7 @@ export default function ModalGerarVenda({ itens, aberto, fechar, novaVenda, clie
   aberto: boolean;
   fechar: (preservar: boolean) => void;
   novaVenda?: () => void;
-  cliente: { clienteNome: string; clienteDocumento: string; clienteContato: string };
+  cliente: { clienteNome: string; clienteContato: string };
 }) {
   const modal = useRef<HTMLDialogElement>(null);
   const bloqueio = useRef(false);
@@ -77,14 +77,14 @@ export default function ModalGerarVenda({ itens, aberto, fechar, novaVenda, clie
   const [erroConexao, setErroConexao] = useState('');
   const [nome, setNome] = useState(cliente.clienteNome);
   const [contato, setContato] = useState<ClienteBling>();
-  const [novoCadastro, setNovoCadastro] = useState(false);
-  const [documento, setDocumento] = useState(cliente.clienteDocumento);
   const [telefone, setTelefone] = useState(() => /^[+\d\s().-]+$/.test(cliente.clienteContato) ? mascararTelefone(cliente.clienteContato) : '');
   const [linhas, setLinhas] = useState<ItemVenda[]>(() => itensParaPdf(itens).map((item, index) => ({
-    ...item, chave: String(itens[index].id), sku: '', material: '', descricao: [item.descricao, ...itens[index].descricaoTexto.split('\n').slice(1)
-      .filter(linha => !/^\s*\(?Valor\s*:/i.test(linha))].join('\n'),
-    valorUnitario: centavos(item.valorUnitario) / 100,
+    chave: itens[index].id, sku: '', material: '', editando: false,
+    quantidade: item.quantidade, valorUnitario: centavos(item.valorUnitario) / 100,
   })));
+  const [descricao, setDescricao] = useState(() => itensParaPdf(itens).map((item, index) =>
+    [item.descricao, ...itens[index].descricaoTexto.split('\n').slice(1)
+      .filter(linha => !/^\s*\(?Valor\s*:/i.test(linha))].join('\n')).join('\n\n'));
   const total = linhas.reduce((soma, linha) => soma + centavos(linha.valorUnitario) * linha.quantidade, 0);
   const [parcelas, setParcelas] = useState<Parcela[]>(() => [{ chave: 0, forma: 0, vencimento: hoje(), valor: total / 100 }]);
   const [enviando, setEnviando] = useState(false);
@@ -159,9 +159,9 @@ export default function ModalGerarVenda({ itens, aberto, fechar, novaVenda, clie
     evento.preventDefault();
     if (tentativa && retomada) return oferecerEnvio({ retomar: tentativa }, tentativa);
     const id = tentativa ?? crypto.randomUUID();
-    const dados = { id, nome, documento: contato?.documento ?? documento, telefone, contatoId: contato?.id,
-      usarLojaOficial: !contato && !novoCadastro,
-      itens: linhas.map(({ sku, descricao, quantidade, valorUnitario }) => ({ sku, descricao, quantidade, valorUnitario })), parcelas };
+    const dados = { id, nome, documento: contato?.documento, telefone, contatoId: contato?.id,
+      usarLojaOficial: !contato, descricao,
+      itens: linhas.map(({ sku, quantidade, valorUnitario }) => ({ sku, quantidade, valorUnitario })), parcelas };
     try {
       validarVenda(dados);
     } catch (erro) {
@@ -202,45 +202,43 @@ export default function ModalGerarVenda({ itens, aberto, fechar, novaVenda, clie
               chave={c => c.id} rotuloOpcao={c => [c.nome, c.documento, c.telefone].filter(Boolean).join(' · ')}
               escolher={c => {
                 setContato(c);
-                setNovoCadastro(false);
                 setNome(atual => atual.trim() || c.nome);
                 setTelefone(atual => atual || mascararTelefone(c.telefone));
               }} />
             <div className="col-span-full flex flex-wrap items-center gap-3 text-sm">
-              <span>Cadastro do pedido: <strong>{contato?.nome ?? (novoCadastro ? 'Novo cadastro' : 'LOJA OFICIAL')}</strong></span>
-              {contato ? <button type="button" onClick={() => setContato(undefined)}
-                className="font-semibold text-primary-ink underline">Usar LOJA OFICIAL</button>
-                : <label className="flex items-center gap-2">
-                  <input type="checkbox" checked={novoCadastro} onChange={e => setNovoCadastro(e.target.checked)} />
-                  Criar cadastro no Bling
-                </label>}
+              <span>Cadastro do pedido: <strong>{contato?.nome ?? 'LOJA OFICIAL'}</strong></span>
+              {contato && <button type="button" onClick={() => setContato(undefined)}
+                className="font-semibold text-primary-ink underline">Usar LOJA OFICIAL</button>}
             </div>
             <label className="grid gap-1 text-sm">Nome do comprador<input className={campo} value={nome} onChange={e => setNome(e.target.value)} maxLength={120} autoComplete="off" required /></label>
             <label className="grid gap-1 text-sm">Telefone do comprador com DDD<input className={campo} value={telefone} onChange={e => setTelefone(mascararTelefone(e.target.value))} type="tel" autoComplete="off" required /></label>
-            {novoCadastro && <label className="grid gap-1 text-sm">CPF ou CNPJ<input className={campo} value={documento} onChange={e => setDocumento(e.target.value)} maxLength={24} autoComplete="off" required /></label>}
           </fieldset>
 
           <fieldset disabled={bloqueado} className="space-y-3">
             <legend className="mb-2 font-semibold">Materiais e detalhes</legend>
             {linhas.map(item => (
               <div key={item.chave} className="grid grid-cols-2 gap-3 rounded-xl border border-line p-3 sm:grid-cols-[2fr_1fr_1fr]">
-                <BuscaBling<Produto> tipo="material" rotulo="Buscar material pelo nome" ativo={aberto && !bloqueado}
+                {(!item.sku || item.editando || !item.material) && <BuscaBling<Produto> tipo="material" rotulo="Buscar material pelo nome" ativo={aberto && !bloqueado}
                   chave={produto => produto.codigo} rotuloOpcao={produto => `${produto.nome} · ${produto.codigo}`}
-                  escolher={produto => atualizarLinha(item.chave, { sku: produto.codigo, material: produto.nome })} />
-                {item.material && <p className="col-span-full break-words text-sm font-semibold">{item.material}</p>}
-                <label className="col-span-2 grid gap-1 text-sm sm:col-span-1">SKU do material no Bling<input className={campo} value={item.sku} onChange={e => atualizarLinha(item.chave, { sku: e.target.value, material: '' })} maxLength={60} required /></label>
+                  escolher={produto => atualizarLinha(item.chave, { sku: produto.codigo, material: produto.nome, editando: false })} />}
+                {item.material && <label className="col-span-full grid gap-1 text-sm">Material selecionado<input className={campo} value={item.material} readOnly /></label>}
+                <label className="col-span-2 grid gap-1 text-sm sm:col-span-1">SKU do material no Bling<input className={campo} value={item.sku} readOnly={!!item.material && !item.editando} onChange={e => atualizarLinha(item.chave, { sku: e.target.value, material: '' })} maxLength={60} required /></label>
                 <label className="grid gap-1 text-sm">Quantidade<input className={campo} type="number" min="1" max="100000" step="1" value={item.quantidade} onChange={e => atualizarLinha(item.chave, { quantidade: Number(e.target.value) })} required /></label>
                 <label className="grid gap-1 text-sm">Valor unitário (R$)<input className={campo} type="number" min="0" step="0.01" value={item.valorUnitario} onChange={e => atualizarLinha(item.chave, { valorUnitario: Number(e.target.value) })} required /></label>
-                <label className="col-span-full grid gap-1 text-sm">Descrição para produção<textarea className={campo} rows={3} maxLength={2000} value={item.descricao} onChange={e => atualizarLinha(item.chave, { descricao: e.target.value })} required /></label>
-                {linhas.length > 1 && <button type="button" onClick={() => atualizarLinhas(linhas.filter(linha => linha.chave !== item.chave))}
-                  className="col-span-full inline-flex w-fit items-center gap-2 text-sm text-danger-ink"><Trash2 size={16} />Remover material</button>}
+                <div className="col-span-full flex flex-wrap gap-4">
+                  {item.material && <button type="button" onClick={() => atualizarLinha(item.chave, { editando: !item.editando })}
+                    className="inline-flex items-center gap-2 text-sm text-primary-ink"><Pencil size={16} />{item.editando ? 'Fechar busca' : 'Editar material'}</button>}
+                  {linhas.length > 1 && <button type="button" onClick={() => atualizarLinhas(linhas.filter(linha => linha.chave !== item.chave))}
+                    className="inline-flex items-center gap-2 text-sm text-danger-ink"><Trash2 size={16} />Remover material</button>}
+                </div>
               </div>
             ))}
             <button type="button" disabled={linhas.length >= 50} onClick={() => atualizarLinhas([...linhas, {
-              chave: crypto.randomUUID(), sku: '', material: '', descricao: '', quantidade: 1, valorUnitario: 0,
+              chave: crypto.randomUUID(), sku: '', material: '', editando: false, quantidade: 1, valorUnitario: 0,
             }])} className="inline-flex items-center gap-2 rounded-lg px-2 py-1 text-sm font-semibold text-primary-ink disabled:opacity-50">
               <Plus size={16} />Adicionar material
             </button>
+            <label className="grid gap-1 text-sm">Descrição para produção<textarea className={campo} rows={4} maxLength={2000} value={descricao} onChange={e => setDescricao(e.target.value)} required /></label>
           </fieldset>
 
           <fieldset disabled={bloqueado} className="space-y-3">

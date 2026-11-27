@@ -24,21 +24,25 @@ export function validarVenda(input: unknown) {
     throw new Error('Selecione um cliente válido do Bling.');
   }
   const documento = typeof dados.documento === 'string' ? dados.documento.replace(/[./\s-]/g, '').toUpperCase() : '';
-  if (usarLojaOficial && contatoId) throw new Error('Selecione apenas um cadastro para o pedido.');
+  if (usarLojaOficial === Boolean(contatoId)) throw new Error('Selecione um cadastro do Bling ou use LOJA OFICIAL.');
   if (!usarLojaOficial && (!contatoId || documento) && !/^(?:\d{11}|[A-Z0-9]{12}\d{2})$/.test(documento)) throw new Error('Informe um CPF ou CNPJ válido.');
   const telefone = typeof dados.telefone === 'string' && /^[+\d\s().-]*$/.test(dados.telefone)
     ? dados.telefone.replace(/\D/g, '').replace(/^55(?=\d{10,11}$)/, '') : '';
   if (!/^[1-9]\d{9,10}$/.test(telefone)) throw new Error('Informe um telefone com DDD.');
   if (!Array.isArray(dados.itens) || !dados.itens.length || dados.itens.length > 50) throw new Error('Inclua de 1 a 50 itens.');
+  function descricaoLiteral(valor: unknown) {
+    if (typeof valor !== 'string' || !valor.trim() || valor.length > 2000) throw new Error('Confira a descrição para produção.');
+    return valor;
+  }
+  const descricao = dados.descricao === undefined ? undefined : descricaoLiteral(dados.descricao);
   const itens = dados.itens.map(valor => {
     const item = objeto(valor);
     if (typeof item.quantidade !== 'number' || !Number.isSafeInteger(item.quantidade) || item.quantidade < 1 || item.quantidade > 100_000) {
       throw new Error('Confira as quantidades dos itens.');
     }
-    if (typeof item.descricao !== 'string' || !item.descricao.trim() || item.descricao.length > 2000) throw new Error('Confira a descrição do item.');
     return {
       sku: texto(item.sku, 60, 'o código do material no Bling'),
-      descricao: item.descricao,
+      ...(descricao === undefined ? { descricao: descricaoLiteral(item.descricao) } : {}),
       quantidade: item.quantidade,
       centavos: moeda(item.valorUnitario, true),
     };
@@ -60,6 +64,7 @@ export function validarVenda(input: unknown) {
     throw new Error('A soma dos pagamentos deve ser igual ao total da venda.');
   }
   return { id, nome, documento: usarLojaOficial ? '' : documento, telefone, itens, parcelas,
+    ...(descricao === undefined ? {} : { descricao }),
     ...(contatoId ? { contatoId } : {}), ...(usarLojaOficial ? { usarLojaOficial } : {}) };
 }
 
