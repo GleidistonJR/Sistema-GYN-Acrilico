@@ -6,6 +6,8 @@ import { converterVoz } from './whatsapp-audio.mjs';
 import { obterCitacao } from '../lib/whatsapp/citacao.mjs';
 import { telefoneDoJid, variantesTelefone, nomeArquivo, statusAck, tiposAvisoInternoWhatsApp } from '../lib/whatsapp/conteudo.mjs';
 
+const LIMITE_VIDEO_INLINE = 10 * 1024 * 1024;
+
 export function criarServicoMensagens({ prisma, client, conta, ativo, retryDelayMs = 5000, prazoEnvioMs = 120000, recuperar = () => {} }) {
   const fila = criarFilaPrioritaria();
   let timer;
@@ -276,7 +278,7 @@ export function criarServicoMensagens({ prisma, client, conta, ativo, retryDelay
       try {
         const sent = await Promise.race([client.sendMessage(jid, payload, { sendSeen: false,
           ...(message.citacao?.externaId ? { quotedMessageId: message.citacao.externaId, ignoreQuoteErrors: false } : {}),
-          ...(message.midia ? { caption: message.texto, sendMediaAsDocument: message.midia.mimeType === 'application/pdf' || (message.midia.mimeType.startsWith('video/') && message.midia.dados.length > 60 * 1024 * 1024), sendAudioAsVoice: false } : {}) }),
+          ...(message.midia ? { caption: message.texto, sendMediaAsDocument: message.midia.mimeType === 'application/pdf' || (message.midia.mimeType.startsWith('video/') && message.midia.dados.length > LIMITE_VIDEO_INLINE), sendAudioAsVoice: false } : {}) }),
           esperar(prazoEnvioMs, undefined, { signal: prazo.signal, ref: false }).then(() => {
             expirou = true;
             throw new Error('Prazo de envio excedido.');
